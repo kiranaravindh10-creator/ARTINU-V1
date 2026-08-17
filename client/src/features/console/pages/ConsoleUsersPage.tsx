@@ -9,7 +9,7 @@ import {
   type Role,
 } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, ShieldAlert, UserRound } from 'lucide-react';
+import { Plus, Search, ShieldAlert, Trash2, UserRound } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -64,6 +64,8 @@ export default function ConsoleUsersPage() {
   const [editing, setEditing] = React.useState<AdminUser | null>(null);
   const [nextRole, setNextRole] = React.useState<string>('');
   const [nextStatus, setNextStatus] = React.useState<string>('');
+  /** Must equal the target's email before deletion is allowed. */
+  const [confirmEmail, setConfirmEmail] = React.useState('');
   const [creating, setCreating] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState('');
   const [newFullName, setNewFullName] = React.useState('');
@@ -105,10 +107,41 @@ export default function ConsoleUsersPage() {
     onError: (error) => toast.error(errorMessage(error)),
   });
 
+  /**
+   * Permanent deletion. The typed-email confirmation below is the only thing
+   * between a mis-click and an account that cannot be brought back, so the
+   * mutation deliberately has no "are you sure?" of its own — the button is
+   * not reachable until the address matches.
+   */
+  const deleteUser = useMutation({
+    mutationFn: (id: string) => adminService.deleteUser(id),
+    onSuccess: (summary) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setEditing(null);
+      setConfirmEmail('');
+      const removed = [
+        summary.artworks && `${summary.artworks} artworks`,
+        summary.spaces && `${summary.spaces} spaces`,
+        summary.orders && `${summary.orders} orders`,
+        summary.invoices && `${summary.invoices} invoices`,
+      ]
+        .filter(Boolean)
+        .join(', ');
+      toast.success(
+        `${summary.email} deleted${removed ? ` — along with ${removed}` : ''}`,
+      );
+      if (summary.filesFailed > 0) {
+        toast.warning(`${summary.filesFailed} stored file(s) could not be removed. See the server log.`);
+      }
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
   const openEditor = (user: AdminUser) => {
     setEditing(user);
     setNextRole(user.role);
     setNextStatus(user.status);
+    setConfirmEmail('');
   };
 
   const grantsInternal =
@@ -301,6 +334,50 @@ export default function ConsoleUsersPage() {
                 <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 This grants internal ARTINU Console access. Make sure that&rsquo;s intended.
               </p>
+            )}
+
+            {/*
+              Delete account. Below role and status, separated by a rule, and
+              gated behind typing the address: this is the one control here that
+              cannot be undone by setting the field back.
+            */}
+            {editing?.id !== me?.id && (
+              <div className="mt-2 border-t border-line pt-4">
+                <p className="flex items-start gap-2.5 text-sm font-medium text-danger">
+                  <Trash2 className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  Delete this account
+                </p>
+                <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+                  Permanently removes the account and everything belonging to it — profile,
+                  photographs and their files, spaces, orders and invoices. This cannot be
+                  undone. To suspend access instead, set the status to{' '}
+                  <span className="font-medium">suspended</span> above.
+                </p>
+
+                <Field
+                  label={`Type ${editing?.email} to confirm`}
+                  htmlFor="confirm-delete"
+                  className="mt-3"
+                >
+                  <Input
+                    id="confirm-delete"
+                    value={confirmEmail}
+                    onChange={(event) => setConfirmEmail(event.target.value)}
+                    placeholder={editing?.email}
+                    autoComplete="off"
+                  />
+                </Field>
+
+                <Button
+                  variant="danger"
+                  className="mt-3 w-full"
+                  loading={deleteUser.isPending}
+                  disabled={confirmEmail.trim().toLowerCase() !== editing?.email.toLowerCase()}
+                  onClick={() => deleteUser.mutate(editing!.id)}
+                >
+                  Delete account permanently
+                </Button>
+              </div>
             )}
           </div>
 

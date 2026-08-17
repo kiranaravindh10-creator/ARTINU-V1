@@ -34,6 +34,8 @@ import {
   reportBundle,
 } from '@/services/analytics.service';
 import { recordAudit, recentAudit } from '@/services/audit.service';
+import { deleteAccountCompletely } from '@/services/account-deletion.service';
+import { logger } from '@/utils/logger';
 import {
   createProfile,
   createUser,
@@ -1079,6 +1081,58 @@ adminRouter.patch(
     }
 
     res.json(sanitizeUser(updated));
+  }),
+);
+
+/**
+ * Permanently delete an account and everything belonging to it.
+ *
+ * Reachable by the roles that already hold the `users` module — CEO and IT.
+ * Irreversible, so the guards below matter more than the deletion itself:
+ * neither an accidental self-delete nor the removal of the last CEO can be
+ * undone from inside the product.
+ */
+adminRouter.delete(
+  '/users/:id',
+  requireModule('users'),
+  asyncHandler(async (req, res) => {
+    const target = await db.users.byId(req.params.id);
+    if (!target) throw notFound('That user');
+
+    // Deleting yourself ends your own session mid-request and cannot be undone.
+    if (target.id === req.user!.id) {
+      throw forbidden('You cannot delete your own account.');
+    }
+
+    // The CEO role is the only one that reaches every module. Removing the last
+    // one leaves nobody able to restore it.
+    if (target.role === 'ceo') {
+      const remaining = await db.users.count({ role: 'ceo' } as never);
+      if (remaining <= 1) {
+        throw forbidden('This is the last CEO account. Assign the role to someone else first.');
+      }
+    }
+
+    // Recorded before the rows go, so the trail survives the account.
+    // audit_logs.actor_id is ON DELETE SET NULL for exactly this reason.
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'user.deleted',
+      entity: 'user',
+      entityId: target.id,
+      meta: { email: target.email, role: target.role, status: target.status },
+      ip: req.ip,
+    });
+
+    const summary = await deleteAccountCompletely(target.id);
+
+    logger.warn(
+      `Account ${summary.email} (${summary.role}) permanently deleted by ${req.user!.email} — ` +
+        `${summary.artworks} artworks, ${summary.orders} orders, ${summary.invoices} invoices, ` +
+        `${summary.spaces} spaces, ${summary.filesRemoved} files`,
+    );
+
+    res.json(summary);
   }),
 );
 

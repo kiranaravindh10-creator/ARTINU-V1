@@ -190,6 +190,25 @@ export const adminService = {
     return data;
   },
 
+  /**
+   * Permanently deletes an account and everything belonging to it. Returns a
+   * count of what went, so the Console can report it rather than just claiming
+   * success.
+   */
+  async deleteUser(id: string) {
+    const { data } = await api.delete<{
+      email: string;
+      role: string;
+      spaces: number;
+      artworks: number;
+      orders: number;
+      invoices: number;
+      filesRemoved: number;
+      filesFailed: number;
+    }>(`/admin/users/${id}`);
+    return data;
+  },
+
   async createUser(input: { email: string; role: string; fullName?: string }) {
     const { data } = await api.post<User>(`/admin/users`, input);
     return data;
