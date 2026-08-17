@@ -1,0 +1,75 @@
+# ARTINU API — deployment for Render (render.com)
+#
+# The Express API cannot run on Vercel: it holds Server-Sent Event connections
+# open (server/src/services/sse.service.ts) and writes to disk, neither of which
+# survives a serverless function. It needs an ordinary long-running Node
+# process, which is what this describes.
+#
+# The React client is deployed separately to Vercel — see vercel.json.
+#
+# ── Using this file ─────────────────────────────────────────────────────────
+#   1. render.com → New → Blueprint → connect this repository.
+#   2. Render reads this file and creates the service.
+#   3. Add the secret environment variables it asks for (marked sync: false
+#      below — they are deliberately NOT in this file).
+#
+# Every value here is safe to commit. Nothing secret is stored in this file.
+
+services:
+  - type: web
+    name: artinu-api
+    runtime: node
+    plan: free
+    region: singapore # closest Render region to India
+    # Workspaces hoist to the root node_modules, so install from the root.
+    buildCommand: npm install
+    # Runs `npm run start --workspace server` → tsx src/index.ts
+    startCommand: npm start
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+
+      - key: NODE_ENV
+        value: production
+
+      # Render provides the port at runtime and the app already reads PORT.
+      # Do not hardcode 4000 here.
+
+      # ── Drivers ──────────────────────────────────────────────────────────
+      - key: DATA_DRIVER
+        value: supabase
+      - key: STORAGE_DRIVER
+        value: supabase
+      - key: MAIL_PROVIDER
+        value: sendgrid
+
+      # Never seed 31 fictional users into a real project.
+      - key: SEED_DEMO_DATA
+        value: 'false'
+
+      # ── Public site origin ───────────────────────────────────────────────
+      # Drives CORS and every link inside outgoing email. Must be the exact
+      # scheme + host of the deployed site, with no trailing slash.
+      - key: CLIENT_URL
+        value: https://artinu.in
+
+      - key: MAIL_FROM
+        value: Artinu <hello@artinu.in>
+      - key: MAIL_REPLY_TO
+        value: hello@artinu.in
+
+      # ── Secrets — set these in the Render dashboard, never in this file ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      # Generate a fresh one for production — do not reuse the local value:
+      #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+      - key: JWT_SECRET
+        sync: false

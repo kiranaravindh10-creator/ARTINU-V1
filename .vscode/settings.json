@@ -1,0 +1,24 @@
+{
+  "// note": "Shared editor settings so everyone sees the same project. Personal preferences belong in your own user settings, not here.",
+
+  "// typescript": "Use the TypeScript that ships with the project, not whatever the editor bundles — otherwise the editor can report errors the build does not, and vice versa.",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
+
+  "// tailwind": "Tailwind v4 keeps its configuration in CSS, so the extension has to be pointed at the stylesheet rather than a config file.",
+  "tailwindCSS.experimental.configFile": "client/src/styles/globals.css",
+  "css.validate": false,
+
+  "files.eol": "\n",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.data": true,
+    "**/release": true,
+    "**/package-lock.json": true
+  }
+}

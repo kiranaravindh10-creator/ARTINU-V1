@@ -1,0 +1,53 @@
+{
+  "name": "@artinu/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed": "tsx src/database/seed-cli.ts",
+    "check:schema": "tsx src/scripts/check-schema.ts",
+    "check:welcome": "node ../scripts/welcome-email-check.mjs",
+    "create:staff": "tsx src/scripts/create-staff.ts",
+    "backfill:photo-ids": "tsx src/scripts/backfill-photo-ids.ts",
+    "reconcile:engagement": "tsx src/scripts/reconcile-engagement.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "@artinu/shared": "*",
+    "@sendgrid/mail": "^8.1.6",
+    "@supabase/supabase-js": "^2.47.12",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "firebase-admin": "^14.2.0",
+    "googleapis": "^174.0.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "nodemailer": "^9.0.5",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.19.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.10.6",
+    "@types/nodemailer": "^6.4.17",
+    "@types/qrcode": "^1.5.5",
+    "typescript": "^5.7.3"
+  }
+}

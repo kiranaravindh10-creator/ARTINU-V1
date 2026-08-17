@@ -53,20 +53,20 @@ root and fill in what you have — see [Configuration](#configuration).
 
 | Email                         | Password           | Lands on                            |
 | ----------------------------- | ------------------ | ----------------------------------- |
-| `restaurant.demo@artinu.in`   | `ARTINU@Rest2026`  | Space Experience (`/space`)         |
-| `photographer.demo@artinu.in` | `ARTINU@Photo2026` | Artist Experience (`/studio`)       |
-| `ceo@artinu.in`               | `ARTINU@CEO2026`   | ARTINU Console — everything         |
-| `manager@artinu.in`           | `ARTINU@Mgr2026`   | Console — operations & curation     |
-| `accounts@artinu.in`          | `ARTINU@Acc2026`   | Console — finance only              |
-| `fieldops@artinu.in`          | `ARTINU@Ops2026`   | Console — orders & production       |
-| `it@artinu.in`                | `ARTINU@IT2026`    | Console — users, system & email log |
+| `restaurant.demo@artinu.in`   | _(see below)_  | Space Experience (`/space`)         |
+| `photographer.demo@artinu.in` | _(see below)_ | Artist Experience (`/studio`)       |
+| `ceo@artinu.in`               | _(see below)_   | ARTINU Console — everything         |
+| `manager@artinu.in`           | _(see below)_   | Console — operations & curation     |
+| `accounts@artinu.in`          | _(see below)_   | Console — finance only              |
+| `fieldops@artinu.in`          | _(see below)_   | Console — orders & production       |
+| `it@artinu.in`                | _(see below)_    | Console — users, system & email log |
 
 For live SMTP testing there are two accounts on real inboxes:
 
 | Email                             | Password            | Role                  |
 | --------------------------------- | ------------------- | --------------------- |
-| `vibhukrishnas7@gmail.com`        | `ARTINU@Artist2026` | Artist — uploads work |
-| `1853552.vibhukrishnas@gmail.com` | `ARTINU@Space2026`  | Space — buys it       |
+| `<your-test-inbox>`        | _(see below)_ | Artist — uploads work |
+| `<your-second-test-inbox>` | _(see below)_  | Space — buys it       |
 
 Signing in as each internal role is the quickest way to see role-based access
 working: the sidebar, the pages and the API all narrow to the same set.

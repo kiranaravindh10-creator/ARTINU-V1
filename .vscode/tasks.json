@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Curate: install",
+      "type": "shell",
+      "command": "npm install",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "detail": "Run this once after unzipping."
+    },
+    {
+      "label": "Curate: start",
+      "type": "shell",
+      "command": "npm run dev",
+      "problemMatcher": [],
+      "isBackground": true,
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "detail": "Starts the API on :4000 and the site on :5173. Ctrl+Shift+B."
+    },
+    {
+      "label": "Curate: check my setup",
+      "type": "shell",
+      "command": "npm run doctor",
+      "problemMatcher": [],
+      "detail": "Tells you what is missing if it will not start."
+    }
+  ]
+}

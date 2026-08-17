@@ -1,0 +1,818 @@
+Curates Website Development & Enhancement Requirements (Based on ArtinU)
+
+Objective
+
+Develop Curates by taking inspiration from the existing ArtinU platform while significantly improving the UI/UX, system architecture, business workflow, scalability, and overall professionalism.
+
+The final website should resemble a premium commercial product rather than an AI-generated template. It should deliver a modern, responsive, smooth, and highly interactive experience similar to leading consumer platforms.
+
+
+---
+
+1. Overall Website Design
+
+High Priority
+
+Redesign the complete UI to eliminate the "AI-generated template" appearance.
+
+Improve spacing, typography, consistency, animations, and alignment.
+
+Use a premium visual language similar to flagship technology brands.
+
+Every page should feel handcrafted rather than template-based.
+
+Improve responsiveness for mobile, tablet, and desktop.
+
+Introduce subtle transitions and smooth scrolling.
+
+Maintain consistent branding throughout the website.
+
+Add an official Curates logo across the site.
+
+First impression should immediately communicate professionalism and trust.
+
+
+
+---
+
+2. Branding
+
+Replace all ArtinU branding with Curates.
+
+Design a premium logo.
+
+Define consistent color palette.
+
+Standardize fonts.
+
+Create favicon.
+
+Use a clean professional navigation bar.
+
+
+
+---
+
+3. Contact Page
+
+Improve trust by including:
+
+Contact phone number
+
+Business email
+
+Office address (sample)
+
+Working hours
+
+Contact form
+
+WhatsApp contact button
+
+Google Maps integration (future)
+
+Social media links
+
+
+Temporary Contact Number:
+
+> 63619 32434
+
+
+
+
+---
+
+4. Authentication System
+
+Create three external login portals.
+
+Restaurant Owner Login
+
+Restaurant owners can
+
+Browse gallery
+
+Filter images
+
+Select photographs
+
+Choose frame sizes
+
+Add to cart
+
+Checkout
+
+View order history
+
+Track delivery
+
+Download invoices
+
+
+
+---
+
+Photographer Login
+
+Photographers should be able to
+
+Upload images
+
+Manage portfolio
+
+View earnings
+
+Track approvals
+
+Receive restaurant selection notifications
+
+Manage profile
+
+
+
+---
+
+Curates Internal Login
+
+Separate login for internal employees.
+
+
+---
+
+5. Photographer Upload Pipeline
+
+Every uploaded image should automatically pass through validation.
+
+Validation Pipeline
+
+Image Upload
+
+↓
+
+AI Generated Image Detection
+
+↓
+
+NSFW / Abusive Content Detection
+
+↓
+
+Quality Assessment
+
+↓
+
+Duplicate Image Detection
+
+↓
+
+Metadata Validation
+
+↓
+
+Admin Review (Optional)
+
+↓
+
+Publish to Gallery
+
+Only approved photographs become visible.
+
+
+---
+
+6. Gallery Performance
+
+Current gallery loading is slow.
+
+Improve using
+
+FastAPI backend
+
+Image compression
+
+Lazy loading
+
+Pagination
+
+CDN (future)
+
+Thumbnail generation
+
+Image caching
+
+
+Gallery should feel instant.
+
+
+---
+
+7. Restaurant Purchase Workflow
+
+Complete workflow should resemble Flipkart/Amazon.
+
+Restaurant logs in
+
+↓
+
+Selects restaurant theme
+
+↓
+
+Receives AI recommendations
+
+↓
+
+Chooses photographs
+
+↓
+
+Chooses frame size
+
+↓
+
+Minimum order quantity = 3 frames
+
+↓
+
+Cart
+
+↓
+
+Checkout
+
+↓
+
+Payment
+
+↓
+
+Order confirmation
+
+↓
+
+Order tracking
+
+↓
+
+Email confirmation
+
+↓
+
+Photographer notification
+
+
+---
+
+8. Product Configuration
+
+Restaurant owner should choose
+
+Frame Size
+
+Examples
+
+16:9
+
+4:3
+
+Square
+
+Portrait
+
+
+Frame Material
+
+Wood
+
+Aluminium
+
+Premium Metal
+
+
+Frame Color
+
+Black
+
+White
+
+Walnut
+
+Natural
+
+
+Glass Type
+
+Normal
+
+Matte
+
+Anti-reflective
+
+
+Print Finish
+
+Matte
+
+Glossy
+
+
+Quantity
+
+Minimum
+
+3 Frames
+
+
+---
+
+9. Pricing Module
+
+Display
+
+Unit price
+
+Frame cost
+
+Printing cost
+
+GST
+
+Delivery charges
+
+Installation charges
+
+Security deposit (if applicable)
+
+Total amount
+
+
+
+---
+
+10. Razorpay Integration
+
+Integrate
+
+Razorpay payment gateway
+
+Temporary QR code
+
+UPI
+
+Card
+
+Net Banking
+
+
+Generate invoice automatically.
+
+
+---
+
+11. SMTP Email Automation
+
+Restaurant receives
+
+Order confirmation
+
+Invoice
+
+Payment confirmation
+
+Shipping updates
+
+Installation schedule
+
+
+Photographer receives
+
+Photo selected
+
+Restaurant information
+
+Installation schedule
+
+Commission details
+
+
+Admin receives
+
+New order notification
+
+Failed payment notification
+
+Support request
+
+
+
+---
+
+12. Restaurant Tracking
+
+Provide
+
+Live order status
+
+Printing stage
+
+Framing stage
+
+Dispatch
+
+Out for delivery
+
+Installation scheduled
+
+Completed
+
+
+
+---
+
+13. Founder Section
+
+Replace generic content with
+
+Professional founder profile
+
+Vision
+
+Mission
+
+Company story
+
+Real images
+
+Achievements
+
+
+Avoid AI-generated appearance.
+
+
+---
+
+14. Internal Dashboard Structure
+
+CEO Dashboard
+
+Sample Login
+
+Email
+
+ceo@curates.co.in
+
+Password
+
+CEO
+
+Dashboard should include
+
+Revenue
+
+Monthly turnover
+
+Sales
+
+Orders
+
+Pending orders
+
+Customer growth
+
+Photographer growth
+
+Revenue charts
+
+Cash flow
+
+Profit/Loss
+
+Business KPIs
+
+Recent activities
+
+Notifications
+
+Employee performance
+
+Top restaurants
+
+Best photographers
+
+
+
+---
+
+Manager Dashboard
+
+Sample Login
+
+manager@curates.co.in
+
+Password
+
+Manager
+
+Access
+
+Order management
+
+Photographer approvals
+
+Customer support
+
+Installation scheduling
+
+Inventory
+
+Reports
+
+
+
+---
+
+IT Team Dashboard
+
+Sample Login
+
+itteam@curates.co.in
+
+Password
+
+ITTeam
+
+Access
+
+User management
+
+System health
+
+API monitoring
+
+Server logs
+
+Database management
+
+Error monitoring
+
+Security alerts
+
+
+
+---
+
+Accounts Dashboard
+
+Access
+
+Revenue
+
+Expenses
+
+GST
+
+Refunds
+
+Invoices
+
+Vendor payments
+
+Commission payouts
+
+Monthly reports
+
+
+
+---
+
+15. Role Based Access Control
+
+CEO
+
+Full system access
+
+Manager
+
+Operations only
+
+IT Team
+
+Technical modules only
+
+Accounts
+
+Financial modules only
+
+Photographers
+
+Own profile and uploads only
+
+Restaurant Owners
+
+Own orders only
+
+
+---
+
+16. Business Analytics
+
+Provide dashboards with
+
+Revenue trends
+
+Sales trend
+
+Monthly growth
+
+Photographer performance
+
+Restaurant performance
+
+Image popularity
+
+Repeat customers
+
+Average order value
+
+Customer acquisition
+
+Conversion rate
+
+
+
+---
+
+17. AI Recommendation Engine
+
+Recommend photographs based on
+
+Restaurant category
+
+Cuisine
+
+Interior theme
+
+Wall colors
+
+Lighting
+
+Customer demographics
+
+
+
+---
+
+18. Chatbot
+
+Integrate AI chatbot
+
+Functions
+
+FAQs
+
+Order assistance
+
+Product recommendation
+
+Support
+
+Contact guidance
+
+
+
+---
+
+19. Search & Filtering
+
+Allow filtering by
+
+Photographer
+
+Theme
+
+Color
+
+Restaurant type
+
+Price
+
+Size
+
+Orientation
+
+Popularity
+
+Latest uploads
+
+
+
+---
+
+20. Performance Optimization
+
+Optimize
+
+Backend
+
+Database indexing
+
+API response time
+
+Image loading
+
+Caching
+
+Compression
+
+Mobile responsiveness
+
+
+
+---
+
+21. Security
+
+Implement
+
+JWT Authentication
+
+Password hashing
+
+SQL injection protection
+
+XSS protection
+
+CSRF protection
+
+Rate limiting
+
+HTTPS
+
+Secure file upload validation
+
+
+
+---
+
+22. Future Scalability
+
+Design architecture to support
+
+Thousands of restaurants
+
+Thousands of photographers
+
+Cloud deployment
+
+Microservices
+
+CDN integration
+
+Multiple cities
+
+Mobile app integration
+
+
+
+---
+
+23. UI/UX Expectations
+
+The final website should feel comparable to premium platforms in terms of polish and user experience. It should emphasize smooth animations, responsive layouts, fast loading, clean typography, intuitive navigation, and realistic imagery. Avoid generic AI-style illustrations or template-like sections. Every interaction should feel refined and production-ready.
+
+
+---
+
+Additional Recommendations
+
+Wishlist/Favorites for restaurants.
+
+Coupon and promotional code system.
+
+Photographer ratings and reviews.
+
+Restaurant reviews after installation.
+
+Commission management for photographers.
+
+Downloadable GST invoices.
+
+Installation appointment scheduling.
+
+SMS and WhatsApp notifications in addition to email.
+
+Admin audit logs for all critical actions.
+
+Backup and disaster recovery mechanisms.
+
+SEO optimization and analytics integration.
+
+Accessibility (WCAG) compliance.
+
+Privacy Policy, Terms & Conditions, Refund Policy, and Cookie Consent pages.
+
+Image watermarking before purchase and high-resolution download only after successful payment.
+
+
+This roadmap would make Curates feel like a professional, scalable startup platform rather than a simple gallery website, with clear workflows for restaurants, photographers, and internal business operations.

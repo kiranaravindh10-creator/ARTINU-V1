@@ -1,0 +1,119 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+
+    function isManager() {
+      return hasRole('manager') || hasRole('ceo') || hasRole('operations');
+    }
+
+    function isArtist() {
+      return hasRole('artist');
+    }
+
+    function isSpaceOwner() {
+      return hasRole('space_owner');
+    }
+
+    function isInternal() {
+      return hasRole('ceo') || hasRole('manager') || hasRole('accounts') || hasRole('operations') || hasRole('it_team');
+    }
+
+    // Photographer uploads: /photographers/{photographerId}/uploads/{photoId}
+    match /photographers/{photographerId}/uploads/{photoId} {
+      allow read: if isAuthenticated() && (isOwner(photographerId) || isInternal());
+      allow write: if isAuthenticated() && isOwner(photographerId) && isArtist()
+        && request.resource.size <= 12 * 1024 * 1024  // 12MB max
+        && request.resource.contentType.matches('image/(jpeg|png|webp|avif)');
+      allow delete: if isAuthenticated() && (isOwner(photographerId) || isInternal());
+    }
+
+    // Profile images: /profile/{photographerId}/{avatar|cover}.jpg
+    match /profile/{photographerId}/{fileName} {
+      allow read: if isAuthenticated() && (isOwner(photographerId) || isInternal());
+      allow write: if isAuthenticated() && isOwner(photographerId)
+        && request.resource.size <= 5 * 1024 * 1024  // 5MB max for profile/cover
+        && request.resource.contentType.matches('image/(jpeg|png|webp|avif)');
+      allow delete: if isAuthenticated() && (isOwner(photographerId) || isInternal());
+    }
+
+    // Hero slides: /hero/{slideId}
+    match /hero/{slideId} {
+      allow read: if true;  // Public read for active hero slides
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Featured collections: /featured/{collectionId}/{photoId}
+    match /featured/{collectionId}/{photoId} {
+      allow read: if true;  // Public read for active featured collections
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Cafe images: /cafes/{cafeId}
+    match /cafes/{cafeId} {
+      allow read: if true;  // Public read
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Collaboration slides: /collaborations/{slideId}
+    match /collaborations/{slideId} {
+      allow read: if true;  // Public read for active collaboration slides
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Legacy artwork uploads: /artworks/{photoId}
+    match /artworks/{photoId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isArtist() || isInternal());
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Legacy space images: /spaces/{spaceId}
+    match /spaces/{spaceId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isSpaceOwner() || isInternal());
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Thumbnails: /thumbnails/{photoId}
+    match /thumbnails/{photoId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Documents: /documents/{docId}
+    match /documents/{docId} {
+      allow read: if isAuthenticated() && isInternal();
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Invoices: /invoices/{invoiceId}
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated() && isInternal();
+      allow write: if isAuthenticated() && isInternal();
+      allow delete: if isAuthenticated() && isInternal();
+    }
+
+    // Catch-all: deny everything else
+    match /{allPaths=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}

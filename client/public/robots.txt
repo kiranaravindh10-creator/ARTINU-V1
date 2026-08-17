@@ -1,0 +1,39 @@
+# ARTINU robots.txt
+# Generated automatically - do not edit manually
+
+User-agent: *
+Allow: /
+
+# Disallow private/auth/admin routes
+Disallow: /signin
+Disallow: /signin/
+Disallow: /signin/verify
+Disallow: /auth/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /register
+Disallow: /register/
+Disallow: /register/artist
+Disallow: /register/artphiles
+Disallow: /space
+Disallow: /space/
+Disallow: /studio
+Disallow: /studio/
+Disallow: /console
+Disallow: /console/
+
+# Disallow API routes
+Disallow: /api/
+
+# Disallow temporary and system files
+Disallow: /*.json$
+Disallow: /*.xml$
+Disallow: /*.txt$
+Disallow: /_next/
+Disallow: /node_modules/
+
+# Sitemap
+Sitemap: https://artinu.in/sitemap.xml
+
+# Host
+Host: https://artinu.in
