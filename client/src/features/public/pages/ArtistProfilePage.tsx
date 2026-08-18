@@ -31,6 +31,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
+import { SITE_URL } from '@/lib/seo';
+import { EntityMeta } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +124,45 @@ export default function ArtistProfilePage() {
     })),
   ];
 
+  /*
+    Real metadata and Person schema, now that the profile has actually loaded.
+    Until this ran, every photographer page shared a title built from the URL
+    slug ("vk — Photographer on ARTINU") and carried no entity markup at all,
+    so Google had nothing connecting the page to a named person, their city or
+    their work.
+
+    Every field below comes from the profile. Nothing is invented: a
+    photographer with no bio, city or links simply contributes fewer fields.
+  */
+  const artistPath = `/artists/${artist.slug}`;
+  const artistLocation = [artist.city, artist.country].filter(Boolean).join(', ');
+  const artistMetaDescription =
+    (artist.bio?.trim().slice(0, 155) || null) ??
+    `Photography by ${artist.name}${artistLocation ? ` from ${artistLocation}` : ''} on ARTINU. ` +
+      `Available as framed prints for cafés, restaurants and offices in Bangalore.`;
+
+  const artistJsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    mainEntity: {
+      '@type': 'Person',
+      name: artist.name,
+      url: `${SITE_URL}${artistPath}`,
+      jobTitle: 'Photographer',
+      ...(artist.bio ? { description: artist.bio } : {}),
+      ...(artist.avatarUrl ? { image: artist.avatarUrl } : {}),
+      ...(artist.genres?.length ? { knowsAbout: artist.genres } : {}),
+      ...(artistLocation
+        ? { homeLocation: { '@type': 'Place', name: artistLocation } }
+        : {}),
+      // sameAs is a claim of ownership, so only links the photographer gave us.
+      ...(([artist.website, artist.instagram].filter(Boolean) as string[]).length
+        ? { sameAs: [artist.website, artist.instagram].filter(Boolean) }
+        : {}),
+      worksFor: { '@type': 'Organization', name: 'ARTINU', url: SITE_URL },
+    },
+  };
+
   const firstName = artist.name.split(' ')[0];
   const shortBio = artist.bio?.slice(0, 180) ?? '';
   const hasMoreBio = (artist.bio?.length ?? 0) > 180;
@@ -133,6 +174,14 @@ export default function ArtistProfilePage() {
 
   return (
     <>
+      <EntityMeta
+        title={`${artist.name} — Photographer on ARTINU`}
+        description={artistMetaDescription}
+        path={artistPath}
+        image={artist.coverUrl || artist.avatarUrl}
+        imageAlt={`Photography by ${artist.name}`}
+        jsonLd={artistJsonLd}
+      />
       <Container size="wide" className="pt-8">
         <div className="flex items-center justify-between gap-4">
           <Link

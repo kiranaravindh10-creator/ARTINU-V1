@@ -93,6 +93,15 @@ export const DEFAULT_SEO: SEOProps = {
           closes: '18:30',
         },
       },
+      // Stated locality only. There is no street address in CONTACT, and
+      // inventing one to qualify for a LocalBusiness rich result would be
+      // exactly the kind of unsupported schema that earns a manual action.
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Bengaluru',
+        addressRegion: 'Karnataka',
+        addressCountry: 'IN',
+      },
       areaServed: {
         '@type': 'GeoCircle',
         geoMidpoint: {
@@ -105,6 +114,22 @@ export const DEFAULT_SEO: SEOProps = {
     },
   ],
 };
+
+/**
+ * "aakash-sharma" → "Aakash Sharma".
+ *
+ * A fallback only, for the moment before the profile request resolves. It is
+ * deliberately conservative: it title-cases words and nothing else, so an
+ * unusual slug degrades to something readable rather than something wrong.
+ */
+export function readableFromSlug(slug: string): string {
+  const cleaned = decodeURIComponent(slug).replace(/[-_]+/g, ' ').trim();
+  if (!cleaned) return 'Photographer';
+  return cleaned
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 export function generateCanonical(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -329,21 +354,40 @@ export function getPageSEO(path: string): SEOProps {
   if (exactMatch) return exactMatch;
 
   if (normalizedPath.startsWith('/gallery/')) {
+    /*
+      These used to carry `noindex: true`, which kept every individual
+      photograph out of Google. Artwork pages are the long tail of this site —
+      each one is a unique photograph, by a named photographer, with its own
+      title and story — and they were the pages most likely to earn a search
+      that nothing else here can answer.
+
+      The title stays generic because this function only sees the URL.
+      ArtworkDetailPage renders its own <Helmet> once the artwork has loaded
+      and replaces this with the real title, photographer and image.
+    */
     return {
       ...DEFAULT_SEO,
-      title: 'Artwork Details — ARTINU Gallery',
-      description: 'View detailed information about this curated artwork, including the artist, frame options and licensing.',
+      title: 'Photograph — ARTINU Gallery',
+      description:
+        'A curated photograph available through ARTINU for cafés, restaurants, offices and other real spaces in Bangalore. Printed, framed and installed by us.',
       canonical: generateCanonical(normalizedPath),
-      noindex: true,
     };
   }
 
   if (normalizedPath.startsWith('/artists/')) {
-    const slug = normalizedPath.replace('/artists/', '');
+    /*
+      The slug was previously dropped into the title raw, producing
+      "aakash-sharma — Photographer Profile" in search results. Readable names
+      are reconstructed from the slug here as a fallback; ArtistProfilePage
+      replaces this with the photographer's real name, bio and Person schema
+      once the profile has loaded.
+    */
+    const slug = normalizedPath.replace('/artists/', '').split('/')[0];
+    const name = readableFromSlug(slug);
     return {
       ...DEFAULT_SEO,
-      title: `${slug} — Photographer Profile | ARTINU`,
-      description: `View ${slug}'s portfolio, biography and curated artworks available through ARTINU.`,
+      title: `${name} — Photographer on ARTINU`,
+      description: `See photography by ${name} on ARTINU. Prints available for cafés, restaurants and offices in Bangalore, printed, framed and installed by us.`,
       canonical: generateCanonical(normalizedPath),
     };
   }

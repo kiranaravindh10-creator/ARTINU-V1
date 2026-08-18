@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { getPageSEO, PAGE_SEO, DEFAULT_SEO, SITE_URL, generateCanonical, buildBreadcrumbs } from '@/lib/seo';
+import { getPageSEO, PAGE_SEO, DEFAULT_SEO, generateCanonical, buildBreadcrumbs } from '@/lib/seo';
 
 interface MetaTagsProps {
   seoOverride?: Partial<import('@/lib/seo').SEOProps>;
@@ -49,8 +49,6 @@ export function MetaTags({ seoOverride }: MetaTagsProps) {
 
       <meta name="theme-color" content="#14120f" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-
-      <link rel="alternate" type="application/rss+xml" title="ARTINU Blog" href={`${SITE_URL}/feed.xml`} />
 
       {jsonLdData.length > 0 && (
         <script type="application/ld+json">

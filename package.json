@@ -19,7 +19,7 @@
     "dev:server": "npm run dev --workspace server",
     "dev:client": "npm run dev --workspace client",
     "prebuild": "npm run preflight",
-    "build": "npm run typecheck && npm run build --workspace client",
+    "build": "npm run typecheck && npm run sitemap && npm run build --workspace client",
     "start": "npm run start --workspace server",
     "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client",
     "seed": "npm run seed --workspace server",
@@ -29,7 +29,8 @@
     "check:welcome": "node scripts/welcome-email-check.mjs",
     "check:schema": "npm run check:schema --workspace server",
     "create:staff": "npm run create:staff --workspace server",
-    "clean": "node -e \"const{rmSync}=require('fs');for(const d of ['node_modules','client/node_modules','server/node_modules','shared/node_modules'])rmSync(d,{recursive:true,force:true})\""
+    "clean": "node -e \"const{rmSync}=require('fs');for(const d of ['node_modules','client/node_modules','server/node_modules','shared/node_modules'])rmSync(d,{recursive:true,force:true})\"",
+    "sitemap": "node scripts/generate-sitemap.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

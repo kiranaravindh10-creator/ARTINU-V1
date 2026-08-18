@@ -44,6 +44,8 @@ import { useCart } from '@/contexts/CartContext';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
+import { SITE_URL } from '@/lib/seo';
+import { EntityMeta } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
@@ -152,8 +154,55 @@ export default function ArtworkDetailPage() {
     });
   };
 
+  /*
+    These pages carried `noindex` until now, so none of this existed. Each one
+    is a distinct photograph with a title, a photographer and often a place —
+    exactly the sort of page that answers a long-tail search the homepage never
+    will.
+
+    Every value comes from the artwork record. `creator` links the photograph to
+    the photographer's own page, which is the relationship Google needs to treat
+    them as connected entities rather than two unrelated URLs.
+  */
+  const artworkPath = `/gallery/${artwork.id}`;
+  const artworkTitle = `${artwork.title} by ${artwork.artist.name} — ARTINU`;
+  const artworkDescription =
+    artwork.description?.trim().slice(0, 155) ||
+    `"${artwork.title}", a ${GALLERY_CATEGORY_LABELS[artwork.category] ?? artwork.category} ` +
+      `photograph by ${artwork.artist.name}${artwork.location ? ` shot in ${artwork.location}` : ''}. ` +
+      `Printed, framed and installed by ARTINU for cafés, restaurants and offices.`;
+
+  const artworkJsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'ImageObject',
+    name: artwork.title,
+    contentUrl: artwork.imageUrl,
+    url: `${SITE_URL}${artworkPath}`,
+    ...(artwork.description ? { description: artwork.description } : {}),
+    ...(artwork.width ? { width: artwork.width } : {}),
+    ...(artwork.height ? { height: artwork.height } : {}),
+    ...(artwork.location ? { contentLocation: { '@type': 'Place', name: artwork.location } } : {}),
+    ...(artwork.tags?.length ? { keywords: artwork.tags.join(', ') } : {}),
+    creator: {
+      '@type': 'Person',
+      name: artwork.artist.name,
+      url: `${SITE_URL}/artists/${artwork.artist.slug}`,
+    },
+    // The photographer keeps copyright; ARTINU licenses and installs the print.
+    copyrightHolder: { '@type': 'Person', name: artwork.artist.name },
+    provider: { '@type': 'Organization', name: 'ARTINU', url: SITE_URL },
+  };
+
   return (
     <>
+      <EntityMeta
+        title={artworkTitle}
+        description={artworkDescription}
+        path={artworkPath}
+        image={artwork.imageUrl}
+        imageAlt={`${artwork.title} by ${artwork.artist.name}`}
+        jsonLd={artworkJsonLd}
+      />
       <Container size="wide" className="pt-8">
         <div className="flex items-center justify-between gap-4">
           <Link

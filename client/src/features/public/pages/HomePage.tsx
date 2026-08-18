@@ -130,6 +130,28 @@ const initialsOf = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
+/**
+ * The homepage hero photograph.
+ *
+ * Local WebP at four widths instead of a remote 1600px JPEG. The old hero was
+ * an Unsplash URL, which put a third-party DNS lookup, TLS handshake and CDN
+ * fetch in front of the largest element on the page, and served every phone the
+ * same 1600px file. A 390px viewport now downloads 35 KB instead.
+ *
+ * `blur` is a 24px inline WebP, so the space is filled on the first frame and
+ * the hero never flashes empty.
+ */
+const HOME_HERO = {
+  src: '/image/home-hero-cafe-1440.webp',
+  srcSet: [
+    '/image/home-hero-cafe-640.webp 640w',
+    '/image/home-hero-cafe-1024.webp 1024w',
+    '/image/home-hero-cafe-1440.webp 1440w',
+    '/image/home-hero-cafe-1920.webp 1672w',
+  ].join(', '),
+  blur: 'data:image/webp;base64,UklGRrYAAABXRUJQVlA4IKoAAABQBACdASoYAA4APu1iqU2ppaOiMAgBMB2JQBWAMYORXFwZZzT8/KvuSzOAAPaI60mPNbnw5qEMAoTTRua/dGdXlmov457eP3fOp6uvVzCkqMLtWTXoyqb1rxq48uGpjMz/ivgAgltNJ29lFxhBRbYhMaxteqHxiY1/3iiieGIXNTc7imLir9uU4Wq7fCRrtmu4Xn/19phQ/RKbzmgfcSbSe2aQ7kD7PfeAAA==',
+} as const;
+
 function PhotographerShowcaseHero() {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isPlaying, setIsPlaying] = React.useState(true);
@@ -220,12 +242,17 @@ function PhotographerShowcaseHero() {
     return (
       <section className="relative h-[100vh] w-full overflow-hidden bg-ink">
         <Photo
-          src={IMAGES.restaurantWarm}
-          alt="Warm-lit interior with framed photographs above the seating"
+          src={HOME_HERO.src}
+          alt="Friends in a Bengaluru cafe looking up at a framed ARTINU photograph"
           priority
-          // Without this the srcSet is never built, so a 390px phone downloads
-          // the same 1600px file a desktop does.
-          hero
+          // Served from our own /image folder as WebP rather than a 1600px
+          // remote JPEG. The hero is the LCP element, and it was waiting on a
+          // third-party DNS lookup, TLS handshake and CDN round trip before a
+          // single pixel could paint. `hero` cannot build a srcSet for a local
+          // file, so the widths are listed explicitly.
+          srcSet={HOME_HERO.srcSet}
+          sizes="100vw"
+          blurPlaceholder={HOME_HERO.blur}
           className="absolute inset-0 h-full w-full"
           imgClassName="h-full w-full object-cover"
         />
@@ -482,7 +509,6 @@ function SpacesWeTransform() {
                         <Photo
                           src={SPACE_TYPE_IMAGES[category.type] ?? IMAGES.cafeInterior}
                           alt={SPACE_TYPE_LABELS[category.type]}
-                          priority={index < 2}
                           className="w-full h-full"
                           imgClassName="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-[1.03]"
                         />
@@ -860,7 +886,6 @@ export default function HomePage() {
                 src="/image/what-is-artinu.webp"
                 alt="A framed artwork curated by Artinu"
                 ratio="aspect-square"
-                priority
                 className="rounded-xl photo-edge"
               />
             </div>
@@ -941,7 +966,6 @@ export default function HomePage() {
                   src="/image/artinu-model.webp"
                   alt="An artwork on display in a real space"
                   ratio="aspect-[4/5]"
-                  priority
                   className="-rotate-1 rounded-sm shadow-frame photo-edge"
                 />
                 <p className="mt-4 text-center font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-subtle">

@@ -50,6 +50,37 @@
     <title>ARTINU — Photography that brings spaces to life</title>
     <meta name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months. Zero upfront cost." />
 
+    <!--
+      Static social + canonical fallback.
+
+      This is a client-rendered app: react-helmet-async writes the real
+      per-route tags, but only after JavaScript has run. Googlebot renders JS,
+      so it sees those. The social crawlers do not — Facebook, LinkedIn,
+      WhatsApp and Slack read the raw HTML and stop. Without these tags a link
+      to artinu.in shared in any of them previewed with no image and no title.
+
+      Each carries data-rh="true", the attribute react-helmet-async uses to mark
+      tags it owns. On mount Helmet removes any it finds and writes the real
+      per-route values, so these are replaced rather than duplicated. Without
+      that attribute a page like /about would end up with two conflicting
+      <link rel="canonical"> tags, which is worse than having none.
+    -->
+    <link data-rh="true" rel="canonical" href="https://artinu.in/" />
+    <meta data-rh="true" property="og:site_name" content="ARTINU" />
+    <meta data-rh="true" property="og:type" content="website" />
+    <meta data-rh="true" property="og:url" content="https://artinu.in/" />
+    <meta data-rh="true" property="og:title" content="ARTINU — Photography that brings spaces to life" />
+    <meta data-rh="true" property="og:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore. We print, frame, install and rotate the work." />
+    <meta data-rh="true" property="og:image" content="https://artinu.in/image/artinu-model.png" />
+    <meta data-rh="true" property="og:image:width" content="1200" />
+    <meta data-rh="true" property="og:image:height" content="630" />
+    <meta data-rh="true" property="og:image:alt" content="A framed photograph curated by ARTINU in a real space" />
+    <meta data-rh="true" property="og:locale" content="en_IN" />
+    <meta data-rh="true" name="twitter:card" content="summary_large_image" />
+    <meta data-rh="true" name="twitter:title" content="ARTINU — Photography that brings spaces to life" />
+    <meta data-rh="true" name="twitter:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore." />
+    <meta data-rh="true" name="twitter:image" content="https://artinu.in/image/artinu-model.png" />
+
     <style>
       /* Boot diagnostics only. React replaces #root on its first commit, so
          none of this is ever seen in a healthy load. It exists because a blank

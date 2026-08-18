@@ -1,39 +1,31 @@
-# ARTINU robots.txt
-# Generated automatically - do not edit manually
+# ARTINU — https://artinu.in
+#
+# Public marketing pages are crawlable. Everything behind sign-in is not:
+# those pages hold personal data, need a session to render anything, and would
+# only ever be indexed as an empty shell.
 
 User-agent: *
 Allow: /
 
-# Disallow private/auth/admin routes
+# ── Authentication ──────────────────────────────────────────────────────────
 Disallow: /signin
-Disallow: /signin/
-Disallow: /signin/verify
-Disallow: /auth/
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /register
-Disallow: /register/
-Disallow: /register/artist
-Disallow: /register/artphiles
-Disallow: /space
+Disallow: /account/
+
+# ── Signed-in areas ─────────────────────────────────────────────────────────
+# Trailing slashes matter. `Disallow: /space` (no slash) is a prefix match, so
+# it also blocked /spaces — the main landing page for space owners, and one of
+# the most commercially important URLs on the site.
 Disallow: /space/
-Disallow: /studio
 Disallow: /studio/
-Disallow: /console
 Disallow: /console/
 
-# Disallow API routes
+# ── API ─────────────────────────────────────────────────────────────────────
 Disallow: /api/
 
-# Disallow temporary and system files
-Disallow: /*.json$
-Disallow: /*.xml$
-Disallow: /*.txt$
-Disallow: /_next/
-Disallow: /node_modules/
+# Deliberately NOT disallowed: /*.xml$ and /*.txt$ used to be listed here,
+# which blocked the sitemap declared at the bottom of this very file.
 
-# Sitemap
 Sitemap: https://artinu.in/sitemap.xml
-
-# Host
-Host: https://artinu.in
