@@ -4,6 +4,33 @@
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
   "framework": null,
+  "redirects": [
+    {
+      "source": "/artists/siya.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/artists/ayush.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/artists/kiran.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/artists/oum.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/artists/alen.html",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/|image/|.*\\.[a-zA-Z0-9]+$).*)",
@@ -23,9 +50,18 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]

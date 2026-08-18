@@ -30,7 +30,8 @@
     "check:schema": "npm run check:schema --workspace server",
     "create:staff": "npm run create:staff --workspace server",
     "clean": "node -e \"const{rmSync}=require('fs');for(const d of ['node_modules','client/node_modules','server/node_modules','shared/node_modules'])rmSync(d,{recursive:true,force:true})\"",
-    "sitemap": "node scripts/generate-sitemap.mjs"
+    "sitemap": "node scripts/generate-sitemap.mjs",
+    "favicons": "node scripts/generate-favicons.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
