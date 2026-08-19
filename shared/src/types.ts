@@ -67,6 +67,8 @@ export interface Profile {
   fullName: string;
   displayName?: string | null;
   phone?: string | null;
+  /** YYYY-MM-DD, collected at registration. Absent on accounts created before it was asked for. */
+  dateOfBirth?: string | null;
   avatarUrl?: string | null;
   /** Artist-only hero/backdrop image, stored independently from portfolio work. */
   coverUrl?: string | null;
@@ -457,7 +459,12 @@ export interface UiContentRecord {
 export interface HeroSlide {
   id: string;
   imageUrl: string;
-  photographerId: string;
+  /**
+   * The photographer credited under the slide. Null when there is nobody to
+   * credit — a room shot, a partner's photograph — in which case the homepage
+   * shows no byline rather than an invented one.
+   */
+  photographerId: string | null;
   /**
    * Resolved by `/content-manager/hero-slides/active` so the homepage can
    * credit the photographer by name. Null when the profile no longer exists —
@@ -484,6 +491,12 @@ export interface Cafe {
   name: string;
   photoUrl: string;
   description: string;
+  /**
+   * Where the collaboration card links to — the partner's own site. Null until
+   * a manager enters one, and the card is then rendered as a plain card rather
+   * than pointing anywhere. Never guessed from the name.
+   */
+  websiteUrl?: string | null;
   order: number;
   isActive: boolean;
   createdAt: string;
@@ -516,14 +529,14 @@ export interface UpdateCollaborationSlideInput {
 
 export interface CreateHeroSlideInput {
   imageUrl: string;
-  photographerId: string;
+  photographerId?: string | null;
   order?: number;
   isActive?: boolean;
 }
 
 export interface UpdateHeroSlideInput {
   imageUrl?: string;
-  photographerId?: string;
+  photographerId?: string | null;
   order?: number;
   isActive?: boolean;
 }
@@ -544,6 +557,7 @@ export interface CreateCafeInput {
   name: string;
   photoUrl: string;
   description: string;
+  websiteUrl?: string | null;
   order?: number;
   isActive?: boolean;
 }
@@ -552,6 +566,7 @@ export interface UpdateCafeInput {
   name?: string;
   photoUrl?: string;
   description?: string;
+  websiteUrl?: string | null;
   order?: number;
   isActive?: boolean;
 }

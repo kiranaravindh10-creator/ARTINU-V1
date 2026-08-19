@@ -1,7 +1,7 @@
 import { type ArtworkWithArtist } from '@artinu/shared';
-import { ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, X } from 'lucide-react';
 import * as React from 'react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 /**
@@ -27,6 +27,9 @@ export function Lightbox({
   onToggleWishlist?: (artwork: ArtworkWithArtist) => void;
 }) {
   const artwork = artworks[index];
+
+  /** The opening of whatever the photographer wrote, not a generated summary. */
+  const blurb = (artwork?.description || artwork?.story || '').trim();
 
   const go = React.useCallback(
     (delta: number) => {
@@ -134,17 +137,33 @@ export function Lightbox({
         )}
       </div>
 
-      {/* Caption — only artist name and title, no pricing */}
+      {/*
+        The caption.
+
+        Title, photographer, place, and the opening of the story — the four
+        things that make a photograph legible. It carried only a title and a
+        name before, so the answer to "where is this?" was a click away on a
+        page most people never opened. The full story stays on the artwork's own
+        page; this is the first paragraph and a way through to the rest.
+      */}
       <div
-        className="flex flex-wrap items-end justify-between gap-4 px-4 py-5 sm:px-8"
+        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 px-4 py-5 sm:px-8"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="min-w-0">
+        <div className="min-w-0 max-w-2xl">
           <h2 className="font-display text-xl text-canvas sm:text-2xl">{artwork.title}</h2>
-          <p className="mt-1 text-sm text-canvas/60">
-            {artwork.artist?.name}
-            {artwork.location ? ` · ${artwork.location}` : ''}
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-canvas/60">
+            {artwork.artist?.name && <span>{artwork.artist.name}</span>}
+            {artwork.location && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="size-3.5 text-bronze-light" aria-hidden />
+                {artwork.location}
+              </span>
+            )}
           </p>
+          {blurb && (
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-canvas/50">{blurb}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -159,6 +178,16 @@ export function Lightbox({
               <Heart className={cn('size-5', artwork.wishlisted && 'fill-bronze text-bronze')} />
             </button>
           )}
+          <Link
+            to={`/gallery/${artwork.id}`}
+            className="group inline-flex items-center gap-2 text-sm text-canvas/80 transition-colors hover:text-canvas"
+          >
+            <span className="relative">
+              Read the story
+              <span className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-current transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover:scale-x-100" />
+            </span>
+            <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </Link>
         </div>
       </div>
     </div>

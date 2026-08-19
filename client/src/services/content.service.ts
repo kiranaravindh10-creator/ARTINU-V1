@@ -10,6 +10,20 @@ export interface PaginatedResponse<T> {
 }
 
 export const contentService = {
+  /**
+   * Uploads one image and returns the URL to store against a slide, a
+   * collaboration or a profile.
+   *
+   * The console used to ask a manager to paste an image URL into a text box,
+   * which meant the picture had to be hosted somewhere else first. The server
+   * has taken base64 uploads since the artist workspace was built; this is the
+   * same endpoint, pointed at the homepage folders.
+   */
+  async uploadImage(input: { imageBase64: string; folder: 'hero' | 'cafes' | 'featured' | 'collaborations'; fileName?: string }) {
+    const { data } = await api.post<{ url: string; path: string }>('/uploads', input);
+    return data;
+  },
+
   // UI Content (legacy)
   async getAllContent() {
     const { data } = await api.get('/content');

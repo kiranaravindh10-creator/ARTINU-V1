@@ -16,7 +16,7 @@ import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { DateInput, Input, PhoneInput } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,6 +46,7 @@ export default function SpaceRegisterPage() {
       fullName: '',
       email: '',
       phone: '',
+      dateOfBirth: '',
       spaceName: '',
       city: '',
       acceptTerms: undefined as never,
@@ -150,7 +151,7 @@ export default function SpaceRegisterPage() {
   }
 
   const goToStepTwo = async () => {
-    const valid = await trigger(['fullName', 'email', 'phone']);
+    const valid = await trigger(['fullName', 'email', 'phone', 'dateOfBirth']);
     if (valid) setStep(2);
   };
 
@@ -197,15 +198,24 @@ export default function SpaceRegisterPage() {
                 />
               </Field>
 
-              <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  invalid={!!errors.phone}
-                  {...register('phone')}
-                />
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
+                  <PhoneInput id="phone" invalid={!!errors.phone} {...register('phone')} />
+                </Field>
+
+                <Field
+                  label="Date of birth"
+                  htmlFor="dateOfBirth"
+                  error={errors.dateOfBirth?.message}
+                >
+                  <DateInput
+                    id="dateOfBirth"
+                    autoComplete="bday"
+                    invalid={!!errors.dateOfBirth}
+                    {...register('dateOfBirth')}
+                  />
+                </Field>
+              </div>
 
               <p className="rounded-md border border-line bg-sand-soft px-3.5 py-3 text-xs leading-relaxed text-muted">
                 No password to think up — ARTINU issues your space ID and a password when you

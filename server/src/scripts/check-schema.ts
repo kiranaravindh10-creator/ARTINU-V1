@@ -40,10 +40,13 @@ const TABLES = [
 ] as const;
 
 /** Columns added after the initial schema, which older projects will lack. */
-const COLUMNS: { table: 'profiles' | 'artworks'; column: string }[] = [
+const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes'; column: string }[] = [
   { table: 'profiles', column: 'coverUrl' },
   { table: 'profiles', column: 'photographerCode' },
   { table: 'profiles', column: 'nextPhotoNumber' },
+  // Added by 009_registration_and_collaborations.sql
+  { table: 'profiles', column: 'dateOfBirth' },
+  { table: 'cafes', column: 'websiteUrl' },
   { table: 'artworks', column: 'photoId' },
   { table: 'artworks', column: 'photoNumber' },
 ];

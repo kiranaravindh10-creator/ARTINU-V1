@@ -33,6 +33,58 @@ export const passwordSchema = z
   .regex(/[A-Z]/, 'Include an uppercase letter')
   .regex(/[0-9]/, 'Include a number');
 
+/**
+ * One phone rule for every form that asks for one.
+ *
+ * The pattern accepts the shapes people actually type — +91 98765 43210,
+ * (080) 4567 8901, 9876543210 — and the digit count is checked separately so
+ * "+++++++" cannot pass a character-class test.
+ */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^[+0-9 ()-]{7,20}$/, 'Enter a valid phone number')
+  .refine((value) => {
+    const digits = value.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15;
+  }, 'Enter a valid phone number');
+
+/**
+ * Date of birth, as an `<input type="date">` hands it over: YYYY-MM-DD.
+ *
+ * Checked as a real calendar date rather than a pattern, so 2005-02-31 is
+ * rejected. The floor of 13 is the age at which an account can be held at all;
+ * the ceiling exists only to catch a mistyped year (1091 rather than 1991).
+ */
+export const dateOfBirthSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter your date of birth')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year!, month! - 1, day!));
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month! - 1 &&
+      date.getUTCDate() === day
+    );
+  }, 'Enter a valid date')
+  .refine((value) => new Date(`${value}T00:00:00Z`).getTime() <= Date.now(), {
+    message: 'Date of birth cannot be in the future',
+  })
+  .refine((value) => yearsSince(value) >= 13, 'You need to be at least 13 to join ARTINU')
+  .refine((value) => yearsSince(value) <= 120, 'Please check the year');
+
+/** Whole years between a YYYY-MM-DD date and today, in UTC. */
+function yearsSince(value: string): number {
+  const birth = new Date(`${value}T00:00:00Z`);
+  const today = new Date();
+  let age = today.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDelta = today.getUTCMonth() - birth.getUTCMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age;
+}
+
 export const signInSchema = z.object({
   email: z.string().email('Enter a valid email address'),
   password: z.string().min(1, 'Enter your password'),
@@ -42,6 +94,8 @@ export const signUpSchema = z
   .object({
     fullName: z.string().min(2, 'Enter your full name').max(120),
     email: z.string().email('Enter a valid email address'),
+    phone: phoneSchema,
+    dateOfBirth: dateOfBirthSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
     role: z.enum(['space_owner', 'artist', 'guest']),
@@ -55,7 +109,7 @@ export const signUpSchema = z
   });
 
 export const phoneSignInSchema = z.object({
-  phone: z.string().regex(/^[+0-9 ()-]{7,20}$/, 'Enter a valid phone number'),
+  phone: phoneSchema,
 });
 
 /** Step 3 of the artist login flow — the emailed code on the diamond screen. */
@@ -77,6 +131,8 @@ export const registerStep1Schema = z
   .object({
     fullName: z.string().min(2, 'Enter your full name').max(120),
     email: z.string().email('Enter a valid email address'),
+    phone: phoneSchema,
+    dateOfBirth: dateOfBirthSchema,
     password: passwordSchema,
   })
   .describe('Create your account');
@@ -118,7 +174,8 @@ export const spaceOwnerRegistrationSchema = z.object({
   spaceName: z.string().min(2, 'Enter your space name').max(160),
   spaceType: enumOf(SPACE_TYPES),
   city: z.string().min(2, 'Enter your city').max(120),
-  phone: z.string().regex(/^[+0-9 ()-]{7,20}$/, 'Enter a valid phone number'),
+  phone: phoneSchema,
+  dateOfBirth: dateOfBirthSchema,
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: 'Please accept the terms to create your account' }),
   }),

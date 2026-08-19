@@ -323,6 +323,26 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                       showPrice={false}
                       onOpen={lightbox.open}
                       onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                      /*
+                        The way a space owner puts a photograph in their cart.
+
+                        The header above has always said "click any image …
+                        then add the ones you want", but no card carried an Add
+                        button: the only route into the cart was the public
+                        artwork page, which is now an editorial page about the
+                        photograph rather than a checkout. Ordering belongs in
+                        the space dashboard, so it lives here.
+                      */
+                      action={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={() => setConfiguring(artwork)}
+                        >
+                          <ShoppingBag className="size-4" /> Add to cart
+                        </Button>
+                      }
                     />
                   ))}
                 </ArtworkMasonry>

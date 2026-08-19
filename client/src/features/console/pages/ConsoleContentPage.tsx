@@ -103,49 +103,32 @@ export default function ConsoleContentPage() {
   return (
     <div>
       <PageHeader
-        title="UI Content Manager"
-        description="Manage the dynamic content and featured sections across the platform."
+        title="Curated lists"
+        description="Hand-picked lists that sit on top of the automatic ordering. Everything else on the homepage is edited under Homepage."
       />
 
+      {/*
+        Three sections used to live here as well, and none of them belonged.
+
+        `homepage_hero` and `dashboard_cafes` were left behind by an earlier
+        design: nothing on the site reads either of them any more, so a manager
+        could edit the homepage carousel here, save, and watch the homepage not
+        change — the worst thing an admin screen can do. The carousel and the
+        café collaborations are both edited under Homepage, against the tables
+        the site actually reads.
+
+        `featured_artists` was a comma-separated box of user IDs for a list that
+        Console → Artists → Featured already manages with names, photographs and
+        drag-to-order. One list, one place to edit it.
+      */}
       <div className="grid gap-6">
         <ContentSection
-          id="homepage_hero"
-          title="Homepage Hero Carousel"
-          description="The artworks displayed in the main top-of-page carousel on the homepage."
-          label="Artwork IDs"
-          hint="Comma-separated list of Artwork IDs."
-          placeholder="art_123, art_456, art_789"
-        />
-
-        <ContentSection
-          id="featured_artists"
-          title="Featured Artists"
-          description="The artists showcased in the 'Featured Artists' section on the homepage."
-          label="Artist IDs"
-          hint="Comma-separated list of User IDs of the artists."
-          placeholder="usr_123, usr_456"
-        />
-
-        <ContentSection
           id="gallery_top_20"
-          title="Gallery Top 20"
-          description="The artworks forcefully placed at the top of the main gallery page."
-          label="Artwork IDs"
-          hint="Comma-separated list of Artwork IDs."
-          placeholder="art_123, art_456"
-        />
-
-        <ContentSection
-          id="dashboard_cafes"
-          title="Collaborated Cafes (Dashboard Panel)"
-          description="The images that cross-fade in the photographer dashboard's right panel."
-          label="Image URLs (JSON Array)"
-          hint="A valid JSON array of image URLs."
-          isArray={false}
-          placeholder='[
-  "https://images.unsplash.com/photo-...",
-  "https://images.unsplash.com/photo-..."
-]'
+          title="Gallery top picks"
+          description="Photographs pinned to the top of the gallery page, above the automatic ordering. Leave it empty and the gallery sorts itself."
+          label="Photograph IDs"
+          hint="Comma-separated. Copy an ID from the end of a photograph's gallery address."
+          placeholder="9f1c…, 4ab2…"
         />
       </div>
     </div>

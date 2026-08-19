@@ -9,7 +9,19 @@ import { logger } from '@/utils/logger';
 
 export const contentManagerRouter = Router();
 
-const MANAGER_ROLE = 'manager' as const;
+/**
+ * Who may edit the homepage.
+ *
+ * This was `manager` alone, while the console linked the page under the
+ * `system` module — which only the CEO and the IT team hold. The result was a
+ * page nobody could actually use: the two roles who could open it were refused
+ * by the API, and the role the API accepted had no link to it. The homepage is
+ * maintained by the manager and the IT team, with the CEO able to correct it,
+ * so those are the three roles. Everyone else is still refused here, before any
+ * handler runs.
+ */
+const CONTENT_ROLES = ['manager', 'ceo', 'it_team'] as const;
+const requireContentRole = requireRole(...CONTENT_ROLES);
 
 /**
  * Attaches the photographer's display name to slides that carry only an id.
@@ -38,16 +50,24 @@ async function withPhotographerNames<T extends { photographerId?: string | null 
   }));
 }
 
+/*
+  The photographer credit is optional.
+
+  It used to be a required uuid, which meant adding a carousel image involved
+  finding an artist's internal id and typing it into a text box — the console
+  offers a picker now, and a slide with nobody to credit (a room, a partner's
+  photograph) is a real case the homepage already handles by showing no byline.
+*/
 const heroSlideSchema = z.object({
   imageUrl: z.string().url(),
-  photographerId: z.string().uuid(),
+  photographerId: z.string().uuid().nullable().optional(),
   order: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });
 
 const updateHeroSlideSchema = z.object({
   imageUrl: z.string().url().optional(),
-  photographerId: z.string().uuid().optional(),
+  photographerId: z.string().uuid().nullable().optional(),
   order: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });
@@ -64,10 +84,18 @@ const updateFeaturedCollectionSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+/**
+ * `websiteUrl` is where the homepage collaboration card sends a visitor.
+ *
+ * It is optional and never derived from the name: a card whose partner has no
+ * address on file renders as a plain card rather than pointing at a guess.
+ * `.url()` keeps a bare "nibbannosh" from being stored as a destination.
+ */
 const cafeSchema = z.object({
   name: z.string().min(1).max(200),
   photoUrl: z.string().url(),
   description: z.string().min(1).max(1000),
+  websiteUrl: z.string().url('Enter the full address, starting with https://').nullable().optional(),
   order: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });
@@ -76,6 +104,12 @@ const updateCafeSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   photoUrl: z.string().url().optional(),
   description: z.string().min(1).max(1000).optional(),
+  websiteUrl: z
+    .string()
+    .url('Enter the full address, starting with https://')
+    .nullable()
+    .optional()
+    .or(z.literal('')),
   order: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });
@@ -124,7 +158,7 @@ const reorderSchema = z.object({
 
 contentManagerRouter.put(
   '/hero-slides/reorder',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(reorderSchema),
   asyncHandler(async (req, res) => {
     const { items } = req.valid as { items: { id: string; order: number }[] };
@@ -141,7 +175,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.put(
   '/featured-collections/reorder',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(reorderSchema),
   asyncHandler(async (req, res) => {
     const { items } = req.valid as { items: { id: string; order: number }[] };
@@ -160,7 +194,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.put(
   '/cafes/reorder',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(reorderSchema),
   asyncHandler(async (req, res) => {
     const { items } = req.valid as { items: { id: string; order: number }[] };
@@ -175,7 +209,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.put(
   '/collaboration-slides/reorder',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(reorderSchema),
   asyncHandler(async (req, res) => {
     const { items } = req.valid as { items: { id: string; order: number }[] };
@@ -196,7 +230,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.get(
   '/hero-slides',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(querySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { page, pageSize, isActive, search } = req.valid as {
@@ -210,9 +244,9 @@ contentManagerRouter.get(
     if (isActive !== undefined) where.isActive = isActive;
 
     const filter = search
-      ? (slide: { id: string; photographerId: string; imageUrl: string }) =>
+      ? (slide: { id: string; photographerId: string | null; imageUrl: string }) =>
           slide.imageUrl.toLowerCase().includes(search.toLowerCase()) ||
-          slide.photographerId.toLowerCase().includes(search.toLowerCase())
+          (slide.photographerId?.toLowerCase().includes(search.toLowerCase()) ?? false)
       : undefined;
 
     const [items, total] = await Promise.all([
@@ -248,7 +282,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/hero-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const slide = await db.heroSlides.byId(req.params.id);
     if (!slide) throw notFound('Hero slide');
@@ -258,12 +292,12 @@ contentManagerRouter.get(
 
 contentManagerRouter.post(
   '/hero-slides',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(heroSlideSchema),
   asyncHandler(async (req, res) => {
     const { imageUrl, photographerId, order, isActive } = req.valid as {
       imageUrl: string;
-      photographerId: string;
+      photographerId?: string | null;
       order?: number;
       isActive?: boolean;
     };
@@ -274,7 +308,7 @@ contentManagerRouter.post(
     const now = new Date().toISOString();
     const slide = await db.heroSlides.insert({
       imageUrl,
-      photographerId,
+      photographerId: photographerId ?? null,
       order: nextOrder,
       isActive: isActive ?? true,
       createdAt: now,
@@ -291,7 +325,7 @@ contentManagerRouter.post(
 
 contentManagerRouter.put(
   '/hero-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(updateHeroSlideSchema),
   asyncHandler(async (req, res) => {
     const slide = await db.heroSlides.byId(req.params.id);
@@ -312,7 +346,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.delete(
   '/hero-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const slide = await db.heroSlides.byId(req.params.id);
     if (!slide) throw notFound('Hero slide');
@@ -334,7 +368,7 @@ contentManagerRouter.delete(
 
 contentManagerRouter.get(
   '/featured-collections',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(querySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { page, pageSize, isActive, search } = req.valid as {
@@ -380,7 +414,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/featured-collections/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const fc = await db.featuredCollections.byId(req.params.id);
     if (!fc) throw notFound('Featured collection');
@@ -390,7 +424,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.post(
   '/featured-collections',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(featuredCollectionSchema),
   asyncHandler(async (req, res) => {
     const { collectionId, order, isActive } = req.valid as {
@@ -421,7 +455,7 @@ contentManagerRouter.post(
 
 contentManagerRouter.put(
   '/featured-collections/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(updateFeaturedCollectionSchema),
   asyncHandler(async (req, res) => {
     const fc = await db.featuredCollections.byId(req.params.id);
@@ -442,7 +476,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.delete(
   '/featured-collections/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const fc = await db.featuredCollections.byId(req.params.id);
     if (!fc) throw notFound('Featured collection');
@@ -464,7 +498,7 @@ contentManagerRouter.delete(
 
 contentManagerRouter.get(
   '/cafes',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(querySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { page, pageSize, isActive, search } = req.valid as {
@@ -511,7 +545,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/cafes/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const cafe = await db.cafes.byId(req.params.id);
     if (!cafe) throw notFound('Cafe');
@@ -521,13 +555,14 @@ contentManagerRouter.get(
 
 contentManagerRouter.post(
   '/cafes',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(cafeSchema),
   asyncHandler(async (req, res) => {
-    const { name, photoUrl, description, order, isActive } = req.valid as {
+    const { name, photoUrl, description, websiteUrl, order, isActive } = req.valid as {
       name: string;
       photoUrl: string;
       description: string;
+      websiteUrl?: string | null;
       order?: number;
       isActive?: boolean;
     };
@@ -540,6 +575,7 @@ contentManagerRouter.post(
       name,
       photoUrl,
       description,
+      websiteUrl: websiteUrl || null,
       order: nextOrder,
       isActive: isActive ?? true,
       createdAt: now,
@@ -556,14 +592,19 @@ contentManagerRouter.post(
 
 contentManagerRouter.put(
   '/cafes/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(updateCafeSchema),
   asyncHandler(async (req, res) => {
     const cafe = await db.cafes.byId(req.params.id);
     if (!cafe) throw notFound('Cafe');
 
+    // Clearing the website field in the console sends '' — stored as null so
+    // "no destination" has one representation rather than two.
+    const patch = { ...(req.valid as Record<string, unknown>) };
+    if (patch.websiteUrl === '') patch.websiteUrl = null;
+
     const updated = await db.cafes.update(req.params.id, {
-      ...req.valid,
+      ...patch,
       updatedAt: new Date().toISOString(),
     });
 
@@ -577,7 +618,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.delete(
   '/cafes/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const cafe = await db.cafes.byId(req.params.id);
     if (!cafe) throw notFound('Cafe');
@@ -599,7 +640,7 @@ contentManagerRouter.delete(
 
 contentManagerRouter.get(
   '/collaboration-slides',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(querySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { page, pageSize, isActive, search } = req.valid as {
@@ -650,7 +691,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/collaboration-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const slide = await db.collaborationSlides.byId(req.params.id);
     if (!slide) throw notFound('Collaboration slide');
@@ -660,7 +701,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.post(
   '/collaboration-slides',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(collaborationSlideSchema),
   asyncHandler(async (req, res) => {
     const { imageUrl, photographerId, order, isActive } = req.valid as {
@@ -693,7 +734,7 @@ contentManagerRouter.post(
 
 contentManagerRouter.put(
   '/collaboration-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   validate(updateCollaborationSlideSchema),
   asyncHandler(async (req, res) => {
     const slide = await db.collaborationSlides.byId(req.params.id);
@@ -714,7 +755,7 @@ contentManagerRouter.put(
 
 contentManagerRouter.delete(
   '/collaboration-slides/:id',
-  requireRole(MANAGER_ROLE),
+  requireContentRole,
   asyncHandler(async (req, res) => {
     const slide = await db.collaborationSlides.byId(req.params.id);
     if (!slide) throw notFound('Collaboration slide');

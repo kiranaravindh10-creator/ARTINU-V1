@@ -1,6 +1,7 @@
 import {
   ART_STYLE_LABELS,
   ART_STYLES,
+  formatDate,
   registerStep1Schema,
   registerStep2Schema,
   registerStep3Schema,
@@ -21,7 +22,7 @@ import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CharCount, Field } from '@/components/ui/field';
-import { Input, PasswordInput, Textarea } from '@/components/ui/input';
+import { DateInput, Input, PasswordInput, PhoneInput, Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { AvatarDropzone, PasswordRules } from '@/features/auth/components/AuthBits';
@@ -127,6 +128,12 @@ export default function ArtistRegisterPage() {
                   { label: 'Name', value: draft.fullName, step: 1 },
                   { label: 'Artist Name', value: draft.artistName, step: 2 },
                   { label: 'Email', value: draft.email, step: 1 },
+                  { label: 'Phone', value: draft.phone, step: 1 },
+                  {
+                    label: 'Date of Birth',
+                    value: draft.dateOfBirth ? formatDate(draft.dateOfBirth, 'long') : undefined,
+                    step: 1,
+                  },
                   { label: 'Location', value: draft.location, step: 2 },
                   {
                     label: 'Art Style',
@@ -207,6 +214,8 @@ function StepOne({ defaults, onNext }: { defaults: Draft; onNext: (values: Regis
     defaultValues: {
       fullName: defaults.fullName ?? '',
       email: defaults.email ?? '',
+      phone: defaults.phone ?? '',
+      dateOfBirth: defaults.dateOfBirth ?? '',
       password: defaults.password ?? '',
     },
   });
@@ -237,6 +246,25 @@ function StepOne({ defaults, onNext }: { defaults: Draft; onNext: (values: Regis
             {...register('email')}
           />
         </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
+            <PhoneInput id="phone" invalid={!!errors.phone} {...register('phone')} />
+          </Field>
+
+          <Field
+            label="Date of birth"
+            htmlFor="dateOfBirth"
+            error={errors.dateOfBirth?.message}
+          >
+            <DateInput
+              id="dateOfBirth"
+              autoComplete="bday"
+              invalid={!!errors.dateOfBirth}
+              {...register('dateOfBirth')}
+            />
+          </Field>
+        </div>
 
         <Field label="Password" htmlFor="password" error={errors.password?.message}>
           <PasswordInput

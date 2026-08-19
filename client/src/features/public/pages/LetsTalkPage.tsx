@@ -47,11 +47,32 @@ const MONTHS = [
 const toKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
+/*
+  Four things that actually happen, rather than four qualities.
+
+  This read "Personalized Guidance · Expert Insights · Tailored Recommendations
+  · Seamless Experience", with bodies to match ("From concept to execution,
+  we've got you"). Every line could have sat on any company's website, which is
+  the tell — a space owner deciding whether to give up forty minutes learns
+  nothing from it. These say what the visit is.
+*/
 const WHY = [
-  { icon: CalendarDays, title: 'Personalized Guidance', body: 'We understand your space, vision and goals.' },
-  { icon: Lightbulb, title: 'Expert Insights', body: 'Get ideas that blend aesthetics with functionality.' },
-  { icon: Sparkles, title: 'Tailored Recommendations', body: 'From concept to execution, we’ve got you.' },
-  { icon: Check, title: 'Seamless Experience', body: 'A smooth, collaborative journey from start to finish.' },
+  {
+    icon: CalendarDays,
+    title: 'Forty minutes, in the room',
+    body: 'We look at your light through the day, your wall colours, how people move through the space.',
+  },
+  {
+    icon: Lightbulb,
+    title: 'A proposal, not a catalogue',
+    body: 'You get photographs chosen for your walls, not a gallery to scroll through.',
+  },
+  {
+    icon: Sparkles,
+    title: 'One team, start to finish',
+    body: 'The people who read the room are the ones who print, frame and hang the work.',
+  },
+  { icon: Check, title: 'Nothing to sign', body: 'The consultation is free, and it can end there.' },
 ];
 
 /**

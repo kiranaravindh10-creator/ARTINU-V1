@@ -306,6 +306,8 @@ const signup = await call(
   post({
     fullName: 'Ada Lovelace',
     email: guestEmail,
+    phone: '+91 98765 43210',
+    dateOfBirth: '1990-12-10',
     password: 'Artinu@2026Test',
     confirmPassword: 'Artinu@2026Test',
     role: 'guest',
@@ -351,6 +353,8 @@ const replay = await call(
   post({
     fullName: 'Ada Lovelace',
     email: guestEmail,
+    phone: '+91 98765 43210',
+    dateOfBirth: '1990-12-10',
     password: 'Artinu@2026Test',
     confirmPassword: 'Artinu@2026Test',
     role: 'guest',
@@ -369,6 +373,8 @@ const burst = await Promise.all(
     call('/auth/sign-up', post({
       fullName: 'Grace Hopper',
       email: burstEmail,
+      phone: '+91 98765 43211',
+      dateOfBirth: '1988-12-09',
       password: 'Artinu@2026Test',
       confirmPassword: 'Artinu@2026Test',
       role: 'guest',
@@ -392,6 +398,8 @@ const artist = await call(
   post({
     fullName: 'Vivian Maier',
     email: artistEmail,
+    phone: '+91 98765 43210',
+    dateOfBirth: '1985-02-01',
     password: 'Artinu@2026Test',
     confirmPassword: 'Artinu@2026Test',
     artistName: 'V. Maier',
@@ -417,6 +425,7 @@ const owner = await call(
     spaceType: 'cafe',
     city: 'Barcelona',
     phone: '9876501234',
+    dateOfBirth: '1976-03-27',
     acceptTerms: true,
   }),
 );
@@ -462,6 +471,8 @@ const retry = await call(
   post({
     fullName: 'Valid Retry',
     email: badEmail,
+    phone: '+91 98765 43212',
+    dateOfBirth: '1994-08-08',
     password: 'Artinu@2026Test',
     confirmPassword: 'Artinu@2026Test',
     role: 'guest',

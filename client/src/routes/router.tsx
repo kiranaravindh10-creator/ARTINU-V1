@@ -316,7 +316,7 @@ const consoleRoutes: RouteObject = {
         },
         {
           path: 'content',
-          element: <ModuleRoute module="system" />,
+          element: <ModuleRoute module="content" />,
           children: [
             {
               index: true,

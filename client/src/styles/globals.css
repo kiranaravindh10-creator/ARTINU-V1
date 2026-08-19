@@ -238,7 +238,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-eyebrow);
     font-weight: 500;
-    letter-spacing: 0.25em; /* Tightened from 0.18em? No, increased for editorial breathing room */
+    letter-spacing: 0.25em;
     text-transform: uppercase;
     color: var(--color-bronze);
   }

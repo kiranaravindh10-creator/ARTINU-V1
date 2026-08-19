@@ -97,6 +97,9 @@ const reg = await call(
   json({
     fullName: 'QA Artist',
     email: artistEmail,
+    // Registration collects a phone number and a date of birth (migration 009).
+    phone: '+91 98765 43210',
+    dateOfBirth: '1992-07-14',
     password: 'TestPass@2026',
     artistName: 'QA Artist',
     location: 'Bengaluru, India',
@@ -114,6 +117,9 @@ const dupe = await call(
   json({
     fullName: 'QA Artist',
     email: artistEmail,
+    // Registration collects a phone number and a date of birth (migration 009).
+    phone: '+91 98765 43210',
+    dateOfBirth: '1992-07-14',
     password: 'TestPass@2026',
     artistName: 'QA Artist',
     location: 'Bengaluru, India',
@@ -128,6 +134,8 @@ const artFile = await call(
   json({
     fullName: 'QA Visitor',
     email: `qa.visitor.${stamp}@example.com`,
+    phone: '+91 90000 12345',
+    dateOfBirth: '1990-01-30',
     password: 'TestPass@2026',
     confirmPassword: 'TestPass@2026',
     role: 'space_owner',

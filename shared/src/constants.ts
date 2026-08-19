@@ -42,12 +42,27 @@ export const ROLE_MODULES: Record<string, string[]> = {
     'accounts',
     'reports',
     'users',
+    'content',
     'system',
   ],
-  manager: ['overview', 'orders', 'moderation', 'artists', 'spaces', 'printing', 'reports'],
+  // `content` is the homepage — the carousel, the collaborations, the featured
+  // photographs. It used to sit inside `system`, which meant the two roles that
+  // actually maintain the homepage (manager and IT) could not both reach it:
+  // the console linked it under `system` (CEO and IT only) while the API asked
+  // for the manager role, so whoever could see the page could not save from it.
+  manager: [
+    'overview',
+    'orders',
+    'moderation',
+    'artists',
+    'spaces',
+    'printing',
+    'reports',
+    'content',
+  ],
   accounts: ['overview', 'payments', 'accounts', 'reports'],
   operations: ['overview', 'orders', 'printing', 'spaces'],
-  it_team: ['overview', 'users', 'system'],
+  it_team: ['overview', 'users', 'content', 'system'],
 };
 
 /** Account lifecycle (SDD §20). */

@@ -129,10 +129,11 @@ export async function createProfile(
   userId: string,
   fields: Partial<Profile> & { fullName: string },
 ): Promise<Profile> {
-  return db.profiles.insert({
+  const base = {
     userId,
     displayName: null,
     phone: null,
+    dateOfBirth: null,
     avatarUrl: null,
     city: null,
     country: null,
@@ -143,7 +144,29 @@ export async function createProfile(
     createdAt: now(),
     updatedAt: now(),
     ...fields,
-  });
+  };
+
+  /*
+    `profiles.date_of_birth` arrives with migration 009, and registration has to
+    keep working on a project that has not run it yet — exactly the reasoning
+    behind `must_change_password` above. Losing a date of birth is a gap in a
+    record; a 400 here is a person who cannot create an account at all.
+
+    The retry is logged at error level rather than swallowed: until the
+    migration runs, dates of birth are collected in the form and dropped on the
+    floor, and somebody needs to know that.
+  */
+  try {
+    return await db.profiles.insert(base);
+  } catch (error) {
+    if (!isMissingColumn(error, 'date_of_birth')) throw error;
+    logger.error(
+      'profiles.date_of_birth is missing — run database/migrations/009_registration_and_collaborations.sql. ' +
+        'Registration still works, but dates of birth are not being stored.',
+    );
+    const { dateOfBirth: _dropped, ...withoutDob } = base;
+    return db.profiles.insert(withoutDob);
+  }
 }
 
 // ── One-time codes ───────────────────────────────────────────────────────────

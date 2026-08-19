@@ -9,7 +9,7 @@ import { AuthCard, AuthFootnote, AuthSplit } from '@/components/layout/AuthLayou
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
-import { Input, PasswordInput } from '@/components/ui/input';
+import { DateInput, Input, PasswordInput, PhoneInput } from '@/components/ui/input';
 import { PasswordRules } from '@/features/auth/components/AuthBits';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
@@ -25,6 +25,8 @@ export default function ArtPhilesRegisterPage() {
     defaultValues: {
       fullName: '',
       email: '',
+      phone: '',
+      dateOfBirth: '',
       password: '',
       confirmPassword: '',
       role: 'guest',
@@ -87,6 +89,29 @@ export default function ArtPhilesRegisterPage() {
                 {...form.register('email')}
               />
             </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Phone number" htmlFor="phone" error={form.formState.errors.phone?.message}>
+                <PhoneInput
+                  id="phone"
+                  invalid={!!form.formState.errors.phone}
+                  {...form.register('phone')}
+                />
+              </Field>
+
+              <Field
+                label="Date of birth"
+                htmlFor="dateOfBirth"
+                error={form.formState.errors.dateOfBirth?.message}
+              >
+                <DateInput
+                  id="dateOfBirth"
+                  autoComplete="bday"
+                  invalid={!!form.formState.errors.dateOfBirth}
+                  {...form.register('dateOfBirth')}
+                />
+              </Field>
+            </div>
 
             <Field label="Password" htmlFor="password" error={form.formState.errors.password?.message}>
               <PasswordInput

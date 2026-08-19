@@ -1,29 +1,20 @@
-import { SPACE_TYPE_LABELS, SPACE_TYPES } from '@artinu/shared';
+import { SPACE_TYPE_LABELS, type Cafe } from '@artinu/shared';
 import {
   ArrowRight,
   ArrowLeft,
+  ArrowUpRight,
   BedDouble,
   Briefcase,
   ChevronDown,
   ChevronRight,
   Coffee,
-  Frame,
-  Heart,
-  Image as ImageIcon,
-  MessageCircle,
-  PackageOpen,
-  RefreshCw,
   RotateCcw,
-  Stethoscope,
-  Tag,
   Users,
   UtensilsCrossed,
-  Wrench,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowLink, Container, Section, SectionHeading, StepIcon } from '@/components/layout/primitives';
+import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
 import { Photo } from '@/components/ui/photo';
@@ -43,64 +34,6 @@ import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { preloadImage, getBlurPlaceholderSync } from '@/lib/imageOptimization';
-
-const ADVANTAGES: { icon: LucideIcon; title: string; body: string }[] = [
-  {
-    icon: Frame,
-    title: 'Elevate Ambience',
-    body: 'High-quality photography that complements your space and creates a lasting impression.',
-  },
-  {
-    icon: RefreshCw,
-    title: 'Rotating, Always Fresh',
-    body: 'New perspectives every 1–3 months keep your space dynamic and engaging.',
-  },
-  {
-    icon: Tag,
-    title: 'Zero Upfront Cost',
-    body: 'Enjoy premium wall art without the cost of buying or owning it.',
-  },
-  {
-    icon: Wrench,
-    title: 'We Handle Everything',
-    body: 'Curation, framing, installation, rotation and maintenance—all taken care of by us.',
-  },
-];
-
-const STEPS: { number: string; title: string; body: string; icon: LucideIcon }[] = [
-  {
-    number: '01',
-    title: 'Understand',
-    body: 'We learn about your space, style and goals.',
-    icon: MessageCircle,
-  },
-  {
-    number: '02',
-    title: 'Curate',
-    body: 'We curate a collection that fits your space perfectly.',
-    icon: ImageIcon,
-  },
-  {
-    number: '03',
-    title: 'Install',
-    body: 'Our team delivers and installs everything with care.',
-    icon: PackageOpen,
-  },
-  {
-    number: '04',
-    title: 'Rotate',
-    body: 'Every 1–3 months, we refresh your space with new photographs.',
-    icon: RefreshCw,
-  },
-  {
-    number: '05',
-    title: 'Enjoy',
-    body: 'You enjoy the impact. We take care of the rest.',
-    icon: Heart,
-  },
-];
-
-const SPACE_TILES = ['cafe', 'office', 'restaurant', 'hotel', 'home_decor', 'clinic'] as const;
 
 /**
  * Customer quotes come from the database, and only from the database.
@@ -219,7 +152,7 @@ function PhotographerShowcaseHero() {
   if (isLoading) {
     return (
       <section
-        className="relative h-[100vh] bg-ink"
+        className="relative h-[calc(100dvh-4.5rem)] min-h-[34rem] bg-ink"
         role="status"
         aria-label="Loading the featured collection"
       >
@@ -240,7 +173,7 @@ function PhotographerShowcaseHero() {
   */
   if (!heroSlides || heroSlides.length === 0) {
     return (
-      <section className="relative h-[100vh] w-full overflow-hidden bg-ink">
+      <section className="relative h-[calc(100dvh-4.5rem)] min-h-[34rem] w-full overflow-hidden bg-ink">
         <Photo
           src={HOME_HERO.src}
           alt="Friends in a Bengaluru cafe looking up at a framed ARTINU photograph"
@@ -299,12 +232,12 @@ function PhotographerShowcaseHero() {
 
   return (
     <section
-      className="relative h-[100vh] w-full flex flex-col overflow-hidden bg-ink select-none"
+      className="relative h-[calc(100dvh-4.5rem)] min-h-[34rem] w-full flex flex-col overflow-hidden bg-ink select-none"
       onMouseEnter={() => { setIsHovered(true); }}
       onMouseLeave={() => { setIsHovered(false); setIsPlaying(true); }}
     >
-      {/* Top 80%: Main Hero Image */}
-      <div className="relative h-[80vh] w-full overflow-hidden bg-ink z-0">
+      {/* The photograph */}
+      <div className="relative h-[78%] w-full overflow-hidden bg-ink z-0">
         <AnimatePresence>
           <motion.div
             key={`bg-${currentSlide.id}`}
@@ -319,7 +252,11 @@ function PhotographerShowcaseHero() {
           >
             <Photo
               src={heroSrc}
-              alt={`Hero slide ${currentIndex + 1}`}
+              alt={
+                currentSlide.photographerName
+                  ? `Photograph by ${currentSlide.photographerName}`
+                  : 'A photograph from the ARTINU collection'
+              }
               hero
               priority={isFirstSlide}
               blurPlaceholder={heroBlurPlaceholder}
@@ -334,11 +271,11 @@ function PhotographerShowcaseHero() {
         <div className="absolute inset-0 bg-black/10 z-10 mix-blend-multiply pointer-events-none" />
       </div>
 
-      {/* Bottom 20%: Control Strip */}
-      <div className="relative h-[20vh] min-h-[140px] w-full flex flex-row bg-ink z-20 border-t border-white/10">
+      {/* The control strip under it */}
+      <div className="relative h-[22%] min-h-[150px] w-full flex flex-row bg-ink z-20 border-t border-white/10">
         
-        {/* Left Half: Navigation & Caption */}
-        <div className="w-1/2 h-full flex flex-col justify-center px-6 md:px-12 lg:px-16 border-r border-white/10">
+        {/* Left half on large screens, the whole strip below it. */}
+        <div className="flex h-full w-full flex-col justify-center px-6 md:px-12 lg:w-1/2 lg:px-16">
           <div className="flex flex-col justify-center gap-4 w-full max-w-xl mx-auto xl:mx-0">
             
             {/* Upper row: Thumbnails and Nav Arrows aligned on the same horizontal baseline */}
@@ -359,6 +296,7 @@ function PhotographerShowcaseHero() {
                     <motion.button
                       key={slide.id}
                       onClick={() => goToSlide(i)}
+                      aria-label={`Show photograph ${i + 1} of ${total}`}
                       layout
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ 
@@ -373,7 +311,8 @@ function PhotographerShowcaseHero() {
                     >
                       <Photo
                         src={slide.imageUrl}
-                        alt={`Slide ${i + 1}`}
+                        alt=""
+                        aria-hidden
                         thumbnail
                         className="w-full h-full"
                         imgClassName="w-full h-full object-cover"
@@ -404,14 +343,24 @@ function PhotographerShowcaseHero() {
 
             {/* Lower row: Caption locked to the left edge of the thumbnails */}
             <div className="flex items-center justify-between">
-              <p className="text-white text-xs sm:text-sm tracking-wide flex items-center gap-3">
-                <span className="font-semibold text-white/90">Slide {currentIndex + 1} of {total}</span>
+              {/*
+                A counter and a credit, set as the small mono label the rest of
+                the site uses. It read "Slide 3 of 8" in semibold sans, which is
+                how a slideshow widget describes itself rather than how a
+                gallery captions a photograph.
+              */}
+              <p className="flex min-w-0 items-center gap-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-white/50">
+                <span className="text-white/80">
+                  {String(currentIndex + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+                </span>
                 {/* Credit only where there is a real name to credit. This used
                     to print eight characters of the photographer's UUID. */}
                 {currentSlide.photographerName ? (
                   <>
-                    <span className="text-white/30">|</span>
-                    <span className="text-white/60 font-light truncate max-w-[150px] sm:max-w-[300px]">
+                    <span className="text-white/20" aria-hidden>
+                      ·
+                    </span>
+                    <span className="truncate normal-case tracking-normal text-white/60">
                       Photograph by {currentSlide.photographerName}
                     </span>
                   </>
@@ -428,25 +377,20 @@ function PhotographerShowcaseHero() {
           </div>
         </div>
 
-        {/* Right Half: Etched Text Transition */}
-        <div className="w-1/2 h-full flex items-center px-6 md:px-12 lg:px-16 relative overflow-hidden bg-ink">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentSlide.id}
-              initial={{ x: 40, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -40, opacity: 0 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute left-6 md:left-12 lg:left-16 right-6 md:right-12 lg:right-16 flex items-center"
-            >
-              <span 
-                className="font-display text-[clamp(1.5rem,3.5vw,4rem)] leading-tight text-transparent opacity-80 break-words line-clamp-2 w-full"
-                style={{ WebkitTextStroke: '1px rgba(255,255,255,0.3)' }}
-              >
-                FEATURED COLLECTION
-              </span>
-            </motion.div>
-          </AnimatePresence>
+        {/*
+          The right half of the strip.
+
+          It held the words FEATURED COLLECTION in outlined, hollow capitals,
+          animated in and out on every slide change — a constant string given a
+          transition, and a decoration standing where a sentence should be. On a
+          phone it took half the control strip away from the thumbnails to say
+          nothing. It now carries what ARTINU actually does, set in the display
+          serif, and steps aside below the large breakpoint.
+        */}
+        <div className="hidden h-full w-1/2 items-center border-l border-white/10 bg-ink px-12 lg:flex lg:px-16">
+          <p className="font-display text-[clamp(1.25rem,1.8vw,1.875rem)] leading-snug text-canvas/70">
+            Photography on rotation, for rooms people actually sit in.
+          </p>
         </div>
       </div>
     </section>
@@ -467,7 +411,7 @@ function SpacesWeTransform() {
     { type: 'office', icon: Briefcase, description: 'Inspiring work environments' },
     { type: 'restaurant', icon: UtensilsCrossed, description: 'Memorable dining experiences' },
     { type: 'hotel', icon: BedDouble, description: 'Welcoming guest spaces' },
-    { type: 'home_decor', icon: Users, description: 'Creative community hubs' },
+    { type: 'home_decor', icon: Users, description: 'Rooms people come home to' },
   ] as const;
 
   return (
@@ -676,9 +620,24 @@ function TestimonialsCarousel() {
   );
 }
 
-// ── Cafe Section (Manager-controlled) ───────────────────────────────────────
+// ── Collaborations (manager-controlled) ─────────────────────────────────────
 
-function CafeSection() {
+/**
+ * The cafés, restaurants and studios ARTINU works with.
+ *
+ * This was a marquee: the list doubled and animated from 0% to -50% forever.
+ * Three problems, all visible on the homepage. The two copies shared their
+ * React keys, so every card was rendered twice under the same id. The -50%
+ * assumes the row is exactly twice the width of the original list, which the
+ * `gap-6` between cards and the `px-4` on the track make untrue, so the loop
+ * jumped. And a moving target cannot be clicked, which mattered the moment a
+ * collaboration had somewhere to link to.
+ *
+ * A grid instead: fixed card proportions, one baseline for every name, one for
+ * every line of description, and a card that reads as a card whether there are
+ * eight collaborations or one.
+ */
+function CollaborationsSection() {
   const { data: cafes, isLoading } = useQuery({
     queryKey: ['content-manager', 'cafes', 'active'],
     queryFn: () => contentService.getActiveCafes(),
@@ -689,42 +648,107 @@ function CafeSection() {
   }
 
   return (
-    <Section tone="canvas" className="py-24">
-      <Container className="mb-10 text-center">
+    <Section tone="soft">
+      <Container>
         <Reveal>
-          <SectionHeading
-            eyebrow="Spaces we curate"
-            title="Our Café Collaborations"
-            className="mx-auto"
-          />
+          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+            <SectionHeading
+              eyebrow="Collaborations"
+              title={
+                <>
+                  The places our work <em className="editorial-italic">lives</em>.
+                </>
+              }
+              className="max-w-2xl"
+            />
+            <ArrowLink to="/spaces">Bring ARTINU to your space</ArrowLink>
+          </div>
         </Reveal>
-      </Container>
-      <div className="relative flex w-full overflow-hidden">
-        <motion.div
-          className="flex gap-6 px-4"
-          animate={{ x: ['0%', '-50%'] }}
-          transition={{ ease: 'linear', duration: 25, repeat: Infinity }}
-        >
-          {/* Double the list to loop seamlessly */}
-          {[...cafes, ...cafes].map((cafe, i) => (
-            <div key={cafe.id} className="group relative w-64 h-80 shrink-0 overflow-hidden rounded-xl">
-              <Photo
-                src={cafe.photoUrl}
-                alt={cafe.name}
-                thumbnail
-                className="absolute inset-0 h-full w-full"
-                imgClassName="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent to-transparent opacity-60 transition-opacity group-hover:opacity-80" />
-              <div className="absolute bottom-6 left-6 right-6">
-                <p className="font-display text-lg text-canvas">{cafe.name}</p>
-                <p className="mt-1 text-xs text-canvas/70 line-clamp-1">{cafe.description}</p>
-              </div>
-            </div>
+
+        <Stagger className="mt-14 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {cafes.map((cafe) => (
+            <StaggerItem key={cafe.id}>
+              <CollaborationCard cafe={cafe} />
+            </StaggerItem>
           ))}
-        </motion.div>
-      </div>
+        </Stagger>
+      </Container>
     </Section>
+  );
+}
+
+/**
+ * One collaboration.
+ *
+ * The card links out only when a manager has entered the partner's address in
+ * Console → Homepage → Collaborations. Without one it is a card and nothing
+ * more: a plausible-looking URL assembled from the name would send visitors to
+ * a stranger's website, and it is not the kind of mistake anyone would catch
+ * from the homepage.
+ */
+function CollaborationCard({ cafe }: { cafe: Cafe }) {
+  const href = cafe.websiteUrl?.trim() || null;
+
+  // Shown rather than the raw URL: "nibbannosh.com" reads as a destination,
+  // "https://www.nibbannosh.com/?utm=…" reads as a database field.
+  const domain = React.useMemo(() => {
+    if (!href) return null;
+    try {
+      return new URL(href).hostname.replace(/^www\./, '');
+    } catch {
+      return null;
+    }
+  }, [href]);
+
+  const body = (
+    <>
+      <Photo
+        src={cafe.photoUrl}
+        alt={cafe.name}
+        ratio="aspect-[4/3]"
+        thumbnail
+        className="photo-edge rounded-lg"
+        imgClassName="transition-transform duration-[1.2s] ease-[var(--ease-out-soft)] group-hover:scale-[1.04]"
+      />
+
+      <div className="mt-5 flex items-start justify-between gap-4">
+        <h3 className="font-display text-xl leading-snug text-ink">{cafe.name}</h3>
+        {href && (
+          <span
+            className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink transition-all duration-300 ease-[var(--ease-out-soft)] group-hover:border-ink group-hover:bg-ink group-hover:text-canvas"
+            aria-hidden
+          >
+            <ArrowUpRight className="size-4" />
+          </span>
+        )}
+      </div>
+
+      {cafe.description && (
+        <p className="prose-quiet mt-2 line-clamp-2 text-sm">{cafe.description}</p>
+      )}
+
+      {domain && (
+        <span className="mt-3 block font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-bronze">
+          {domain}
+        </span>
+      )}
+    </>
+  );
+
+  if (!href) {
+    return <article className="group">{body}</article>;
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze focus-visible:ring-offset-4 focus-visible:ring-offset-canvas-soft"
+    >
+      {body}
+      <span className="sr-only">(opens {cafe.name} in a new tab)</span>
+    </a>
   );
 }
 
@@ -779,9 +803,11 @@ function FeaturedCollectionsSection() {
       <Container>
         <Reveal>
           <div className="flex flex-wrap items-end justify-between gap-6">
+            {/* The eyebrow and the heading both read "Featured Collections",
+                one directly above the other. */}
             <SectionHeading
-              eyebrow="Featured Collections"
-              title="Featured Collections."
+              eyebrow="Featured"
+              title="Photographs we are showing this month."
               className="max-w-2xl"
             />
             <ArrowLink to="/gallery">Browse the full gallery</ArrowLink>
@@ -820,14 +846,14 @@ function FeaturedCollectionsSection() {
 /*
  * `CollaboratedSpacesCarousel` was removed.
  *
- * It was a second collaborations rail sitting directly beneath <CafeSection />,
+ * It was a second collaborations rail sitting directly beneath the grid above,
  * hardcoded with six named businesses — Blue Tokai, Third Wave Coffee,
  * Starbucks Reserve among them — over stock Unsplash photographs. None of it
  * came from the database, which meant the homepage claimed partnerships with
  * real, identifiable companies that ARTINU may never have worked with, and no
  * manager could correct it without a deploy.
  *
- * <CafeSection /> above already renders this exact design from the `cafes`
+ * <CollaborationsSection /> above already renders this from the `cafes`
  * table, which the console can add to, edit, reorder and hide, and which the
  * artist workspace reads from too (requirements §7, §24, §40).
  */
@@ -1024,7 +1050,7 @@ export default function HomePage() {
 
       <SpacesWeTransform />
 
-      <CafeSection />
+      <CollaborationsSection />
 
       <div
         className="py-16 sm:py-24"
@@ -1073,18 +1099,4 @@ export default function HomePage() {
       />
     </>
   );
-}
-
-const TILE_ICONS: Partial<Record<(typeof SPACE_TYPES)[number], LucideIcon>> = {
-  cafe: Coffee,
-  restaurant: UtensilsCrossed,
-  hotel: BedDouble,
-  office: Briefcase,
-  home_decor: Users,
-  clinic: Stethoscope,
-};
-
-function SpaceTileIcon({ type }: { type: (typeof SPACE_TYPES)[number] }) {
-  const Icon = TILE_ICONS[type] ?? Frame;
-  return <Icon className="size-6 stroke-[1.2] text-white" aria-hidden />;
 }

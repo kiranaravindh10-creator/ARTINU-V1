@@ -109,12 +109,23 @@ authRouter.post(
     const input = req.valid as {
       fullName: string;
       email: string;
+      phone: string;
+      dateOfBirth: string;
       password: string;
       role: 'space_owner' | 'artist';
     };
 
-    const user = await createUser({ email: input.email, password: input.password, role: input.role });
-    await createProfile(user.id, { fullName: input.fullName });
+    const user = await createUser({
+      email: input.email,
+      password: input.password,
+      role: input.role,
+      phone: input.phone,
+    });
+    await createProfile(user.id, {
+      fullName: input.fullName,
+      phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
+    });
 
     // Same reasoning as the dedicated artist and space-owner routes: neither of
     // these may cost someone their account once the user row is committed.
@@ -165,6 +176,8 @@ authRouter.post(
     const input = req.valid as {
       fullName: string;
       email: string;
+      phone: string;
+      dateOfBirth: string;
       password: string;
       artistName: string;
       location: string;
@@ -174,7 +187,12 @@ authRouter.post(
       avatarBase64?: string | null;
     };
 
-    const user = await createUser({ email: input.email, password: input.password, role: 'artist' });
+    const user = await createUser({
+      email: input.email,
+      password: input.password,
+      role: 'artist',
+      phone: input.phone,
+    });
 
     let avatarUrl: string | null = null;
     if (input.avatarBase64) {
@@ -186,6 +204,8 @@ authRouter.post(
     await createProfile(user.id, {
       fullName: input.fullName,
       displayName: input.artistName,
+      phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
       city: city ?? input.location,
       country: country ?? null,
       bio: input.bio ?? null,
@@ -243,6 +263,7 @@ authRouter.post(
       spaceType: string;
       city: string;
       phone: string;
+      dateOfBirth: string;
     };
 
     // Requirements §1: the owner does not invent credentials, ARTINU issues
@@ -261,6 +282,7 @@ authRouter.post(
     await createProfile(user.id, {
       fullName: input.fullName,
       phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
       city: input.city,
       country: 'India',
     });
