@@ -61,7 +61,7 @@ export function PublicNav() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'relative py-1 font-mono text-[0.6875rem] uppercase tracking-[0.16em] transition-colors',
+                  'relative py-1 font-label text-[0.6875rem] uppercase tracking-[0.16em] transition-colors',
                   isActive ? 'text-ink' : 'text-muted hover:text-ink',
                 )
               }
@@ -97,7 +97,7 @@ export function PublicNav() {
               <Link to="/space/cart" className="relative">
                 <ShoppingBag />
                 {count > 0 && (
-                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-bronze font-mono text-[0.5625rem] text-white">
+                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-bronze font-label tabular-nums text-[0.5625rem] text-white">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}

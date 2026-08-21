@@ -57,7 +57,7 @@ export function CheckboxRow({
     >
       <Checkbox id={id} checked={checked} onCheckedChange={(v) => onCheckedChange(v === true)} />
       <span className="flex-1">{label}</span>
-      {count !== undefined && <span className="font-mono text-[0.6875rem] text-subtle">{count}</span>}
+      {count !== undefined && <span className="font-label tabular-nums text-[0.6875rem] text-subtle">{count}</span>}
     </label>
   );
 }

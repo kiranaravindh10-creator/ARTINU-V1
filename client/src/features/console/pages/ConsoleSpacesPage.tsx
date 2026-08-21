@@ -202,7 +202,7 @@ export default function ConsoleSpacesPage() {
                 <Row label="Registered">{formatDate(selected.createdAt, 'long')}</Row>
               </dl>
 
-              <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Curation notes
               </h3>
               <dl className="mt-3 space-y-3 text-sm">

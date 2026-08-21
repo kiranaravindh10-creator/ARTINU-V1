@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
 import { DateInput, Input, PhoneInput } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,27 +82,27 @@ export default function SpaceRegisterPage() {
             Welcome to ARTINU.
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-sm text-canvas/60">
-            These are your sign-in details. Write them down now — we don&rsquo;t email passwords,
+            These are your sign-in details. Write them down now. We don&rsquo;t email passwords,
             and this is the only time this one is shown.
           </p>
 
           <dl className="mt-7 space-y-px overflow-hidden rounded-md border border-canvas/15 text-left">
             {issued.spaceCode && (
               <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-                <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
+                <dt className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
                   Space ID
                 </dt>
                 <dd className="font-mono text-sm text-bronze-light">{issued.spaceCode}</dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
+              <dt className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
                 Sign in with
               </dt>
               <dd className="min-w-0 truncate text-sm text-canvas">{issued.email}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
+              <dt className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
                 Password
               </dt>
               <dd className="font-mono text-base tracking-wider text-bronze-light">
@@ -130,7 +131,7 @@ export default function SpaceRegisterPage() {
                     setCopied(true);
                     toast.success('Copied. Keep it somewhere safe.');
                   },
-                  () => toast.error('Could not copy — please write the details down.'),
+                  () => toast.error('Could not copy. Please write the details down.'),
                 );
             }}
           >
@@ -218,7 +219,7 @@ export default function SpaceRegisterPage() {
               </div>
 
               <p className="rounded-md border border-line bg-sand-soft px-3.5 py-3 text-xs leading-relaxed text-muted">
-                No password to think up — ARTINU issues your space ID and a password when you
+                No password to think up. ARTINU issues your space ID and a password when you
                 finish, and shows them to you once.
               </p>
 
@@ -264,12 +265,21 @@ export default function SpaceRegisterPage() {
               </Field>
 
               <Field label="City" htmlFor="city" error={errors.city?.message}>
-                <Input
+            <Controller
+              name="city"
+              control={control}
+              render={({ field }) => (
+                <LocationInput
                   id="city"
-                  placeholder="Bengaluru"
+                  name={field.name}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Start typing the city"
                   invalid={!!errors.city}
-                  {...register('city')}
                 />
+              )}
+            />
               </Field>
 
               <label className="flex cursor-pointer items-start gap-3 pt-1 text-sm text-muted">

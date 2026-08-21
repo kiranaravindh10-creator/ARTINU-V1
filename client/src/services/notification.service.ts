@@ -1,7 +1,19 @@
-import type { Notification, Paginated } from '@artinu/shared';
+import type { AnnouncementInput, Notification, Paginated } from '@artinu/shared';
 import { api } from '@/lib/api';
 
 export const notificationService = {
+  /**
+   * Send one notification to a whole audience. Manager, IT and CEO only — the
+   * server enforces that; this is the console's side of it.
+   */
+  async announce(input: AnnouncementInput) {
+    const { data } = await api.post<{ sent: number; audience: string }>(
+      '/notifications/announce',
+      input,
+    );
+    return data;
+  },
+
   async list(params: { unread?: boolean; page?: number; pageSize?: number } = {}) {
     const { data } = await api.get<Paginated<Notification>>('/notifications', { params });
     return data;

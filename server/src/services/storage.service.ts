@@ -53,19 +53,73 @@ export interface StoredFile {
  * in the public gallery as an empty frame. It is set well below any real
  * photograph and far above a tracking pixel; ARTINU prints at A3 and larger,
  * so anything under this could not be used even if it were genuine.
+ *
+ * ⚠ NOTHING READS THIS. The constant is declared here and referenced nowhere,
+ * and `imageDimensions` below — the function written to feed it — is exported
+ * but imported by no module in the server. So the floor described above is not
+ * enforced on any upload path: a 1×1 PNG is accepted today, by the gallery as
+ * much as by the homepage carousel.
+ *
+ * Left as-is deliberately rather than switched on in passing. Enforcing it now
+ * would start refusing uploads that currently succeed, which is a product call
+ * about existing content and not a tidy-up. To wire it up: in `storeBase64`,
+ * after the signature check, call `imageDimensions(buffer, contentType)` and
+ * reject when a known size has an edge under this — leaving `undefined` (an
+ * unreadable container, e.g. AVIF) to pass, as it does now.
  */
 const MIN_IMAGE_EDGE = 800;
 
 /** 25 MB, matching the documented ceiling on POST /uploads. */
 const MAX_BYTES = 25 * 1024 * 1024;
 
-/** Accepted image types and the extension each is stored under. */
+/**
+ * Accepted image types and the extension each is stored under.
+ *
+ * This list is "every raster format a browser will actually decode", which is
+ * the only list that means anything here — everything uploaded through this
+ * endpoint ends up in an `<img>` on a public page. GIF was the one real gap and
+ * is now in.
+ *
+ * Deliberately absent, and why:
+ *
+ *   HEIC/HEIF   what an iPhone shoots by default. Only Safari decodes it, so
+ *               accepting it would put a hero on the homepage that is blank in
+ *               Chrome and Firefox. Rejected with instructions instead.
+ *   TIFF, RAW   (CR2/NEF/ARW/DNG) no browser decodes any of them.
+ *   PSD, PDF    not images as far as an `<img>` is concerned.
+ *   SVG         a browser *does* render it, and that is the problem: an SVG is
+ *               a document that can carry <script> and event handlers, and
+ *               these files are served from our own origin. Accepting one would
+ *               make this upload form a stored-XSS vector. There is also no
+ *               such thing as a photograph in SVG.
+ *
+ * Widening it further is not a kindness to whoever is uploading: an accepted
+ * file that no browser can draw fails later and more confusingly than one
+ * refused at the door, and — see `imageDimensions` — a container this module
+ * cannot read also slips past the minimum-resolution check.
+ *
+ * ADDING A FORMAT TAKES THREE EDITS HERE, not one. Miss any and it fails in a
+ * way that does not point at the cause:
+ *
+ *   1. this table + CONTENT_TYPES  — or the type is refused outright
+ *   2. `matchesImageSignature`      — default-deny, so a missing signature
+ *                                     refuses the upload with "does not contain
+ *                                     a valid image of the declared type"
+ *   3. `imageDimensions`            — for the resolution floor, which as of
+ *                                     today is NOT actually wired up: see the
+ *                                     note on MIN_IMAGE_EDGE. Add the case
+ *                                     anyway, so the format is covered if and
+ *                                     when it is.
+ *
+ * The client mirrors item 1 in ConsoleContentManagerPage; keep the two in step.
+ */
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
   'image/avif': 'avif',
+  'image/gif': 'gif',
 };
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -74,6 +128,24 @@ const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   avif: 'image/avif',
+  gif: 'image/gif',
+};
+
+/**
+ * Formats people genuinely try to upload that no browser can draw. Named
+ * individually so the refusal can say what to do about it — "that file type is
+ * not supported" sends someone back to a folder full of .HEIC with no idea why.
+ */
+const UNRENDERABLE: Record<string, string> = {
+  'image/heic': 'HEIC is what an iPhone shoots by default, and only Safari can display it.',
+  'image/heif': 'HEIF can only be displayed by Safari.',
+  'image/tiff': 'TIFF cannot be displayed by any browser.',
+  'image/vnd.adobe.photoshop': 'A Photoshop file cannot be displayed by a browser.',
+  'application/pdf': 'A PDF cannot be used as an image on the site.',
+  'image/x-canon-cr2': 'That is a camera raw file.',
+  'image/x-nikon-nef': 'That is a camera raw file.',
+  'image/x-sony-arw': 'That is a camera raw file.',
+  'image/x-adobe-dng': 'That is a camera raw file.',
 };
 
 const DATA_URL = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+)(;[^,]*)?;base64,([\s\S]+)$/i;
@@ -140,7 +212,17 @@ export async function storeBase64(
   const contentType = match[1].toLowerCase();
   const extension = EXTENSIONS[contentType];
   if (!extension) {
-    throw badRequest('That file type is not supported. Upload a JPEG, PNG, WebP or AVIF image.');
+    const reason = UNRENDERABLE[contentType];
+    if (reason) {
+      throw badRequest(`${reason} Export it as a JPEG or PNG and upload that instead.`);
+    }
+    if (contentType === 'image/svg+xml') {
+      // Not merely unsupported — actively refused. See EXTENSIONS.
+      throw badRequest('SVG files are not accepted. Upload a photograph as a JPEG, PNG, WebP, AVIF or GIF.');
+    }
+    throw badRequest(
+      `${contentType} is not an image format browsers can display. Upload a JPEG, PNG, WebP, AVIF or GIF.`,
+    );
   }
 
   const base64 = match[3].replace(/\s+/g, '');
@@ -252,6 +334,18 @@ export function imageDimensions(
       return { width, height };
     }
     return undefined;
+  }
+
+  if (contentType === 'image/gif') {
+    // Logical screen descriptor: width then height, little-endian uint16 each,
+    // immediately after the 6-byte GIF87a/GIF89a signature.
+    //
+    // Added with GIF support so this function stays complete for every format
+    // the module accepts. Note that no caller currently acts on the result —
+    // see MIN_IMAGE_EDGE — so this does not by itself keep a small GIF off the
+    // homepage.
+    if (buffer.length < 10) return undefined;
+    return { width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8) };
   }
 
   // AVIF dimensions live in an ispe box inside the meta hierarchy; not worth
@@ -436,5 +530,14 @@ function matchesImageSignature(buffer: Buffer, contentType: string): boolean {
   if (contentType === 'image/avif') {
     return buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp' && buffer.subarray(8, 12).toString('ascii').includes('avif');
   }
+  if (contentType === 'image/gif') {
+    // GIF87a or GIF89a. Both are still in the wild; only the second supports
+    // animation and transparency, and neither is worth distinguishing here.
+    const signature = buffer.length >= 6 ? buffer.subarray(0, 6).toString('ascii') : '';
+    return signature === 'GIF87a' || signature === 'GIF89a';
+  }
+  // Default deny, which is the right default: an unrecognised type reaching this
+  // point means the format was added to EXTENSIONS without a signature to match
+  // it, and refusing is better than storing whatever it turned out to be.
   return false;
 }

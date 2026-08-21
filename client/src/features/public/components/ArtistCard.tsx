@@ -39,11 +39,11 @@ export function ArtistCard({
         />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-canvas">
+            <h3 className="flex items-center gap-1.5 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-canvas">
               <span className="truncate">{artist.name}</span>
               {artist.verified && <BadgeCheck className="size-3.5 shrink-0 text-bronze-light" aria-label="Verified" />}
             </h3>
-            <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-canvas/60">
+            <p className="mt-1 font-label text-[0.625rem] uppercase tracking-[0.14em] text-canvas/60">
               {artist.city}
             </p>
           </div>

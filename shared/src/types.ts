@@ -1,4 +1,6 @@
 import type {
+  WarningCategory,
+  RemovalRequestStatus,
   ART_STYLES,
   ARTWORK_COLORS,
   ARTWORK_STATUSES,
@@ -57,6 +59,13 @@ export interface User {
    * it is a hand-over credential and the first sign-in must replace it.
    */
   mustChangePassword?: boolean;
+  /** Why the account was suspended or banned, shown to the person it happened to. */
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
+  statusChangedBy?: string | null;
+  /** Set when the 10-day or 96-day sweep has already warned this account, so it is not warned again. */
+  inactivityWarnedAt?: string | null;
+  inactivityReviewedAt?: string | null;
   createdAt: string;
   lastLoginAt?: string | null;
 }
@@ -69,6 +78,12 @@ export interface Profile {
   phone?: string | null;
   /** YYYY-MM-DD, collected at registration. Absent on accounts created before it was asked for. */
   dateOfBirth?: string | null;
+  /**
+   * Which Community Guidelines version this photographer accepted, and when.
+   * Null on accounts created before acceptance was recorded.
+   */
+  guidelinesVersion?: string | null;
+  guidelinesAcceptedAt?: string | null;
   avatarUrl?: string | null;
   /** Artist-only hero/backdrop image, stored independently from portfolio work. */
   coverUrl?: string | null;
@@ -471,10 +486,55 @@ export interface HeroSlide {
    * the credit is then omitted rather than falling back to the raw id.
    */
   photographerName?: string | null;
+  /**
+   * Where the photographer is based, resolved from their profile by the same
+   * endpoint. Shown under the credit in the hero. Null when the profile has no
+   * city set — the line then carries the name alone rather than a placeholder.
+   */
+  photographerLocation?: string | null;
   order: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * How the homepage slideshow plays.
+ *
+ * The photographs themselves are rows in `hero_slides`, which the console has
+ * always been able to add to, reorder and hide. How they play was not editable
+ * at all: the dwell was a `6000` in the homepage component, the cross-fade a
+ * `1.2` next to it, and the slow zoom a hardcoded twenty-second scale. Asking
+ * for a slower rotation meant a developer, a commit and a deploy.
+ *
+ * These live in `ui_content` under `homepage_slideshow` rather than in a table
+ * of their own — one row of settings for one slideshow does not need a schema
+ * migration, and `ui_content` is exactly the key/value store that already
+ * exists for this. A missing or partial record falls back to
+ * DEFAULT_SLIDESHOW_SETTINGS field by field, so the homepage plays correctly
+ * before anyone has ever opened the settings panel.
+ */
+export interface SlideshowSettings {
+  /** Advance on a timer. Off leaves the carousel entirely manual. */
+  autoPlay: boolean;
+  /** How long each photograph is held, in milliseconds. */
+  intervalMs: number;
+  /** Cross-fade, or push the next photograph in from the side. */
+  transition: 'fade' | 'slide';
+  /** Length of that transition, in milliseconds. */
+  transitionMs: number;
+  /** The slow push-in on the current photograph. */
+  kenBurns: boolean;
+  /** Hold the current photograph while the pointer is over the hero. */
+  pauseOnHover: boolean;
+  /** The row of upcoming photographs in the control strip. */
+  showThumbnails: boolean;
+  /** The previous/next arrows. */
+  showArrows: boolean;
+  /** The 01 / 08 counter and the photographer credit beside it. */
+  showCounter: boolean;
+  /** The line of copy in the right half of the control strip. */
+  caption: string;
 }
 
 export interface FeaturedCollection {
@@ -585,6 +645,54 @@ export interface ArtistApplication {
   portfolioUrls: string[];
   status: 'submitted' | 'under_review' | 'accepted' | 'rejected';
   reviewNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * One warning against a photographer's account (Community Guidelines §12).
+ *
+ * A row rather than a counter: "three warnings" is only meaningful if each one
+ * can be shown to the person who received it and to whoever reviews the account
+ * later. `number` is fixed at issue time so the sequence reads correctly even
+ * if an earlier warning is withdrawn.
+ */
+export interface Warning {
+  id: string;
+  userId: string;
+  number: number;
+  category: WarningCategory;
+  reason: string;
+  notes?: string | null;
+  /** The submission that prompted it, when there was one. */
+  artworkId?: string | null;
+  issuedBy?: string | null;
+  issuedByEmail?: string | null;
+  acknowledged: boolean;
+  createdAt: string;
+}
+
+/**
+ * A request to take a photograph down, or to close an account (§11, §19–21).
+ *
+ * `installationActive` and `physicallyRemovedAt` exist because the guideline
+ * ties the deadline to a physical event: a piece that is hanging in a café
+ * stays up until it comes down, and only then does the five-day clock
+ * (`processBy`) start.
+ */
+export interface RemovalRequest {
+  id: string;
+  userId: string;
+  artworkId?: string | null;
+  kind: 'artwork' | 'account';
+  status: RemovalRequestStatus;
+  reason?: string | null;
+  installationActive: boolean;
+  physicallyRemovedAt?: string | null;
+  processBy?: string | null;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }

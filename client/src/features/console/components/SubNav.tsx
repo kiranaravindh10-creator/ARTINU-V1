@@ -37,7 +37,7 @@ export function SubNav({
         >
           {item.label}
           {typeof item.count === 'number' && (
-            <span className="font-mono text-[0.625rem] tabular-nums text-subtle">{item.count}</span>
+            <span className="font-label text-[0.625rem] tabular-nums text-subtle">{item.count}</span>
           )}
         </NavLink>
       ))}

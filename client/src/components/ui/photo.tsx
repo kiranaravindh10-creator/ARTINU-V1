@@ -1,7 +1,7 @@
 import { ImageOff } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { buildHeroSrcSet, buildThumbnailSrcSet, getBlurPlaceholderSync } from '@/lib/imageOptimization';
+import { buildHeroSrcSet, buildThumbnailSrcSet, getBlurPlaceholderSync, resizedUpload } from '@/lib/imageOptimization';
 
 export interface PhotoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'onLoad' | 'srcSet' | 'sizes'> {
   src: string;
@@ -59,6 +59,18 @@ export function Photo({
     return undefined;
   }, [src, hero, thumbnail, srcSet]);
 
+  /*
+    The plain "src", which is what a browser falls back to and what it uses
+    when no "sizes" rule matches. Left as the stored URL it asks for the
+    photographer's full-resolution original — several megabytes for a tile a
+    few hundred pixels wide. resizedUpload leaves every other kind of image
+    exactly as it was.
+  */
+  const effectiveSrc = React.useMemo(
+    () => resizedUpload(src, thumbnail ? 800 : 1600),
+    [src, thumbnail],
+  );
+
   const effectiveSizes = React.useMemo(() => {
     if (hero) return sizes || '100vw';
     if (thumbnail) return sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw';
@@ -78,7 +90,7 @@ export function Photo({
       {state !== 'error' ? (
         <>
           <img
-            src={src}
+            src={effectiveSrc}
             srcSet={effectiveSrcSet}
             sizes={effectiveSizes}
             alt={alt}
@@ -103,7 +115,7 @@ export function Photo({
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 bg-sand text-subtle">
           <ImageOff className="size-5" aria-hidden />
-          <span className="px-4 text-center font-mono text-[0.625rem] uppercase tracking-[0.14em]">
+          <span className="px-4 text-center font-label text-[0.625rem] uppercase tracking-[0.14em]">
             {alt || 'Photograph'}
           </span>
         </div>

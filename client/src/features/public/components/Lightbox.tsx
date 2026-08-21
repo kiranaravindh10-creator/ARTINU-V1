@@ -3,6 +3,8 @@ import { ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, X } from 'lucide-
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { resizedUpload } from '@/lib/imageOptimization';
+import { ShareButton, ShareSheet } from '@/features/public/components/ShareSheet';
 
 /**
  * Looking at a photograph should cost one click and commit you to nothing.
@@ -27,6 +29,9 @@ export function Lightbox({
   onToggleWishlist?: (artwork: ArtworkWithArtist) => void;
 }) {
   const artwork = artworks[index];
+
+  // Only set when the browser has no native share sheet — see ShareButton.
+  const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
 
   /** The opening of whatever the photographer wrote, not a generated summary. */
   const blurb = (artwork?.description || artwork?.story || '').trim();
@@ -72,11 +77,19 @@ export function Lightbox({
         className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <span className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-canvas/50">
+        <span className="font-label text-[0.6875rem] uppercase tracking-[0.14em] text-canvas/50">
           {index + 1} / {artworks.length}
         </span>
 
         <div className="flex items-center gap-1">
+          {/* Share sits beside Save, the way it does on every photo app. This
+              is the screen people are actually on when they decide to send a
+              photograph to someone. */}
+          <ShareButton
+            artwork={artwork}
+            onFallback={setSharing}
+            className="flex size-10 items-center justify-center rounded-full text-canvas/70 transition-colors hover:bg-canvas/10 hover:text-canvas"
+          />
           {onToggleWishlist && (
             <button
               type="button"
@@ -116,7 +129,9 @@ export function Lightbox({
         )}
 
         <img
-          src={artwork.imageUrl}
+          /* 1600px covers any screen this opens on. The stored original is
+             the photographer's full-resolution file and can be 9 MB. */
+          src={resizedUpload(artwork.imageUrl, 1600)}
           alt={artwork.title}
           onClick={(event) => event.stopPropagation()}
           className="max-h-full max-w-full object-contain"
@@ -190,6 +205,10 @@ export function Lightbox({
           </Link>
         </div>
       </div>
+
+      {/* Only ever rendered where the browser has no native share sheet. On a
+          phone the OS sheet has already handled it and this stays closed. */}
+      <ShareSheet artwork={sharing} onClose={() => setSharing(null)} />
     </div>
   );
 }

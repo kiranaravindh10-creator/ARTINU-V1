@@ -152,7 +152,7 @@ export default function ConsoleApplicationsPage() {
                     </div>
 
                     <div>
-                      <h4 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                      <h4 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                         Their journey
                       </h4>
                       <p className="mt-1.5 text-sm leading-relaxed text-muted">
@@ -162,7 +162,7 @@ export default function ConsoleApplicationsPage() {
 
                     {application.goals && (
                       <div>
-                        <h4 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                        <h4 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                           What they want from ARTINU
                         </h4>
                         <p className="mt-1.5 text-sm leading-relaxed text-muted">
@@ -179,7 +179,7 @@ export default function ConsoleApplicationsPage() {
                   </div>
 
                   <div>
-                    <h4 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                    <h4 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                       Portfolio
                     </h4>
                     <div className="mt-3 grid grid-cols-3 gap-2">

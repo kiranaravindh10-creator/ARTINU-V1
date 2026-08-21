@@ -126,7 +126,7 @@ export default function ConsoleModerationPage() {
         title="Photo review"
         description="Clean uploads publish themselves and blocking failures reject themselves. These are the ones the checks could not settle — each shows the question it raised."
         actions={
-          <span className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
+          <span className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
             J / K move · A publish · R reject
           </span>
         }
@@ -187,7 +187,7 @@ export default function ConsoleModerationPage() {
                 <div>
                   {flagsOn(current).length > 0 && (
                     <div className="mb-5 border-l-2 border-bronze bg-bronze-soft/40 py-3 pl-4 pr-3">
-                      <p className="font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-bronze-deep">
+                      <p className="font-label text-[0.5625rem] uppercase tracking-[0.16em] text-bronze-deep">
                         {flagsOn(current)
                           .map((flag) => FLAG_LABEL[flag.check] ?? flag.check)
                           .join(' · ')}
@@ -226,7 +226,7 @@ export default function ConsoleModerationPage() {
                     <p className="mt-4 text-sm leading-relaxed text-muted">{current.description}</p>
                   )}
 
-                  <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+                  <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                     Automated checks
                   </h3>
                   <ValidationResults results={current.validation} className="mt-3" />

@@ -1162,7 +1162,38 @@ function buildNotifications(
 
 // ── Seeding ──────────────────────────────────────────────────────────────────
 
-export async function seedAll(options: { fresh?: boolean } = {}): Promise<void> {
+/**
+ * Fills a throwaway database with demo people, spaces, photographs and orders.
+ *
+ * REFUSES TO RUN AGAINST ANYTHING BUT THE IN-MEMORY STORE.
+ *
+ * The README has always said the demo seed "deliberately does not run against
+ * Supabase". Nothing enforced that, and the two ways in disagreed about it:
+ *
+ *   · `ensureSeeded` (server boot) checked SEED_DEMO_DATA and then whether any
+ *     user already existed — so an empty real database was one env var away
+ *     from being filled with 31 fictional users.
+ *   · `npm run seed` calls this function directly and checked neither. Against a
+ *     .env pointing at production it would clear every table and reseed it.
+ *
+ * The first line of this function clears the store, so getting this wrong is not
+ * recoverable by noticing quickly. Hence a real guard rather than a comment.
+ *
+ * `allowRemote` exists for the one legitimate case — deliberately seeding your
+ * own staging project — and is only reachable from `npm run seed -- --allow-remote`.
+ */
+export async function seedAll(
+  options: { fresh?: boolean; allowRemote?: boolean } = {},
+): Promise<void> {
+  if (env.DATA_DRIVER !== 'memory' && !options.allowRemote) {
+    throw new Error(
+      `Refusing to seed demo data: DATA_DRIVER is "${env.DATA_DRIVER}", not "memory". ` +
+        'Seeding clears every table first, so this would wipe that database and replace it ' +
+        'with fictional users. For a local demo run `npm run dev:demo`, which uses the ' +
+        'in-memory store. If you really do mean to seed a remote project, pass --allow-remote.',
+    );
+  }
+
   if (options.fresh) clearPersistedStore();
 
   const { users, profiles, artistUsers, ownerUsers, spaces } = buildPeople();
@@ -1358,6 +1389,17 @@ export async function ensureSeeded(): Promise<boolean> {
   // so leaving this unguarded made "start the server" a destructive operation
   // against anything it decided looked empty.
   if (!env.SEED_DEMO_DATA) return false;
+
+  // Belt as well as braces: seedAll refuses this too, but throwing on boot is a
+  // worse failure than declining quietly, and SEED_DEMO_DATA=true against a real
+  // database is a misconfiguration rather than a request.
+  if (env.DATA_DRIVER !== 'memory') {
+    logger.warn(
+      `SEED_DEMO_DATA is true but DATA_DRIVER is "${env.DATA_DRIVER}" — skipping the demo seed. ` +
+        'Demo data only ever goes into the in-memory store; use `npm run dev:demo`.',
+    );
+    return false;
+  }
 
   const existing = await db.users.count();
   if (existing > 0) return false;

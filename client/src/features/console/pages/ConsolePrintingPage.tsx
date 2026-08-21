@@ -90,7 +90,7 @@ export default function ConsolePrintingPage() {
               <section key={stage.status}>
                 <div className="mb-3 flex items-baseline justify-between gap-2">
                   <h2 className="font-display text-lg text-ink">{stage.title}</h2>
-                  <span className="font-mono text-xs text-subtle">{items.length}</span>
+                  <span className="font-label tabular-nums text-xs text-subtle">{items.length}</span>
                 </div>
 
                 <ul className="space-y-3">

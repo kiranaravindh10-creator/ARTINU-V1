@@ -72,7 +72,7 @@ function CollaborationCarousel() {
     return (
       <div className="relative flex min-h-[15rem] w-full items-center justify-center overflow-hidden bg-ink px-8 lg:min-h-[24rem]">
         <div className="max-w-sm text-center">
-          <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
+          <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
             Collaborations
           </p>
           <p className="mt-3 font-display text-xl leading-snug text-canvas">
@@ -111,7 +111,7 @@ function CollaborationCarousel() {
             aria-hidden
           />
           <div className="absolute inset-x-0 bottom-0 p-6 lg:p-8">
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
+            <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
               Now collaborating
             </p>
             <p className="mt-2 font-display text-2xl text-canvas">{current.name}</p>

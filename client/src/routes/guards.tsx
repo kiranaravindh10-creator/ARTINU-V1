@@ -10,7 +10,7 @@ export function BootSplash() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-canvas">
       <Logo size="large" asLink={false} className="animate-pulse" />
-      <span className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-subtle">
+      <span className="font-label text-[0.625rem] uppercase tracking-[0.18em] text-subtle">
         Preparing your space
       </span>
     </div>

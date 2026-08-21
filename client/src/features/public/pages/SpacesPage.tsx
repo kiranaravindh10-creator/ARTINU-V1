@@ -5,24 +5,13 @@ import {
   ROTATION_INTERVALS,
   SPACE_TYPE_LABELS,
 } from '@artinu/shared';
-import {
-  ArrowRight,
-  Frame,
-  Hammer,
-  LayoutGrid,
-  LifeBuoy,
-  MessageSquare,
-  RefreshCw,
-  Wallet,
-  Wrench,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   Accordion,
   AccordionContent,
@@ -45,24 +34,28 @@ const ROTATION_RANGE = `${ROTATION_INTERVALS[0]}–${ROTATION_INTERVALS[ROTATION
 
 // ── Section 2 ────────────────────────────────────────────────────────────────
 
-const REASONS: { icon: LucideIcon; title: string; body: string }[] = [
+/*
+  Four reasons, no glyphs.
+
+  Each of these opened with a bronze-ringed icon that restated its own heading —
+  a wallet for "Hassle-free access to art", a wrench for "Installation and upkeep
+  handled", a refresh arrow for "Fresh work every N months". A reader who has
+  read the heading learns nothing from the picture of the heading.
+*/
+const REASONS: { title: string; body: string }[] = [
   {
-    icon: Wallet,
     title: 'Hassle-free access to art',
     body: 'You are not acquiring a collection or committing to a permanent exhibition. You get beautiful prints and frames on your wall, maintained and refreshed on a schedule.',
   },
   {
-    icon: Frame,
     title: 'Curation matched to your interiors',
     body: 'We come and look — at your light through the day, your wall colours, your ceiling heights, the way people move through the room. What you get back is a proposal for your space, not a catalogue to scroll.',
   },
   {
-    icon: Wrench,
     title: 'Installation and upkeep handled',
     body: 'Our crew measures, drills, levels and cleans up after itself. Straightening, dusting, a cracked pane replaced — that stays ours for as long as the frames are on your wall.',
   },
   {
-    icon: RefreshCw,
     title: `Fresh work every ${ROTATION_RANGE} months`,
     body: 'Pick a cadence. We propose the next set, you approve it in a couple of taps, and we swap the walls in one visit — usually before you open. Regulars notice. That is the point.',
   },
@@ -78,33 +71,32 @@ const REASONS: { icon: LucideIcon; title: string; body: string }[] = [
  * sentence; the detail that was cut lives in the FAQ below, where someone who
  * actually wants it will go looking.
  */
-const STEPS: { icon: LucideIcon; title: string; body: string; aside: string }[] = [
+/*
+  Five steps, and the number is the only marker they need — see the list below
+  for why the timeline that used to run down this section went.
+*/
+const STEPS: { title: string; body: string; aside: string }[] = [
   {
-    icon: MessageSquare,
     title: 'We come and look',
     aside: 'Week one',
     body: 'Forty minutes in your space — your light, your walls, your room. Nothing to sign.',
   },
   {
-    icon: LayoutGrid,
     title: 'You see it first',
     aside: 'Within five days',
     body: 'Specific photographs on your specific walls, to scale. Swap anything you do not love.',
   },
   {
-    icon: Hammer,
     title: 'We hang it',
     aside: 'Two weeks from approval',
     body: 'Printed, framed and installed in one visit. We leave with the packaging and the dust.',
   },
   {
-    icon: RefreshCw,
     title: 'It changes',
     aside: `Every ${ROTATION_RANGE} months`,
     body: 'A new set, approved from your phone. Same frames, same holes, different room.',
   },
   {
-    icon: LifeBuoy,
     title: 'We stay',
     aside: 'For as long as you rotate',
     body: 'One number, one inbox. Cracked glass replaced without an invoice.',
@@ -246,9 +238,12 @@ export default function SpacesPage() {
             <p className="eyebrow">
               {selected ? SPACE_TYPE_LABELS[selected] : 'Our Collaborations'}
             </p>
-            <h1 className="mt-5 max-w-[15ch] font-display text-[2.5rem] leading-[1.05] text-ink sm:text-5xl lg:text-6xl">
+            <Typewriter
+              as="h1"
+              className="mt-5 max-w-[15ch] font-display text-[2.5rem] leading-[1.05] text-ink sm:text-5xl lg:text-6xl"
+            >
               {hero.headline}
-            </h1>
+            </Typewriter>
             <span className="rule mt-6" />
             <p className="prose-quiet mt-6">{hero.blurb}</p>
 
@@ -274,7 +269,7 @@ export default function SpacesPage() {
               )}
             </div>
 
-            <p className="mt-8 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
+            <p className="mt-8 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
               {CONSULTATION_NOTE}
             </p>
           </Reveal>
@@ -302,23 +297,44 @@ export default function SpacesPage() {
             <SectionHeading
               eyebrow="Why spaces choose ARTINU"
               title="Everything about the wall, handled."
-              description="Four things owners tell us made the difference — none of them about art, all of them about how little it asked of them."
+              description="Four things owners tell us made the difference. None of them about art, all of them about how little it asked of them."
               rule
             />
           </Reveal>
 
-          <Stagger className="mt-14 grid gap-5 sm:grid-cols-2 lg:mt-16 lg:grid-cols-4">
-            {REASONS.map(({ icon: Icon, title, body }) => (
-              <StaggerItem key={title}>
-                <Card flat className="h-full border-line-soft p-7">
-                  <span className="flex size-11 items-center justify-center rounded-full border border-bronze/35 text-bronze">
-                    <Icon className="size-5 stroke-[1.4]" aria-hidden />
-                  </span>
-                  <h3 className="mt-6 font-display text-xl leading-snug text-ink">{title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>
-                </Card>
-              </StaggerItem>
-            ))}
+          {/*
+            Four rows, not four columns.
+
+            The icons and the card borders came out of this section already and it
+            still read as a generated feature grid, because the grid was the thing
+            doing it — four equal cells holding four equal paragraphs is that
+            shape whatever you put inside them. Swapping a glyph for a hairline
+            changed the decoration and left the form alone.
+
+            As rows the prose also gets a measure it can be read at. Across four
+            columns each body was set about 30 characters wide, which is a column
+            for a caption, not for three sentences; and the second title —
+            "Curation matched to your interiors" — wrapped to two lines while its
+            neighbours stayed on one, so the four bodies all began at different
+            heights and the row sat crooked.
+
+            A description list, because that is what these are: a term and its
+            explanation, four times.
+          */}
+          <Stagger className="mt-14 lg:mt-16">
+            <dl>
+              {REASONS.map(({ title, body }) => (
+                <StaggerItem
+                  key={title}
+                  className="grid gap-y-2 border-t border-line-strong py-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-x-12 lg:py-8"
+                >
+                  <dt className="font-display text-xl leading-snug text-ink">{title}</dt>
+                  <dd className="max-w-2xl text-sm leading-relaxed text-muted lg:text-[0.9375rem]">
+                    {body}
+                  </dd>
+                </StaggerItem>
+              ))}
+            </dl>
           </Stagger>
         </Container>
       </Section>
@@ -335,27 +351,34 @@ export default function SpacesPage() {
             />
           </Reveal>
 
-          <ol className="relative mt-14 lg:mt-20">
-            <span
-              aria-hidden
-              className="absolute bottom-8 left-6 top-8 w-px bg-bronze/30"
-            />
-            {STEPS.map(({ icon: Icon, title, body, aside }, index) => (
-              <li key={title}>
-                <Reveal>
-                  <div className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-5 pb-12 last:pb-0 lg:grid-cols-[3rem_15rem_minmax(0,1fr)] lg:gap-x-10 lg:pb-16">
-                    <span className="relative z-10 flex size-12 items-center justify-center rounded-full border border-bronze/35 bg-canvas text-bronze">
-                      <Icon className="size-5 stroke-[1.4]" aria-hidden />
-                    </span>
+          {/*
+            This was a timeline: a bronze rule running down the page with a
+            circled glyph sitting on it for every row. The rule and the circles
+            were doing the job the numbers in the label were already doing, and
+            because the number was buried mid-sentence the label had to announce
+            itself as "Step 01 · Week one" to be found at all.
 
-                    <div className="lg:pt-1.5">
-                      <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
-                        Step {String(index + 1).padStart(2, '0')} · {aside}
+            The number now has its own column, each row is separated by a rule
+            rather than threaded onto one, and the label is free to say only when
+            the step happens.
+          */}
+          <ol className="mt-14 lg:mt-20">
+            {STEPS.map(({ title, body, aside }, index) => (
+              <li key={title} className="border-t border-line py-7 lg:py-9">
+                <Reveal>
+                  <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-5 lg:grid-cols-[2.5rem_15rem_minmax(0,1fr)] lg:gap-x-10">
+                    <p className="font-label text-[0.6875rem] uppercase tabular-nums tracking-[0.16em] text-bronze lg:pt-1">
+                      {String(index + 1).padStart(2, '0')}
+                    </p>
+
+                    <div>
+                      <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                        {aside}
                       </p>
                       <h3 className="mt-2 font-display text-2xl leading-tight text-ink">{title}</h3>
                     </div>
 
-                    <p className="col-start-2 mt-3 max-w-2xl text-sm leading-relaxed text-muted lg:col-start-3 lg:mt-0 lg:pt-2 lg:text-[0.9375rem]">
+                    <p className="col-start-2 mt-3 max-w-2xl text-sm leading-relaxed text-muted lg:col-start-3 lg:mt-0 lg:pt-1 lg:text-[0.9375rem]">
                       {body}
                     </p>
                   </div>
@@ -450,7 +473,7 @@ export default function SpacesPage() {
             <SectionHeading
               eyebrow="Questions, answered"
               title="The things owners ask us first."
-              description="If your question is not here, ask it on the call — we would rather answer it before you sign anything."
+              description="If your question is not here, ask it on the call. We would rather answer it before you sign anything."
               rule
             />
             <div className="mt-8">

@@ -53,8 +53,20 @@ export const attachUser: RequestHandler = async (req, res, next) => {
     const payload = verifyToken(header.slice(7));
     if (!payload) return open();
 
+    /*
+      The account is re-read on every request, and its status is checked here
+      rather than trusted from the token.
+
+      This is what makes a suspension or a ban take effect immediately. A JWT is
+      valid for a week and carries no status of its own, so a check at sign-in
+      alone would leave a banned photographer working normally until their token
+      happened to expire. Refusing to attach the user turns the very next
+      request into an anonymous one, which `requireAuth` then rejects.
+    */
+    const BLOCKED = ['suspended', 'banned', 'pending_ceo_approval'];
+
     const user = await db.users.byId(payload.sub);
-    if (user && user.status !== 'suspended' && user.status !== 'pending_ceo_approval') {
+    if (user && !BLOCKED.includes(user.status)) {
       req.user = user;
     }
     open();
@@ -170,6 +182,56 @@ export const uploadLimiter = rateLimit({
 // ── Errors ───────────────────────────────────────────────────────────────────
 
 /** Rolling error log surfaced on the IT dashboard (`GET /admin/system`). */
+/**
+ * Lets a public GET be cached for a short while.
+ *
+ * ── The problem ─────────────────────────────────────────────────────────────
+ *
+ * Opening the homepage fired six requests for content that changes a few times
+ * a month — the hero slides, the slideshow settings, the collaborations, the
+ * featured collections, the testimonials — and every one of them was answered
+ * with no cache headers at all. Browsers therefore revalidated the lot on every
+ * navigation and every reload, and each answer meant a round trip to Supabase.
+ * A visitor clicking Gallery and pressing Back paid the whole bill twice.
+ *
+ * ── Why these numbers ───────────────────────────────────────────────────────
+ *
+ * `max-age` is what the visitor's own browser honours; `s-maxage` is for any
+ * shared cache in front of us. `stale-while-revalidate` is the one that removes
+ * the wait: past the freshness window the cached copy is still painted
+ * immediately and refreshed in the background, so a manager's edit shows up
+ * within a minute or two while nobody ever stares at an empty section waiting
+ * for a database.
+ *
+ * ── Why it is not simply on everything ──────────────────────────────────────
+ *
+ * `public` means any shared cache may keep the response and hand it to somebody
+ * else, which for a signed-in response would serve one person's data to
+ * another. This must therefore only be mounted on routes that take no session
+ * into account — and it asserts that rather than trusting the caller: if a
+ * request arrives with credentials, the response is marked private instead.
+ */
+export const cachePublic =
+  (seconds: number, staleWhileRevalidate = seconds * 10): RequestHandler =>
+  (req, res, next) => {
+    const personalised = Boolean(req.user) || Boolean(req.headers.authorization);
+
+    if (personalised) {
+      // Correct rather than fast: this response may reflect who is asking.
+      res.setHeader('Cache-Control', 'private, no-store');
+    } else {
+      res.setHeader(
+        'Cache-Control',
+        `public, max-age=${seconds}, s-maxage=${seconds}, stale-while-revalidate=${staleWhileRevalidate}`,
+      );
+      // The same URL answers differently once a session is attached, so any
+      // shared cache has to key on that rather than on the path alone.
+      res.setHeader('Vary', 'Authorization');
+    }
+
+    next();
+  };
+
 export const recentErrors: { at: string; status: number; message: string; path: string }[] = [];
 
 /**
@@ -200,6 +262,18 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ): void => {
+  /*
+    Never let a failure be cached.
+
+    `cachePublic` runs before the handler, so by the time something throws the
+    response is already carrying a "keep this for 60 seconds" header. Without
+    this line a single 500 during a Supabase blip would be stored by the
+    visitor's browser and any shared cache and replayed for the next minute,
+    long after the server recovered — turning a momentary error into a sticky
+    one, on the homepage, for everybody who happened to load it.
+  */
+  res.setHeader('Cache-Control', 'no-store');
+
   let status = 500;
   let message = 'Something went wrong on our side.';
   let code: string | undefined;

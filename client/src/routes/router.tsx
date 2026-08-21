@@ -63,10 +63,6 @@ const authRoutes: RouteObject = {
       path: 'forgot-password',
       element: lazyPage(() => import('@/features/auth/pages/ForgotPasswordPage')),
     },
-    {
-      path: 'reset-password',
-      element: lazyPage(() => import('@/features/auth/pages/ResetPasswordPage')),
-    },
     { path: 'register', element: <Navigate to="/register/artist" replace /> },
     {
       path: 'register/artist',
@@ -230,6 +226,16 @@ const consoleRoutes: RouteObject = {
               path: 'applications',
               element: lazyPage(() => import('@/features/console/pages/ConsoleApplicationsPage')),
             },
+            {
+              // One photographer's Community Guidelines record: warnings,
+              // enforcement, and what they have uploaded. Reached from the
+              // artists list rather than the sidebar — it is about a person,
+              // not a section.
+              path: ':artistId/moderation',
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleModerationCasePage'),
+              ),
+            },
           ],
         },
         {
@@ -326,6 +332,14 @@ const consoleRoutes: RouteObject = {
               path: 'manager',
               element: lazyPage(() => import('@/features/console/pages/ConsoleContentManagerPage')),
             },
+            {
+              // Under `content` because that is the only module manager, IT and
+              // CEO all have — the three roles the announcement feature is for.
+              path: 'announcements',
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleAnnouncementsPage'),
+              ),
+            },
           ],
         },
         {
@@ -352,7 +366,38 @@ const consoleRoutes: RouteObject = {
   ],
 };
 
+/**
+ * Reachable with or without a session.
+ *
+ * ── The bug this fixes ──────────────────────────────────────────────────────
+ *
+ * `/reset-password` used to live in `authRoutes`, under `GuestOnlyRoute`. That
+ * guard sends anyone with a session to their dashboard, which meant a signed-in
+ * visitor who clicked the link in a reset email never saw the form — they were
+ * redirected before it rendered, no error, no explanation, and the token sat
+ * unused until it expired an hour later. "Forgot password doesn't work" is
+ * exactly what that looks like from the outside.
+ *
+ * It is also the common case rather than an edge one: people ask for a reset
+ * from the phone they are still logged in on, and staff hand the link to an
+ * owner whose café laptop has a session open.
+ *
+ * A reset token is proof of control of the mailbox, which is the same thing a
+ * password proves. Holding one is grounds to set a new password whoever the
+ * browser currently thinks you are — so this route takes no guard at all.
+ */
+const resetRoutes: RouteObject = {
+  errorElement: <RouteError />,
+  children: [
+    {
+      path: 'reset-password',
+      element: lazyPage(() => import('@/features/auth/pages/ResetPasswordPage')),
+    },
+  ],
+};
+
 export const router = createBrowserRouter([
+  resetRoutes,
   authRoutes,
   accountRoutes,
   spaceRoutes,

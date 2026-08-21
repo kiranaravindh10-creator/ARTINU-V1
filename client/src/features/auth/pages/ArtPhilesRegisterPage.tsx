@@ -73,7 +73,7 @@ export default function ArtPhilesRegisterPage() {
             <Field label="Full Name" htmlFor="fullName" error={form.formState.errors.fullName?.message}>
               <Input
                 id="fullName"
-                placeholder="Jane Doe"
+                placeholder="Full Name"
                 invalid={!!form.formState.errors.fullName}
                 {...form.register('fullName')}
               />

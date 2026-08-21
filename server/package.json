@@ -6,13 +6,17 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:demo": "npm --prefix .. run dev:demo",
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/database/seed-cli.ts",
+    "demo:sync": "tsx src/scripts/snapshot-prod.ts",
     "check:schema": "tsx src/scripts/check-schema.ts",
     "check:welcome": "node ../scripts/welcome-email-check.mjs",
     "create:staff": "tsx src/scripts/create-staff.ts",
     "backfill:photo-ids": "tsx src/scripts/backfill-photo-ids.ts",
+    "fix:content": "tsx src/scripts/fix-collaboration-links.ts",
+    "audit:production": "tsx src/scripts/audit-production.ts",
     "reconcile:engagement": "tsx src/scripts/reconcile-engagement.ts"
   },
   "dependencies": {

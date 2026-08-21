@@ -114,7 +114,7 @@ export default function ApplicationSubmittedPage() {
             </p>
             <Link
               to="/gallery"
-              className="mt-6 inline-flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-canvas transition-opacity hover:opacity-70"
+              className="mt-6 inline-flex items-center gap-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-canvas transition-opacity hover:opacity-70"
             >
               Explore gallery →
             </Link>

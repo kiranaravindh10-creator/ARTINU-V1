@@ -1,4 +1,10 @@
-import type { Notification, NotificationType, Paginated, Role } from '@artinu/shared';
+import type {
+  AnnouncementAudience,
+  Notification,
+  NotificationType,
+  Paginated,
+  Role,
+} from '@artinu/shared';
 import { db } from '@/database/db';
 import { paginate } from '@/database/table';
 import { notFound } from '@/utils/errors';
@@ -37,6 +43,66 @@ export async function notifyRole(
     filter: (user) => user.status !== 'suspended',
   });
   return notifyMany(recipients.map((user) => ({ ...input, userId: user.id })));
+}
+
+/**
+ * One message to every account in an audience.
+ *
+ * Built on `notifyMany`, so an announcement is an ordinary notification row and
+ * behaves like one everywhere else in the product — same bell, same unread
+ * count, same archive.
+ *
+ * Suspended accounts are excluded, matching `notifyRole` above: an account we
+ * have locked should not keep receiving platform announcements.
+ *
+ * The rows are written in batches rather than one `insertMany` of everything.
+ * With a few hundred artists a single call is fine; at a few thousand it is one
+ * enormous insert whose failure loses the whole announcement, and on the
+ * Supabase driver it is one request whose payload grows without bound. Batching
+ * keeps each write a predictable size and lets a partial failure still deliver
+ * to the accounts already written.
+ *
+ * Returns how many accounts were written to, which is what the console reports
+ * back and what the audit entry records.
+ */
+export async function broadcast(input: {
+  audience: AnnouncementAudience;
+  title: string;
+  body: string;
+  link?: string;
+}): Promise<number> {
+  const roles: Role[] =
+    input.audience === 'artists'
+      ? ['artist']
+      : input.audience === 'space_owners'
+        ? ['space_owner']
+        : ['artist', 'space_owner'];
+
+  const recipients = await db.users.find({
+    where: { role: roles },
+    filter: (user) => user.status !== 'suspended',
+  });
+
+  const BATCH = 200;
+  let written = 0;
+
+  for (let start = 0; start < recipients.length; start += BATCH) {
+    const slice = recipients.slice(start, start + BATCH);
+    const created = await notifyMany(
+      slice.map((user) => ({
+        userId: user.id,
+        // Announcements are not tied to an order, an upload or a payout, which
+        // is exactly what `system` is for in NOTIFICATION_TYPES.
+        type: 'system' as NotificationType,
+        title: input.title,
+        body: input.body,
+        link: input.link,
+      })),
+    );
+    written += created.length;
+  }
+
+  return written;
 }
 
 export async function unreadCount(userId: string): Promise<number> {

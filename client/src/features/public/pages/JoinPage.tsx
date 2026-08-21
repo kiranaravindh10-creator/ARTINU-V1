@@ -1,22 +1,10 @@
-import {
-  ArrowRight,
-  CalendarCheck,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Globe,
-  Mail,
-  Sparkles,
-  TrendingUp,
-  Upload,
-  UserPlus,
-  Users,
-} from 'lucide-react';
+import { CheckCircle2, ChevronDown, Mail } from 'lucide-react';
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Container, Section, StepIcon } from '@/components/layout/primitives';
+import { Container, Section } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
@@ -24,24 +12,33 @@ import { IMAGES } from '@/lib/images';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
+/*
+  Four propositions, no glyphs.
+
+  Each of these used to sit under a bronze disc holding a lucide icon — a globe
+  for "Get Discovered", a trending-up arrow for "Grow Together". None of them
+  told a photographer anything the heading beside it did not, and four identical
+  discs in a row is the house style of every template that has ever shipped a
+  feature grid. Hairlines separate them now, which is what the rest of the site
+  already uses.
+
+  These are not steps, so they are deliberately not numbered — unlike STEPS
+  below, where the order is the whole point.
+*/
 const BENEFITS = [
   {
-    icon: Globe,
     title: 'Get Discovered',
     body: 'Showcase your work to a growing network of creators, brands, and space owners.',
   },
   {
-    icon: Users,
     title: 'Meaningful Connections',
     body: 'Collaborate with like-minded photographers and creative professionals.',
   },
   {
-    icon: CalendarCheck,
     title: 'Exclusive Opportunities',
     body: 'Access curated projects, shooting opportunities, and partner collaborations.',
   },
   {
-    icon: TrendingUp,
     title: 'Grow Together',
     body: 'Learn, get inspired, and grow your craft in a supportive creative community.',
   },
@@ -62,11 +59,21 @@ const GUIDELINES = [
   'Quality over quantity — six strong photographs beat thirty average ones.',
 ];
 
+/*
+  The four steps of applying, in order.
+
+  The icons are gone for the same reason as above — a sparkle beside "Welcome to
+  ARTINU" is decoration — and so are the small grey arrows that used to sit
+  between the columns. Those arrows were the only thing carrying the sequence,
+  they appeared only at the large breakpoint, and they said nothing at all to a
+  screen reader. The numbers carry it instead, on every screen, in a real
+  ordered list.
+*/
 const STEPS = [
-  { icon: UserPlus, title: 'Create Your Profile', body: 'Tell us about you and your photography journey.' },
-  { icon: Upload, title: 'Showcase Your Work', body: 'Upload your best work and share your vision.' },
-  { icon: Check, title: 'Our Team Reviews', body: 'We review your application and get back to you.' },
-  { icon: Sparkles, title: 'Welcome to ARTINU', body: 'Start connecting, collaborating and creating together.' },
+  { title: 'Create Your Profile', body: 'Tell us about you and your photography journey.' },
+  { title: 'Showcase Your Work', body: 'Upload your best work and share your vision.' },
+  { title: 'Our Team Reviews', body: 'We review your application and get back to you.' },
+  { title: 'Welcome to ARTINU', body: 'Start connecting, collaborating and creating together.' },
 ];
 
 export default function JoinPage() {
@@ -79,13 +86,13 @@ export default function JoinPage() {
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
             <p className="eyebrow">A community for visionaries.</p>
-            <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter as="h1" className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               Join our
               <br />
               artist
               <br />
               community.
-            </h1>
+            </Typewriter>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">
               Connect. Collaborate. Get discovered. ARTINU is where photographers and spaces come
@@ -115,16 +122,13 @@ export default function JoinPage() {
             Why join ARTINU?
           </h2>
 
-          <Stagger className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-            {BENEFITS.map((benefit, index) => (
-              <StaggerItem
-                key={benefit.title}
-                className={cn('lg:pl-10', index > 0 && 'lg:border-l lg:border-line')}
-              >
-                <StepIcon>
-                  <benefit.icon aria-hidden />
-                </StepIcon>
-                <h3 className="mt-5 font-display text-lg text-ink">{benefit.title}</h3>
+          {/* A rule above each column rather than a border between them: the old
+              lg:border-l divided the four only on large screens, so on a tablet
+              they ran together as one undifferentiated block of text. */}
+          <Stagger className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            {BENEFITS.map((benefit) => (
+              <StaggerItem key={benefit.title} className="border-t border-line pt-5">
+                <h3 className="font-display text-lg text-ink">{benefit.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{benefit.body}</p>
               </StaggerItem>
             ))}
@@ -155,7 +159,7 @@ export default function JoinPage() {
                 type="button"
                 onClick={() => setGuidelinesOpen((value) => !value)}
                 aria-expanded={guidelinesOpen}
-                className="mt-4 inline-flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:text-bronze"
+                className="mt-4 inline-flex items-center gap-1.5 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:text-bronze"
               >
                 See community guidelines
                 <ChevronDown
@@ -191,27 +195,17 @@ export default function JoinPage() {
           <div className="rounded-xl bg-sand-soft px-6 py-10 sm:px-10">
             <h2 className="font-display text-[1.5rem] text-ink">How it works</h2>
 
-            <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map((step, index) => (
-                <div key={step.title} className="relative flex gap-4">
-                  <StepIcon className="shrink-0 bg-canvas">
-                    <step.icon aria-hidden />
-                  </StepIcon>
-                  <div>
-                    <h3 className="text-sm font-medium text-ink">
-                      {index + 1}. {step.title}
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-muted">{step.body}</p>
-                  </div>
-                  {index < STEPS.length - 1 && (
-                    <ArrowRight
-                      className="absolute -right-4 top-4 hidden size-4 text-line-strong lg:block"
-                      aria-hidden
-                    />
-                  )}
-                </div>
+                <li key={step.title} className="border-t border-line-strong/60 pt-4">
+                  <p className="font-label text-[0.6875rem] uppercase tabular-nums tracking-[0.16em] text-bronze">
+                    {String(index + 1).padStart(2, '0')}
+                  </p>
+                  <h3 className="mt-3 font-display text-lg text-ink">{step.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</p>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </Container>
       </Section>

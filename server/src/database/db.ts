@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type {
+  Warning,
+  RemovalRequest,
   ArtistApplication,
   Artwork,
   AuditLogEntry,
@@ -33,11 +35,23 @@ export interface StoredUser extends User {
   phone?: string | null;
 }
 
-/** Short-lived sign-in challenge behind the code screen. */
+/**
+ * A short-lived numeric code. Two flows use it, told apart by `purpose`:
+ * the sign-in challenge, and email verification at registration.
+ */
 export interface OtpChallengeRecord {
   id: string;
   userId: string;
+  /**
+   * The code in the clear. Sign-in still writes this. Verification does not —
+   * it writes `codeHash` and leaves this empty, so a live verification code
+   * cannot be read out of the database.
+   */
   code: string;
+  /** sha256 of the code. Preferred over `code` when present. */
+  codeHash?: string | null;
+  /** 'sign_in' (the default, and everything written before migration 010) or 'email_verification'. */
+  purpose?: string;
   sentTo: string;
   channel: 'email' | 'phone';
   expiresAt: string;
@@ -86,6 +100,8 @@ export interface Database {
   otpChallenges: Table<OtpChallengeRecord>;
   tokens: Table<TokenRecord>;
   uiContent: Table<UiContentRecord>;
+  warnings: Table<Warning>;
+  removalRequests: Table<RemovalRequest>;
   heroSlides: Table<HeroSlide>;
   featuredCollections: Table<FeaturedCollection>;
   cafes: Table<Cafe>;
@@ -125,6 +141,8 @@ const TABLE_NAMES = [
   'employees',
   'frames',
   'frameMovements',
+  'warnings',
+  'removalRequests',
 ] as const;
 
 type TableName = (typeof TABLE_NAMES)[number];

@@ -18,10 +18,11 @@
     "dev": "concurrently -n server,client -c magenta,cyan \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "npm run dev --workspace server",
     "dev:client": "npm run dev --workspace client",
+    "dev:demo": "node scripts/dev-demo.mjs",
     "prebuild": "npm run preflight",
     "build": "npm run typecheck && npm run sitemap && npm run build --workspace client",
     "start": "npm run start --workspace server",
-    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client",
+    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client && tsc -p tsconfig.edge.json",
     "seed": "npm run seed --workspace server",
     "package": "node scripts/package-zip.mjs",
     "doctor": "node scripts/preflight.mjs",
@@ -29,9 +30,11 @@
     "check:welcome": "node scripts/welcome-email-check.mjs",
     "check:schema": "npm run check:schema --workspace server",
     "create:staff": "npm run create:staff --workspace server",
+    "demo:sync": "npm run demo:sync --workspace server",
     "clean": "node -e \"const{rmSync}=require('fs');for(const d of ['node_modules','client/node_modules','server/node_modules','shared/node_modules'])rmSync(d,{recursive:true,force:true})\"",
     "sitemap": "node scripts/generate-sitemap.mjs",
-    "favicons": "node scripts/generate-favicons.mjs"
+    "favicons": "node scripts/generate-favicons.mjs",
+    "images": "node scripts/generate-images.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -77,7 +77,7 @@ export function DashboardShell({
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-canvas-soft lg:flex">
           <Link to={basePath} className="flex items-baseline gap-2.5 px-6 py-7 leading-none">
             <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-            <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+            <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
               {area}
             </span>
           </Link>
@@ -111,7 +111,7 @@ export function DashboardShell({
               <SheetContent side="left" className="w-72 bg-canvas p-0">
                 <div className="flex h-16 items-center gap-2.5 px-6">
                   <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-                  <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+                  <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
                     {area}
                   </span>
                 </div>
@@ -140,7 +140,7 @@ export function DashboardShell({
           className="flex flex-col items-center gap-1 leading-none transition-opacity hover:opacity-60"
         >
           <span className="font-display text-base tracking-[-0.02em] text-ink">ARTINU</span>
-          <span className="font-mono text-[0.4375rem] uppercase tracking-[0.2em] text-subtle">
+          <span className="font-label text-[0.4375rem] uppercase tracking-[0.2em] text-subtle">
             {area}
           </span>
         </Link>
@@ -178,7 +178,7 @@ export function DashboardShell({
             <SheetContent side="left" className="w-72 bg-canvas p-0">
               <div className="flex h-16 items-center gap-2.5 px-6">
                 <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-                <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+                <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
                   {area}
                 </span>
               </div>
@@ -207,7 +207,7 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
       {groups.map((group, index) => (
         <div key={group.title ?? index}>
           {group.title && (
-            <p className="px-3 pb-2.5 font-mono text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
+            <p className="px-3 pb-2.5 font-label text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
               {group.title}
             </p>
           )}
@@ -236,7 +236,7 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
                     />
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.badgeKey === 'notifications' && count > 0 && (
-                      <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-mono text-[0.5625rem] text-white">
+                      <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
                         {count > 99 ? '99+' : count}
                       </span>
                     )}
@@ -287,7 +287,7 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
       {groups.map((group, index) => (
         <div key={group.title ?? index} className="flex flex-col gap-0.5">
           {group.title && (
-            <p className="px-3 pb-2 font-mono text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
+            <p className="px-3 pb-2 font-label text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
               {group.title}
             </p>
           )}
@@ -315,7 +315,7 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
                   />
                   <span className="flex-1 truncate">{item.label}</span>
                   {item.badgeKey === 'notifications' && count > 0 && (
-                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-mono text-[0.5625rem] text-white">
+                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
                       {count > 99 ? '99+' : count}
                     </span>
                   )}
@@ -348,7 +348,7 @@ function NotificationBell({ basePath }: { basePath: string }) {
     >
       <Bell className="size-[1.125rem] stroke-[1.5]" />
       {count > 0 && (
-        <span className="flex size-6 items-center justify-center rounded-full bg-bronze-soft font-mono text-[0.625rem] text-bronze-deep">
+        <span className="flex size-6 items-center justify-center rounded-full bg-bronze-soft font-label tabular-nums text-[0.625rem] text-bronze-deep">
           {count > 99 ? '99' : count}
         </span>
       )}

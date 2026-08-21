@@ -692,7 +692,7 @@ function PaneLink({
       />
       <span className="flex-1 text-left">{label}</span>
       {badge != null && badge > 0 && (
-        <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze-soft px-1.5 font-mono text-[0.5625rem] text-bronze-deep">
+        <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze-soft px-1.5 font-label tabular-nums text-[0.5625rem] text-bronze-deep">
           {badge > 99 ? '99' : badge}
         </span>
       )}
@@ -719,7 +719,7 @@ function PaneLink({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-6">
-      <dt className="font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:pt-1">
+      <dt className="font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:pt-1">
         {label}
       </dt>
       <dd className="text-sm">{children}</dd>

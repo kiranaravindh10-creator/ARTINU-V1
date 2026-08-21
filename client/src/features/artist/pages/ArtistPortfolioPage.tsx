@@ -130,7 +130,7 @@ export default function ArtistPortfolioPage() {
             { label: 'Selected by a space', value: formatNumber(totals.selections) },
           ].map((entry) => (
             <div key={entry.label}>
-              <dt className="font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle">
+              <dt className="font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle">
                 {entry.label}
               </dt>
               <dd className="mt-1.5 font-display text-2xl leading-none text-ink">{entry.value}</dd>
@@ -259,6 +259,63 @@ export default function ArtistPortfolioPage() {
   );
 }
 
+/**
+ * Same tags, same order?
+ *
+ * This was `a.join(sep) !== b.join(sep)`, which is the usual shortcut and is
+ * wrong twice over: the separator has to be a character no tag can contain, and
+ * the one that ended up in the file was a literal NUL. That compared correctly
+ * by luck and turned the source file into something every tool reported as
+ * binary — grep refused to search it, and a diff would have been unreadable.
+ *
+ * Comparing element by element needs no separator and cannot be fooled by a tag
+ * that happens to contain one.
+ */
+function sameTags(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((tag, i) => tag === b[i]);
+}
+
+/** Up to ten tags, comma-separated, trimmed and de-duplicated. */
+function parseTags(value: string): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const raw of value.split(',')) {
+    const tag = raw.trim();
+    // The server requires 2–30 characters per tag; silently dropping a stray
+    // comma is friendlier than failing the whole save over one.
+    if (tag.length < 2 || tag.length > 30) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push(tag);
+  }
+
+  return tags.slice(0, 10);
+}
+
+/**
+ * Editing a published photograph.
+ *
+ * ── What changed ────────────────────────────────────────────────────────────
+ *
+ * The dialog offered title, description and story. `PATCH /artworks/:id` has
+ * always also accepted `location` and `tags` — the two fields that decide
+ * whether a photograph is findable — so a photographer who mistyped a location
+ * at upload had no way to correct it and no way to know why searches missed
+ * their work. They are here now.
+ *
+ * ── Why Save can be disabled ────────────────────────────────────────────────
+ *
+ * The form sends only what actually changed, and the schema rejects an empty
+ * patch. Submitting an untouched form would therefore have failed with
+ * "Nothing to update", which reads as a bug rather than as a no-op — so the
+ * button says so before it is pressed.
+ *
+ * The image is not editable, by design: it is what a moderator approved and
+ * what may already be printed and hanging in a room. Replacing it is a new
+ * upload.
+ */
 function EditDialog({
   artwork,
   pending,
@@ -273,22 +330,63 @@ function EditDialog({
   const [title, setTitle] = React.useState(artwork.title);
   const [description, setDescription] = React.useState(artwork.description ?? '');
   const [story, setStory] = React.useState(artwork.story ?? '');
+  const [location, setLocation] = React.useState(artwork.location ?? '');
+  const [tags, setTags] = React.useState((artwork.tags ?? []).join(', '));
+
+  const trimmedTitle = title.trim();
+  const parsedTags = parseTags(tags);
+
+  // Compared against what was loaded, so re-typing the same value is not a change.
+  const patch: Partial<Artwork> = {};
+  if (trimmedTitle !== artwork.title) patch.title = trimmedTitle;
+  if (description.trim() !== (artwork.description ?? '')) patch.description = description.trim();
+  if (story.trim() !== (artwork.story ?? '')) patch.story = story.trim();
+  if (location.trim() !== (artwork.location ?? '')) patch.location = location.trim();
+  if (!sameTags(parsedTags, artwork.tags ?? [])) patch.tags = parsedTags;
+
+  const changedCount = Object.keys(patch).length;
+
+  // Mirrors the server schema, so the failure is shown next to the field rather
+  // than as a toast after a round trip.
+  const titleError =
+    trimmedTitle.length < 2
+      ? 'Give this photograph a title'
+      : trimmedTitle.length > 160
+        ? 'Titles are limited to 160 characters'
+        : undefined;
+
+  const locationError =
+    location.trim().length > 0 && location.trim().length < 2
+      ? 'Enter the location where this was photographed'
+      : undefined;
+
+  const blocked = Boolean(titleError || locationError) || changedCount === 0;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit details</DialogTitle>
+          <DialogDescription>
+            The photograph itself stays as it was approved. To show a different image,
+            upload it as a new piece.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Title" htmlFor="edit-title">
-            <Input id="edit-title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <Field label="Title" htmlFor="edit-title" required error={titleError}>
+            <Input
+              id="edit-title"
+              value={title}
+              invalid={Boolean(titleError)}
+              onChange={(event) => setTitle(event.target.value)}
+            />
           </Field>
           <Field label="Description" htmlFor="edit-description">
             <Textarea
               id="edit-description"
               rows={2}
+              maxLength={600}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
@@ -297,8 +395,30 @@ function EditDialog({
             <Textarea
               id="edit-story"
               rows={4}
+              maxLength={1500}
               value={story}
               onChange={(event) => setStory(event.target.value)}
+            />
+          </Field>
+          <Field label="Location" htmlFor="edit-location" error={locationError}>
+            <Input
+              id="edit-location"
+              value={location}
+              placeholder="Where this was photographed"
+              invalid={Boolean(locationError)}
+              onChange={(event) => setLocation(event.target.value)}
+            />
+          </Field>
+          <Field
+            label="Tags"
+            htmlFor="edit-tags"
+            hint="Comma-separated, up to 10. These are what visitors search on."
+          >
+            <Input
+              id="edit-tags"
+              value={tags}
+              placeholder="monsoon, rooftop, long exposure"
+              onChange={(event) => setTags(event.target.value)}
             />
           </Field>
         </div>
@@ -307,8 +427,10 @@ function EditDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button loading={pending} onClick={() => onSave({ title, description, story })}>
-            Save changes
+          <Button loading={pending} disabled={blocked} onClick={() => onSave(patch)}>
+            {changedCount === 0
+              ? 'No changes yet'
+              : `Save ${changedCount} change${changedCount === 1 ? '' : 's'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

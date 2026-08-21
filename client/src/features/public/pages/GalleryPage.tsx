@@ -1,12 +1,13 @@
 import { formatNumber, type ArtworkWithArtist, MIN_ORDER_QUANTITY } from '@artinu/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ChevronLeft, ChevronRight, Filter, Heart, ImageOff, RotateCw, Search, ShoppingBag, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Filter, Heart, ImageOff, RotateCw, Search, ShoppingBag } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
 import { PageHeader } from '@/components/layout/DashboardShell';
 import { Reveal } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/display';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import {
 } from '@/features/public/components/ArtworkCard';
 import { FrameConfigurator } from '@/features/public/components/FrameConfigurator';
 import { Lightbox } from '@/features/public/components/Lightbox';
+import { ShareSheet } from '@/features/public/components/ShareSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { IMAGES } from '@/lib/images';
@@ -50,6 +52,8 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   const [configuring, setConfiguring] = React.useState<ArtworkWithArtist | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [sortBy, setSortBy] = React.useState<'latest' | 'popular'>('latest');
+  /** Set only where the browser has no native share sheet. */
+  const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
   /*
    * Infinite scroll, driven by the sentinel itself.
    *
@@ -182,6 +186,23 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   }, [top20Data, data]);
   const lightbox = useLightbox(allArtworks);
 
+  /*
+    The four photographs in the editorial opening, taken from the collection.
+
+    Spread across the list rather than the first four in a row, so the collage
+    reads as a sample of the whole gallery instead of a duplicate of the top of
+    the grid the visitor is about to scroll into.
+  */
+  const opener = React.useMemo(() => {
+    if (allArtworks.length < 4) return [];
+    const step = Math.max(1, Math.floor(allArtworks.length / 4));
+    return [0, 1, 2, 3].map(
+      (i) => allArtworks[(i * step) % allArtworks.length]?.thumbnailUrl ?? allArtworks[i].imageUrl,
+    );
+  }, [allArtworks]);
+
+  const shareNode = <ShareSheet artwork={sharing} onClose={() => setSharing(null)} />;
+
   const lightboxNode = lightbox.isOpen && (
     <Lightbox
       artworks={allArtworks}
@@ -223,13 +244,14 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
         </div>
       )}
 
-      {/* End of the gallery — required by §18, and the difference between
-          "you've seen everything" and "this is broken". */}
-      {!hasNextPage && allArtworks.length > 12 && (
-        <p className="mt-12 text-center text-sm text-subtle">
-          That&rsquo;s all {allArtworks.length} photographs.
-        </p>
-      )}
+      {/*
+        Nothing is printed at the end of the grid.
+
+        First it was "That's all 33 photographs", then "You've reached the end
+        of the collection". Both were the page narrating itself. A gallery wall
+        does not put a sign at the end telling you it has finished; you can see
+        that it has. The photographs stop, and that is the whole message.
+      */}
     </>
   );
 
@@ -282,7 +304,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
 
         {cart.count > 0 && !cart.meetsMinimum && (
           <p className="mb-6 border-l-2 border-bronze bg-bronze-soft/40 px-4 py-3 text-sm text-bronze-deep">
-            Orders start at {MIN_ORDER_QUANTITY} frames — add {MIN_ORDER_QUANTITY - cart.count} more
+            Orders start at {MIN_ORDER_QUANTITY} frames. Add {MIN_ORDER_QUANTITY - cart.count} more
             to check out.
           </p>
         )}
@@ -323,6 +345,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                       showPrice={false}
                       onOpen={lightbox.open}
                       onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                      onShare={setSharing}
                       /*
                         The way a space owner puts a photograph in their cart.
 
@@ -358,6 +381,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
         </div>
 
         {lightboxNode}
+        {shareNode}
         {configurator}
       </div>
     );
@@ -370,11 +394,11 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       <section className="grid items-center gap-10 px-5 pb-14 pt-10 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16 lg:px-12 lg:pb-20">
         <Reveal>
           <p className="eyebrow">Curated moments. Real stories.</p>
-          <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] text-ink sm:text-[3.5rem]">
+          <Typewriter as="h1" className="mt-5 font-display text-[2.75rem] leading-[1.05] text-ink sm:text-[3.5rem]">
             Photography
             <br />
             that speaks.
-          </h1>
+          </Typewriter>
           <span className="rule mt-7" />
           <p className="prose-quiet mt-7 max-w-sm">
             A collection of real stories captured by independent photographers from around the world.
@@ -384,17 +408,50 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
           </CircleArrowLink>
         </Reveal>
 
+        {/*
+          Four photographs from the collection below, not four stock pictures.
+
+          These were fixed Unsplash frames — a boat, a street, a valley — sitting
+          at the top of a page whose entire subject is the work ARTINU's
+          photographers actually made. The opening image of the gallery is the
+          one place that should be least generic, and it was the only place on
+          the page showing nothing real.
+
+          They now come from the same query the grid uses, so the collage is
+          different as the collection grows and every frame is a real credit.
+          Falls back to the stock set only while the first page is in flight,
+          so the layout never collapses.
+        */}
         <Reveal delay={0.1} className="grid grid-cols-3 gap-3 lg:gap-4" aria-hidden>
           <Photo
-            src={IMAGES.boatLake}
+            src={opener[0] ?? IMAGES.boatLake}
             alt=""
             ratio="aspect-[3/5]"
+            thumbnail
             className="photo-edge col-span-1 self-end"
           />
-          <Photo src={IMAGES.street} alt="" ratio="aspect-[3/5]" className="photo-edge col-span-1" />
+          <Photo
+            src={opener[1] ?? IMAGES.street}
+            alt=""
+            ratio="aspect-[3/5]"
+            thumbnail
+            className="photo-edge col-span-1"
+          />
           <div className="col-span-1 grid gap-3 lg:gap-4">
-            <Photo src={IMAGES.photographer} alt="" ratio="aspect-[4/3]" className="photo-edge" />
-            <Photo src={IMAGES.valley} alt="" ratio="aspect-[4/3]" className="photo-edge" />
+            <Photo
+              src={opener[2] ?? IMAGES.photographer}
+              alt=""
+              ratio="aspect-[4/3]"
+              thumbnail
+              className="photo-edge"
+            />
+            <Photo
+              src={opener[3] ?? IMAGES.valley}
+              alt=""
+              ratio="aspect-[4/3]"
+              thumbnail
+              className="photo-edge"
+            />
           </div>
         </Reveal>
       </section>
@@ -404,9 +461,13 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       {!isSpace && top20Artworks.length > 0 && !searchQuery && (
         <Section tone="soft" className="pt-0 pb-12">
           <Container>
-            <div className="mb-6 flex items-center gap-2">
-              <Sparkles className="size-5 text-bronze" />
-              <h2 className="font-display text-2xl text-ink">Curator's Top Picks</h2>
+            {/* No sparkle beside the heading. "Curator's Top Picks" already
+                says what it is, and a decorative glyph pinned to a title is the
+                most recognisable tell of a generated layout. It was also not
+                aria-hidden, so screen readers announced it as content. */}
+            <div className="mb-6">
+              <p className="eyebrow">Curated</p>
+              <h2 className="mt-2 font-display text-2xl text-ink">This month&rsquo;s picks</h2>
             </div>
             <ArtworkMasonry>
               {top20Artworks.map((artwork) => (
@@ -491,6 +552,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                       showPrice={false}
                       onOpen={lightbox.open}
                       onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                      onShare={setSharing}
                     />
                   ))}
                 </ArtworkMasonry>
@@ -508,19 +570,23 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       </Section>
 
       {lightboxNode}
+      {shareNode}
 
       {/* ── ARTINU band ───────────────────────────────────────────────── */}
       <Section size="compact" className="pt-0">
         <Container size="wide">
           <div className="flex flex-col items-start justify-between gap-6 rounded-xl bg-ink px-6 py-8 text-canvas sm:flex-row sm:items-center sm:px-10">
             <div className="flex items-start gap-4">
-              <Sparkles className="mt-0.5 size-5 shrink-0 text-bronze-light" aria-hidden />
+              {/* The sparkle that sat here decorated a help prompt, which is
+                  not something a glyph can clarify. The line under it said our
+                  team would find "the perfect art for your space" — a promise
+                  with nothing behind it. This says what actually happens. */}
               <div>
                 <h2 className="font-display text-xl text-canvas sm:text-2xl">
                   Can&rsquo;t find what you&rsquo;re looking for?
                 </h2>
                 <p className="mt-1 text-sm text-canvas/60">
-                  Our team can help you find the perfect art for your space.
+                  Tell us about the room and we&rsquo;ll put a selection together for it.
                 </p>
               </div>
             </div>

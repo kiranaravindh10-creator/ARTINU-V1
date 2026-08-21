@@ -8,6 +8,7 @@ import { PanelHeader } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/button';
 import { CharCount, Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { errorMessage } from '@/lib/api';
 import { catalogService } from '@/services/catalog.service';
@@ -500,11 +501,11 @@ function PhotoCard({
             required
             error={errors?.location}
           >
-            <Input
+            <LocationInput
               id={`location-${photo.id}`}
               value={photo.location}
-              onChange={(event) => onChange({ location: event.target.value })}
-              placeholder="City or area where this was photographed"
+              onChange={(location) => onChange({ location })}
+              placeholder="Where this was photographed"
               invalid={!!errors?.location}
             />
           </Field>
@@ -543,7 +544,7 @@ function PhotoCard({
                 Tags / hashtags
                 <span className="ml-1 text-subtle">(up to {MAX_TAGS})</span>
               </label>
-              <span className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
+              <span className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
                 {photo.tags.length}/{MAX_TAGS}
               </span>
             </div>
@@ -598,7 +599,7 @@ function PhotoCard({
                     key={suggestion}
                     type="button"
                     onClick={() => onAddTag(suggestion)}
-                    className="rounded-full border border-line px-2.5 py-1 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-subtle transition-colors hover:border-bronze hover:text-bronze-deep"
+                    className="rounded-full border border-line px-2.5 py-1 font-label text-[0.625rem] uppercase tracking-[0.08em] text-subtle transition-colors hover:border-bronze hover:text-bronze-deep"
                   >
                     #{suggestion}
                   </button>
@@ -625,7 +626,7 @@ function UploadingProgress({ count, done }: { count: number; done: number }) {
 
   return (
     <div className="mt-5 rounded-md border border-line bg-canvas-soft p-4">
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+      <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
         Publishing your photographs
       </p>
       <p className="mt-2 flex items-center gap-2 text-sm text-ink">

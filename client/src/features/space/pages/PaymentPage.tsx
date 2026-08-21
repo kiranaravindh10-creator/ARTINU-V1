@@ -188,10 +188,10 @@ export default function PaymentPage() {
       <div className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <div className="flex items-baseline justify-between gap-4 border-b border-line pb-3">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            <p className="font-label text-xs uppercase tracking-[0.14em] text-subtle">
               {payment.reference}
             </p>
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
+            <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
               {PRICING.CURRENCY}
             </p>
           </div>
@@ -237,7 +237,7 @@ export default function PaymentPage() {
 
           {import.meta.env.DEV && (
             <div className="mt-6 border-l-2 border-dashed border-bronze/60 bg-bronze-soft/30 py-3 pl-4">
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-bronze-deep">
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze-deep">
                 Development
               </p>
               <p className="mt-1 text-xs text-muted">

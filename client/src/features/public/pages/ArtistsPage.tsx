@@ -1,10 +1,11 @@
 import { ART_STYLE_LABELS, ART_STYLES } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, HandCoins, Scan, Sun, Users, UserSearch } from 'lucide-react';
+import { Aperture, Eye, Frame, HandCoins, Users, UserSearch } from 'lucide-react';
 import * as React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/display';
 import { Input } from '@/components/ui/input';
@@ -15,9 +16,22 @@ import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
 import { catalogService } from '@/services/catalog.service';
 
+/*
+  Two of these glyphs were doing no work, so they were replaced rather than the
+  row being torn out.
+
+  `Scan` is a viewfinder bracket — a camera UI affordance standing in for "your
+  print is on a wall in a café". `Frame` is that wall. `Sun` had no relationship
+  to "Creative Freedom" at all; it was whatever came up when you needed a fourth
+  icon. `Aperture` is a photographer's word for how much you let in, which is
+  both the literal instrument and the point being made.
+
+  `HandCoins` and `Users` stay. A hand with coins for what you earn, and two
+  figures for a community, are plain rather than clever, and plain is fine.
+*/
 const VALUES = [
   {
-    icon: Scan,
+    icon: Frame,
     label: 'Seen in Real Spaces',
     body: 'Your photographs hang in cafés, hotels and studios — not in a feed.',
   },
@@ -32,7 +46,7 @@ const VALUES = [
     body: 'A community of photographers who share work, not just links.',
   },
   {
-    icon: Sun,
+    icon: Aperture,
     label: 'Creative Freedom',
     body: 'Shoot what you shoot. We curate around you, not the other way round.',
   },
@@ -77,12 +91,21 @@ export default function ArtistsPage() {
       <section className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <div className="flex flex-col justify-center px-5 py-16 sm:px-8 lg:py-24 lg:pl-12 lg:pr-16">
           <Reveal>
-            <h1 className="font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter as="h1" className="font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               Real people.
               <br />
               Real <em className="italic">perspectives.</em>
-            </h1>
-            <p className="mt-7 font-mono text-[0.6875rem] uppercase leading-relaxed tracking-[0.16em] text-muted">
+            </Typewriter>
+            {/*
+              Letterspaced capitals, broken across two lines on purpose.
+
+              This was briefly rewritten as one grey sentence on the grounds that
+              caps at 0.16em "stop being read". Two lines of four words each do
+              not, and the pairing — a 52px Playfair headline over a small wide
+              label — is the oldest masthead in print. Set as prose it read like
+              a caption apologising for the headline above it.
+            */}
+            <p className="mt-7 font-label text-[0.6875rem] uppercase leading-relaxed tracking-[0.16em] text-muted">
               Independent photographers.
               <br />
               Stories worth seeing.
@@ -102,30 +125,54 @@ export default function ArtistsPage() {
       </section>
 
       {/* ── Values band ────────────────────────────────────────────────── */}
-      <section className="grid bg-ink text-canvas lg:grid-cols-[minmax(0,0.65fr)_minmax(0,2fr)]">
+      {/*
+        White rather than ink.
+
+        `bg-surface` is #fffefc against the page's #f7f5f2 — 1.08:1, which is a
+        tint and not an edge, so on its own the band would simply dissolve into
+        the sections above and below it. `border-y` is what makes it still read as
+        a band once the black is gone.
+
+        The photograph also loses `brightness-75`. That existed to sink a dark
+        image into a dark panel; against white it was only making the one element
+        with any weight in the row look muddy.
+      */}
+      <section className="grid border-y border-line bg-surface text-ink lg:grid-cols-[minmax(0,0.65fr)_minmax(0,2fr)]">
         <Photo
           src={IMAGES.cameraLenses}
           alt="Camera lenses laid out on a dark surface"
           className="min-h-[180px] lg:min-h-[13rem]"
-          imgClassName="brightness-75"
         />
         {/* items-start, not centre: with 2- and 3-line bodies, centring each
             cell independently pushed the icons and labels to different heights
             and the row read as misaligned. Aligning to the top lines the icons
-            and labels up and lets only the body text differ in length. */}
+            and labels up and lets only the body text differ in length.
+
+            The vertical dividers are deliberately `lg:` only. They separate four
+            columns standing side by side; in the 2×2 grid this becomes below that
+            breakpoint, a left border would just cut the block in half down the
+            middle, which is not what it means. */}
         <Stagger className="grid grid-cols-2 items-start gap-y-8 px-6 py-10 sm:px-10 lg:grid-cols-4 lg:gap-6 lg:py-12">
           {VALUES.map((value, index) => (
             <StaggerItem
               key={value.label}
               className={`flex flex-col items-center gap-3 px-2 text-center lg:px-6 ${
-                index > 0 ? 'lg:border-l lg:border-canvas/15' : ''
+                index > 0 ? 'lg:border-l lg:border-line' : ''
               }`}
             >
-              <value.icon className="size-6 stroke-[1.2] text-canvas/80" aria-hidden />
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas">
+              {/* Bronze is the site's one accent and the colour its other icons
+                  already use. Measured 3.92:1 on #fffefc, which clears the 3:1
+                  a non-text graphic needs. */}
+              <value.icon className="size-6 stroke-[1.2] text-bronze" aria-hidden />
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-ink">
                 {value.label}
               </p>
-              <p className="max-w-[13rem] text-xs leading-relaxed text-canvas/50">{value.body}</p>
+              {/* `text-muted` measures 5.78:1 here. Deliberately not `text-subtle`,
+                  which is 3.38:1 on this background and fails AA for body copy —
+                  it is the right grey on canvas and the wrong one on white. */}
+              <p className="max-w-[13rem] text-[0.8125rem] leading-relaxed text-muted">
+                {value.body}
+              </p>
             </StaggerItem>
           ))}
         </Stagger>
@@ -135,14 +182,9 @@ export default function ArtistsPage() {
       <Section id="featured" size="compact">
         <Container size="wide">
           <div className="grid gap-8 lg:grid-cols-[10rem_minmax(0,1fr)] lg:gap-10">
-            <div className="flex flex-col justify-between">
-              <div>
-                <p className="eyebrow">Featured Artists</p>
-                <span className="rule mt-4" />
-              </div>
-              <CircleArrowLink to="#directory" direction="down" className="mt-8 hidden lg:inline-flex">
-                View all artists
-              </CircleArrowLink>
+            <div>
+              <p className="eyebrow">Featured Artists</p>
+              <span className="rule mt-4" />
             </div>
 
             <div className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 sm:mx-0 sm:px-0">

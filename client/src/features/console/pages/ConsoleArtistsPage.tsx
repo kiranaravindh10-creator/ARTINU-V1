@@ -1,6 +1,6 @@
 import { formatCurrency, formatNumber, type PublicArtist } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, Search, Users } from 'lucide-react';
+import { BadgeCheck, Search, ShieldAlert, Users } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -175,7 +175,7 @@ function ArtistDetail({ artist }: { artist: PublicArtist }) {
         </div>
       )}
 
-      <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+      <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
         Recent work
       </h3>
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -192,6 +192,15 @@ function ArtistDetail({ artist }: { artist: PublicArtist }) {
 
       <Button variant="outline" className="mt-6 w-full" asChild>
         <Link to={`/artists/${artist.slug}`}>View public profile</Link>
+      </Button>
+
+      {/* The Community Guidelines record — warnings, enforcement, and what the
+          account has actually done. Kept off the public-profile button so a
+          reviewer opens it deliberately. */}
+      <Button variant="outline" className="mt-2 w-full" asChild>
+        <Link to={`/console/artists/${artist.id}/moderation`}>
+          <ShieldAlert /> Moderation record
+        </Link>
       </Button>
     </div>
   );

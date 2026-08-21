@@ -207,7 +207,7 @@ function RotationCycleSection({
 
       <div className="mt-7 grid gap-8 sm:grid-cols-2">
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
               Currently on your walls
             </h3>
             <div className="mt-3 grid grid-cols-4 gap-2">
@@ -228,7 +228,7 @@ function RotationCycleSection({
           </div>
 
           <div className="sm:border-l sm:border-line sm:pl-8">
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Proposed next collection
             </h3>
             <div className="mt-3 grid grid-cols-4 gap-2">

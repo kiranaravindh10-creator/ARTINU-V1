@@ -114,7 +114,7 @@ export function RotationCalendar({
             {DAY_LABELS.map((label) => (
               <span
                 key={label}
-                className="text-center font-mono text-[0.5625rem] uppercase tracking-[0.14em] text-subtle"
+                className="text-center font-label text-[0.5625rem] uppercase tracking-[0.14em] text-subtle"
               >
                 {label.slice(0, 3)}
               </span>

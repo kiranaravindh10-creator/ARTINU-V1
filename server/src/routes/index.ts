@@ -5,6 +5,7 @@ import { artworkRouter } from '@/routes/artwork.routes';
 import { authRouter } from '@/routes/auth.routes';
 import { invoiceRouter } from '@/routes/invoice.routes';
 import { notificationRouter } from '@/routes/notification.routes';
+import { moderationRouter } from '@/routes/moderation.routes';
 import { operationsRouter } from '@/routes/operations.routes';
 import { orderRouter } from '@/routes/order.routes';
 import { paymentRouter } from '@/routes/payment.routes';
@@ -14,6 +15,7 @@ import { spaceRouter } from '@/routes/space.routes';
 import { uploadRouter } from '@/routes/upload.routes';
 import { userRouter } from '@/routes/user.routes';
 import { contentRouter } from '@/routes/content.routes';
+import { placesRouter } from '@/routes/places.routes';
 import { contentManagerRouter } from '@/routes/contentManager.routes';
 
 /** API modules, one per SDD §17 entry. */
@@ -26,6 +28,7 @@ apiRouter.use('/artworks', artworkRouter);
 apiRouter.use('/orders', orderRouter);
 apiRouter.use('/payments', paymentRouter);
 apiRouter.use('/uploads', uploadRouter);
+apiRouter.use('/moderation', moderationRouter);
 apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/rotation', rotationRouter);
 apiRouter.use('/invoices', invoiceRouter);
@@ -33,6 +36,7 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/analytics', analyticsRouter);
 apiRouter.use('/ops', operationsRouter);
 apiRouter.use('/content', contentRouter);
+apiRouter.use('/places', placesRouter);
 apiRouter.use('/content-manager', contentManagerRouter);
 
 // Public forms that do not belong to a single resource module:

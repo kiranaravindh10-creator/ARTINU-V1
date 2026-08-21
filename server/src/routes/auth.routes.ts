@@ -1,5 +1,6 @@
 import {
   artistRegistrationSchema,
+  COMMUNITY_GUIDELINES_VERSION,
   forgotPasswordSchema,
   otpVerifySchema,
   passwordSchema,
@@ -24,6 +25,11 @@ import { storeBase64 } from '@/services/storage.service';
 import { assignPhotographerCodeIfArtist } from '@/services/photo-id.service';
 import { ensureSpaceCode, issuedPassword } from '@/services/space-code.service';
 import { sendWelcomeEmailOnce } from '@/services/welcome-email.service';
+import {
+  confirmVerificationCode,
+  issueVerificationCode,
+  sendVerificationCodeQuietly,
+} from '@/services/verification.service';
 import {
   buildSession,
   consumeOtp,
@@ -137,9 +143,10 @@ authRouter.post(
       }
     }
 
-    void startEmailVerification(user, input.fullName).catch((error) =>
-      logger.error(`Could not send the verification email to ${user.email}`, error),
-    );
+    // A 6-digit code, through the same SMTP path as everything else. Never
+    // awaited: a full mail round trip is slow, and its outcome has no bearing
+    // on whether the account was created.
+    void sendVerificationCodeQuietly(user, input.fullName);
 
     // Welcome mail, on registration only — never on sign-in. Guarded against
     // duplicates and non-throwing by design; see welcome-email.service.ts.
@@ -212,6 +219,10 @@ authRouter.post(
       website: input.website || null,
       genres: [input.artStyle],
       avatarUrl,
+      // Which version of the Community Guidelines this photographer agreed to,
+      // and when. Enforcement under §12 depends on being able to say that.
+      guidelinesVersion: COMMUNITY_GUIDELINES_VERSION,
+      guidelinesAcceptedAt: now(),
     });
 
     // Neither of these should be able to cost someone their account. The user
@@ -227,9 +238,10 @@ authRouter.post(
 
     // Best-effort, and slow enough (a full SMTP round trip) to be worth not
     // making the visitor wait for it.
-    void startEmailVerification(user, input.fullName).catch((error) =>
-      logger.error(`Could not send the verification email to ${user.email}`, error),
-    );
+    // A 6-digit code, through the same SMTP path as everything else. Never
+    // awaited: a full mail round trip is slow, and its outcome has no bearing
+    // on whether the account was created.
+    void sendVerificationCodeQuietly(user, input.fullName);
 
     void sendWelcomeEmailOnce(user, input.fullName, 'artist');
 
@@ -324,9 +336,10 @@ authRouter.post(
     // already committed, so a slow or failing SMTP hop here would otherwise
     // leave an account that exists but was never handed back a session — and
     // whose email address is now taken, so it can never be registered again.
-    void startEmailVerification(user, input.fullName).catch((error) =>
-      logger.error(`Could not send the verification email to ${user.email}`, error),
-    );
+    // A 6-digit code, through the same SMTP path as everything else. Never
+    // awaited: a full mail round trip is slow, and its outcome has no bearing
+    // on whether the account was created.
+    void sendVerificationCodeQuietly(user, input.fullName);
 
     void sendWelcomeEmailOnce(user, input.fullName, 'space_owner');
 
@@ -389,6 +402,23 @@ authRouter.post(
     const user = await consumeStoredToken(token, 'password_reset');
 
     await setPassword(user.id, password);
+
+    /*
+      Retire every other outstanding reset link for this account.
+
+      Each trip through "forgot password" issues a fresh token without touching
+      the ones already sent, so asking three times leaves three working links,
+      each good for an hour. Using one left the other two live — and the reason
+      people click that button repeatedly is usually that they are worried
+      somebody else is in their mailbox.
+
+      Consuming the rest here means one reset closes the whole set.
+    */
+    const outstanding = await db.tokens.find({
+      where: { userId: user.id, purpose: 'password_reset', consumed: false },
+    });
+    await Promise.all(outstanding.map((record) => db.tokens.update(record.id, { consumed: true })));
+
     await recordAudit({
       actor: { id: user.id, email: user.email },
       action: 'user.password_reset',
@@ -469,6 +499,80 @@ authRouter.post(
     const profile = await profileFor(user.id);
     await startEmailVerification(user, profile?.fullName ?? 'there');
     res.json({ sent: true });
+  }),
+);
+
+/*
+  ── Email verification by 6-digit code ──────────────────────────────────────
+
+  The link-based flow above still exists and still works; links already sitting
+  in inboxes must not break. These three routes are the code-based flow that
+  registration now uses.
+
+  All three require a session, so a code can only ever be requested for, and
+  applied to, the account making the request. The code itself never appears in
+  a response, a URL or a log.
+*/
+
+/** Where the account stands, and whether a code is outstanding. */
+authRouter.get(
+  '/verification/status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({
+      emailVerified: req.user!.emailVerified,
+      email: req.user!.email,
+    });
+  }),
+);
+
+/** Send a code. Also the "resend" path — the service holds the cooldown. */
+authRouter.post(
+  '/verification/send',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (user.emailVerified) throw badRequest('That email address is already verified.');
+
+    const profile = await profileFor(user.id);
+    const issued = await issueVerificationCode(user, profile?.fullName ?? 'there');
+
+    // challengeId and a masked address only. Never the code.
+    res.json(issued);
+  }),
+);
+
+/** Check a code and, if it is right, mark the address verified. */
+authRouter.post(
+  '/verification/confirm',
+  requireAuth,
+  authLimiter,
+  validate(
+    z.object({
+      challengeId: z.string().min(1),
+      code: z
+        .string()
+        .trim()
+        .regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+    }),
+  ),
+  asyncHandler(async (req, res) => {
+    const { challengeId, code } = req.valid as { challengeId: string; code: string };
+
+    const updated = await confirmVerificationCode(req.user!.id, challengeId, code);
+
+    await recordAudit({
+      actor: { id: updated.id, email: updated.email },
+      action: 'user.email_verified',
+      entity: 'user',
+      entityId: updated.id,
+      ip: req.ip,
+    });
+
+    // A fresh session, so the client picks up emailVerified without a reload
+    // and the verified badge appears immediately.
+    res.json(await buildSession(updated));
   }),
 );
 

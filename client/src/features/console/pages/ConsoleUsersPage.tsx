@@ -305,7 +305,7 @@ export default function ConsoleUsersPage() {
             {/* Show exactly what the chosen role can reach. */}
             {(ROLE_MODULES[nextRole] ?? []).length > 0 && (
               <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                   This role can reach
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -443,7 +443,7 @@ export default function ConsoleUsersPage() {
 
             {(ROLE_MODULES[newRole] ?? []).length > 0 && (
               <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                   This role can reach
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">

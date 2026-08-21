@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
+import { Typewriter } from '@/components/motion/typewriter';
 import { cn } from '@/lib/utils';
 
 export function Container({
@@ -56,7 +57,12 @@ export function Section({
   );
 }
 
-/** Eyebrow + display heading + optional lead paragraph. */
+/**
+ * Eyebrow + display heading + optional lead paragraph.
+ *
+ * Only the marketing pages use this, so the heading types itself out by
+ * default; `typing={false}` opts a single heading out.
+ */
 export function SectionHeading({
   eyebrow,
   title,
@@ -66,6 +72,7 @@ export function SectionHeading({
   invert = false,
   className,
   size = 'default',
+  typing = true,
 }: {
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
@@ -75,6 +82,7 @@ export function SectionHeading({
   invert?: boolean;
   className?: string;
   size?: 'default' | 'large' | 'small';
+  typing?: boolean;
 }) {
   return (
     <div
@@ -85,7 +93,8 @@ export function SectionHeading({
       )}
     >
       {eyebrow && <p className={cn('eyebrow', invert && 'text-bronze-light')}>{eyebrow}</p>}
-      <h2
+      <Typewriter
+        as="h2"
         className={cn(
           'font-display',
           size === 'small' && 'text-2xl sm:text-3xl',
@@ -93,9 +102,13 @@ export function SectionHeading({
           size === 'large' && 'text-[2.5rem] leading-[1.05] sm:text-5xl lg:text-6xl',
           invert ? 'text-canvas' : 'text-ink',
         )}
+        // Bronze at full strength disappears into an ink section; the light
+        // tint is the one the eyebrow already uses on those backgrounds.
+        caretClassName={invert ? 'border-l-bronze-light' : undefined}
+        enabled={typing}
       >
         {title}
-      </h2>
+      </Typewriter>
       {rule && <span className={cn('rule', align === 'center' && 'mx-auto')} />}
       {description && (
         <p className={cn('prose-quiet', invert && 'text-canvas/70', align === 'center' && 'mx-auto')}>
@@ -180,7 +193,7 @@ export function CircleArrowLink({
           )}
         />
       </span>
-      <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-ink">
+      <span className="font-label text-[0.6875rem] uppercase tracking-[0.16em] text-ink">
         {children}
       </span>
     </Link>

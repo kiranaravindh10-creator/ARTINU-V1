@@ -7,6 +7,8 @@ import {
   Loader2,
   Pencil,
   Plus,
+  RotateCcw,
+  Save,
   Search,
   Store,
   Trash2,
@@ -31,12 +33,14 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { DEFAULT_SLIDESHOW_SETTINGS, SLIDESHOW_LIMITS } from '@artinu/shared';
 import type {
   Cafe,
   CreateCafeInput,
   CreateHeroSlideInput,
   FeaturedCollection,
   HeroSlide,
+  SlideshowSettings,
   UpdateCafeInput,
 } from '@artinu/shared';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -52,14 +56,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/display';
-import { Field } from '@/components/ui/field';
+import { CharCount, Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
+import { SegmentedList, SegmentedTrigger, Tabs } from '@/components/ui/tabs';
 import { errorMessage } from '@/lib/api';
 import { qk } from '@/lib/query';
 import { catalogService } from '@/services/catalog.service';
-import { contentService } from '@/services/content.service';
+import { SLIDESHOW_CONTENT_ID, contentService } from '@/services/content.service';
 import { cn, fileToBase64, formatBytes } from '@/lib/utils';
 
 /**
@@ -77,7 +82,40 @@ import { cn, fileToBase64, formatBytes } from '@/lib/utils';
  * along with the row — is unchanged underneath.
  */
 
-const IMAGE_TYPES = /^image\/(jpeg|jpg|png|webp|avif)$/;
+/*
+  The formats a browser will actually draw, which is the only list worth
+  enforcing: everything chosen here ends up in an `<img>` on the homepage.
+
+  This mirrors EXTENSIONS in server/src/services/storage.service.ts. Both sides
+  check, on purpose — the client so a refusal is a sentence next to the field
+  rather than a status code, the server because the client is not a security
+  boundary. If one list grows, grow the other.
+*/
+const IMAGE_TYPES = /^image\/(jpeg|jpg|png|webp|avif|gif)$/;
+
+/*
+  Formats people really do try, that no browser can draw. Worth naming
+  individually: "that file type is not supported" sends someone back to a folder
+  of .HEIC with no idea what to do, and HEIC is what every iPhone shoots by
+  default. `.heic` sometimes arrives with an empty `file.type` from the OS
+  picker, so the extension is checked too.
+*/
+const UNRENDERABLE: { test: RegExp; why: string }[] = [
+  { test: /^image\/hei[cf]$|\.hei[cf]$/i, why: 'HEIC is what an iPhone shoots by default, and only Safari can display it.' },
+  { test: /^image\/tiff$|\.tiff?$/i, why: 'TIFF cannot be displayed by any browser.' },
+  { test: /photoshop|\.psd$/i, why: 'A Photoshop file cannot be displayed by a browser.' },
+  { test: /^application\/pdf$|\.pdf$/i, why: 'A PDF cannot be used as an image on the site.' },
+  { test: /\.(cr2|cr3|nef|arw|dng|raf|orf|rw2)$/i, why: 'That is a camera raw file.' },
+];
+
+/*
+  SVG is refused rather than merely unsupported. A browser renders it happily,
+  which is the problem: an SVG is a document that can carry <script>, and these
+  are served from our own origin. There is also no such thing as a photograph in
+  SVG.
+*/
+const SVG = /^image\/svg|\.svg$/i;
+
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** Sentinel for "nobody to credit" — Radix Select cannot hold an empty value. */
@@ -96,7 +134,19 @@ function useImageUpload(folder: 'hero' | 'cafes' | 'featured') {
 
   const upload = async (file: File): Promise<string | null> => {
     if (!IMAGE_TYPES.test(file.type)) {
-      toast.error(`${file.name} is not a JPG, PNG, WebP or AVIF image.`);
+      const probe = `${file.type} ${file.name}`;
+
+      if (SVG.test(probe)) {
+        toast.error('SVG files are not accepted. Choose a photograph as a JPG, PNG, WebP, AVIF or GIF.');
+        return null;
+      }
+
+      const known = UNRENDERABLE.find((entry) => entry.test.test(probe));
+      toast.error(
+        known
+          ? `${known.why} Export it as a JPG and choose that instead.`
+          : `${file.name} is not an image format browsers can display. Choose a JPG, PNG, WebP, AVIF or GIF.`,
+      );
       return null;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -130,7 +180,7 @@ function ImageField({
   onChange,
   folder,
   label = 'Photograph',
-  hint = 'JPG, PNG, WebP or AVIF, up to 25 MB. Landscape works best.',
+  hint = 'JPG, PNG, WebP, AVIF or GIF, up to 25 MB. Landscape works best, and at least 800px on the short edge.',
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -152,7 +202,7 @@ function ImageField({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
         className="sr-only"
         onChange={(event) => {
           void choose(event.target.files?.[0]);
@@ -458,69 +508,336 @@ function CarouselTab() {
   const shown = slides.filter((slide) => slide.isActive).length;
 
   return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Homepage carousel</CardTitle>
+            <CardDescription>
+              The photographs at the top of artinu.in. Drag to change the order they appear in — the
+              top one is shown first. The credit under each one names the photographer on the
+              homepage; leave it as “No credit” for a room shot.
+              {slides.length > 0 && (
+                <>
+                  {' '}
+                  {shown} of {slides.length} {slides.length === 1 ? 'photograph is' : 'photographs are'}{' '}
+                  on the homepage now.
+                </>
+              )}
+            </CardDescription>
+          </div>
+          <AddSlideDialog
+            artistOptions={artistOptions}
+            pending={create.isPending}
+            onAdd={(input) => create.mutate(input)}
+          />
+        </CardHeader>
+
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }, (_, index) => (
+                <Skeleton key={index} className="h-24 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : slides.length === 0 ? (
+            <Empty
+              icon={Images}
+              title="No photographs in the carousel"
+              description="Add one and it appears at the top of the homepage immediately. Until then the homepage shows its standing opening image."
+              action={
+                <AddSlideDialog
+                  artistOptions={artistOptions}
+                  pending={create.isPending}
+                  onAdd={(input) => create.mutate(input)}
+                />
+              }
+            />
+          ) : (
+            <SortableRows
+              items={slides}
+              onReorder={(next) =>
+                reorder.mutate(next.map((slide, index) => ({ id: slide.id, order: index })))
+              }
+            >
+              {(slide, handle) => (
+                <SlideRow
+                  slide={slide}
+                  handle={handle}
+                  artistOptions={artistOptions}
+                  onUpdate={(input) => update.mutate({ id: slide.id, input })}
+                  onDelete={() => remove.mutate(slide.id)}
+                  busy={update.isPending || remove.isPending}
+                />
+              )}
+            </SortableRows>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* The photographs are the point of the screen, so they come first; how
+          they play sits underneath. */}
+      <SlideshowSettingsCard />
+    </div>
+  );
+}
+
+// ── How the slideshow plays ──────────────────────────────────────────────────
+
+/** A labelled on/off row, which is most of the panel below. */
+function SettingSwitch({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-6 border-b border-line-soft py-4 last:border-b-0">
+      <div className="min-w-0">
+        <label htmlFor={id} className="block text-sm font-medium text-ink">
+          {label}
+        </label>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted">{description}</p>
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} className="mt-0.5 shrink-0" />
+    </div>
+  );
+}
+
+/**
+ * Builds the dropdown options for a duration, and makes sure whatever is
+ * currently saved is one of them.
+ *
+ * A dropdown rather than a number box on purpose: this screen is used by the
+ * manager and the IT team, the sensible values are a short list, and a free text
+ * field would let someone save a two-second rotation or an empty one and have
+ * the API reject it after the fact. If a stored value came from somewhere else —
+ * a hand-edited record — it is added to the list rather than silently reset,
+ * which would otherwise happen the first time anybody pressed Save.
+ */
+function durationOptions(currentMs: number, presetMs: number[], format: (ms: number) => string) {
+  const values = presetMs.includes(currentMs) ? presetMs : [...presetMs, currentMs].sort((a, b) => a - b);
+  return values.map((ms) => ({ value: String(ms), label: format(ms) }));
+}
+
+const secondsLabel = (ms: number) => {
+  const seconds = ms / 1000;
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} seconds`;
+};
+
+/**
+ * Console → Homepage → how the slideshow plays.
+ *
+ * The photographs above this were always editable. Their timing was not: the
+ * dwell, the cross-fade length, the slow zoom and which controls appeared were
+ * all constants in the homepage component, so "hold each photograph a bit
+ * longer" or "drop the zoom" was a code change and a deploy.
+ *
+ * Saved as one `ui_content` record rather than a table of its own — a single row
+ * of settings for a single slideshow does not need a migration — and the API
+ * bounds every value on the way in, so nothing saved here can stop the homepage
+ * or spin it.
+ */
+function SlideshowSettingsCard() {
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['content', SLIDESHOW_CONTENT_ID],
+    queryFn: () => contentService.getSlideshowSettings(),
+  });
+
+  // The form edits a local copy. Nothing reaches the homepage until Save, so a
+  // half-made decision is never live on the front page of the site.
+  const [draft, setDraft] = React.useState<SlideshowSettings | null>(null);
+  React.useEffect(() => {
+    if (data) setDraft(data);
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: (settings: SlideshowSettings) => contentService.saveSlideshowSettings(settings),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['content', SLIDESHOW_CONTENT_ID], saved);
+      toast.success('The homepage slideshow has been updated');
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  if (isLoading || !draft) {
+    return <Skeleton className="h-[32rem] w-full rounded-lg" />;
+  }
+
+  const set = <K extends keyof SlideshowSettings>(key: K, value: SlideshowSettings[K]) =>
+    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+
+  const dirty = !!data && JSON.stringify(draft) !== JSON.stringify(data);
+
+  return (
     <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardTitle>Homepage carousel</CardTitle>
-          <CardDescription>
-            The photographs at the top of artinu.in. Drag to change the order they appear in — the
-            top one is shown first. The credit under each one names the photographer on the
-            homepage; leave it as “No credit” for a room shot.
-            {slides.length > 0 && (
-              <>
-                {' '}
-                {shown} of {slides.length} {slides.length === 1 ? 'photograph is' : 'photographs are'}{' '}
-                on the homepage now.
-              </>
-            )}
-          </CardDescription>
-        </div>
-        <AddSlideDialog
-          artistOptions={artistOptions}
-          pending={create.isPending}
-          onAdd={(input) => create.mutate(input)}
-        />
+      <CardHeader>
+        <CardTitle>How the slideshow plays</CardTitle>
+        <CardDescription>
+          Timing and controls for the photographs above. Changes go live on the homepage as soon
+          as you save — visitors already on the page see them on their next visit.
+        </CardDescription>
       </CardHeader>
 
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }, (_, index) => (
-              <Skeleton key={index} className="h-24 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : slides.length === 0 ? (
-          <Empty
-            icon={Images}
-            title="No photographs in the carousel"
-            description="Add one and it appears at the top of the homepage immediately. Until then the homepage shows its standing opening image."
-            action={
-              <AddSlideDialog
-                artistOptions={artistOptions}
-                pending={create.isPending}
-                onAdd={(input) => create.mutate(input)}
-              />
-            }
-          />
-        ) : (
-          <SortableRows
-            items={slides}
-            onReorder={(next) =>
-              reorder.mutate(next.map((slide, index) => ({ id: slide.id, order: index })))
-            }
+      <CardContent className="space-y-8">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="Hold each photograph for"
+            htmlFor="slideshow-interval"
+            hint="How long one photograph stays before the next one comes in."
           >
-            {(slide, handle) => (
-              <SlideRow
-                slide={slide}
-                handle={handle}
-                artistOptions={artistOptions}
-                onUpdate={(input) => update.mutate({ id: slide.id, input })}
-                onDelete={() => remove.mutate(slide.id)}
-                busy={update.isPending || remove.isPending}
-              />
-            )}
-          </SortableRows>
-        )}
+            <SimpleSelect
+              id="slideshow-interval"
+              value={String(draft.intervalMs)}
+              onValueChange={(value) => set('intervalMs', Number(value))}
+              options={durationOptions(
+                draft.intervalMs,
+                [3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000],
+                secondsLabel,
+              )}
+            />
+          </Field>
+
+          <Field
+            label="Change between photographs by"
+            htmlFor="slideshow-transition"
+            hint="Fading is the quieter of the two and is what the homepage has always done."
+          >
+            <SimpleSelect
+              id="slideshow-transition"
+              value={draft.transition}
+              onValueChange={(value) => set('transition', value === 'slide' ? 'slide' : 'fade')}
+              options={[
+                { value: 'fade', label: 'Fading one into the next' },
+                { value: 'slide', label: 'Sliding in from the side' },
+              ]}
+            />
+          </Field>
+
+          <Field
+            label="Take this long to change"
+            htmlFor="slideshow-transition-ms"
+            hint="The length of that fade or slide."
+          >
+            <SimpleSelect
+              id="slideshow-transition-ms"
+              value={String(draft.transitionMs)}
+              onValueChange={(value) => set('transitionMs', Number(value))}
+              options={durationOptions(
+                draft.transitionMs,
+                [300, 600, 900, 1200, 1500, 2000],
+                secondsLabel,
+              )}
+            />
+          </Field>
+
+          <Field
+            label="Line beside the controls"
+            htmlFor="slideshow-caption"
+            hint="Shown on wide screens only. Leave it empty and the photographs take the full width."
+            aside={<CharCount value={draft.caption} max={SLIDESHOW_LIMITS.caption.max} />}
+          >
+            <Input
+              id="slideshow-caption"
+              value={draft.caption}
+              maxLength={SLIDESHOW_LIMITS.caption.max}
+              onChange={(event) => set('caption', event.target.value)}
+              placeholder={DEFAULT_SLIDESHOW_SETTINGS.caption}
+            />
+          </Field>
+        </div>
+
+        <div>
+          <p className="eyebrow eyebrow-muted">Movement</p>
+          <div className="mt-2">
+            <SettingSwitch
+              id="slideshow-autoplay"
+              label="Move through the photographs on its own"
+              description="Off leaves the slideshow entirely manual — visitors move it with the arrows and thumbnails."
+              checked={draft.autoPlay}
+              onChange={(next) => set('autoPlay', next)}
+            />
+            <SettingSwitch
+              id="slideshow-pause-hover"
+              label="Hold while the visitor's pointer is over it"
+              description="Stops the rotation from moving a photograph out from under someone who is looking at it."
+              checked={draft.pauseOnHover}
+              onChange={(next) => set('pauseOnHover', next)}
+            />
+            <SettingSwitch
+              id="slideshow-ken-burns"
+              label="Slowly push in on each photograph"
+              description="A very gradual zoom while a photograph is on screen. Turn it off for a completely still image."
+              checked={draft.kenBurns}
+              onChange={(next) => set('kenBurns', next)}
+            />
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-subtle">
+            Visitors whose device is set to reduce motion always get still photographs and a plain
+            change between them, whatever is chosen here.
+          </p>
+        </div>
+
+        <div>
+          <p className="eyebrow eyebrow-muted">Controls on the homepage</p>
+          <div className="mt-2">
+            <SettingSwitch
+              id="slideshow-thumbnails"
+              label="Row of upcoming photographs"
+              description="The small previews under the photograph. Visitors can click one to jump to it."
+              checked={draft.showThumbnails}
+              onChange={(next) => set('showThumbnails', next)}
+            />
+            <SettingSwitch
+              id="slideshow-arrows"
+              label="Back and forward arrows"
+              description="Lets visitors step through by hand. Doing so restarts the timer rather than stopping it."
+              checked={draft.showArrows}
+              onChange={(next) => set('showArrows', next)}
+            />
+            <SettingSwitch
+              id="slideshow-counter"
+              label="Counter and photographer's credit"
+              description="Reads 01 / 08 followed by the photographer named against the current slide."
+              checked={draft.showCounter}
+              onChange={(next) => set('showCounter', next)}
+            />
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-subtle">
+            A pause button appears alongside these whenever the slideshow moves on its own, and
+            cannot be switched off — auto-advancing content has to be stoppable.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-line-soft pt-5">
+          <Button onClick={() => save.mutate(draft)} loading={save.isPending} disabled={!dirty}>
+            <Save /> Save
+          </Button>
+
+          {dirty && (
+            <Button variant="ghost" onClick={() => data && setDraft(data)} disabled={save.isPending}>
+              Discard changes
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            className="ml-auto text-muted"
+            onClick={() => setDraft({ ...DEFAULT_SLIDESHOW_SETTINGS })}
+            disabled={save.isPending}
+          >
+            <RotateCcw /> Back to the standard settings
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -610,6 +927,151 @@ function SlideRow({
   );
 }
 
+/**
+ * What a chosen photograph amounts to: a URL, and a photographer to credit if
+ * one is known.
+ *
+ * `from` is kept so step two can say where the image came from and so a gallery
+ * pick can present its credit as already settled rather than as a dropdown to
+ * fill in again.
+ */
+interface ChosenImage {
+  from: 'upload' | 'gallery';
+  imageUrl: string;
+  /** Pre-resolved for a gallery pick. Null for an upload — nobody to credit yet. */
+  photographerId: string | null;
+  /** Shown back to the manager in step two. Never sent to the API. */
+  caption?: string;
+}
+
+/**
+ * Pick a photograph that is already in the gallery.
+ *
+ * This is the option the screen was missing. Uploading was the only way to add a
+ * carousel image, which meant a manager who wanted a photograph the site already
+ * holds had to find the file, upload a second copy of it into the hero folder,
+ * and then re-select its photographer from a dropdown by hand — two chances to
+ * mis-credit somebody, and a duplicate of an image we already store.
+ *
+ * A gallery pick carries its own artist, so the credit cannot be wrong.
+ */
+function GalleryPicker({
+  value,
+  onChange,
+}: {
+  value: ChosenImage | null;
+  onChange: (chosen: ChosenImage | null) => void;
+}) {
+  const [term, setTerm] = React.useState('');
+  const [search, setSearch] = React.useState('');
+
+  // The gallery query hits the network, so it follows a submitted term rather
+  // than every keystroke.
+  React.useEffect(() => {
+    const timer = setTimeout(() => setSearch(term.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [term]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['content-manager', 'gallery-picker', search],
+    queryFn: () => catalogService.gallery({ q: search || undefined, pageSize: 24, sort: 'latest' }),
+    staleTime: 60 * 1000,
+  });
+
+  const artworks = data?.items ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle"
+          aria-hidden
+        />
+        <Input
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder="Search the gallery by title, photographer or tag"
+          className="pl-9"
+          aria-label="Search the gallery"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 6 }, (_, index) => (
+            <Skeleton key={index} className="aspect-[4/3] w-full rounded-md" />
+          ))}
+        </div>
+      ) : artworks.length === 0 ? (
+        <p className="rounded-md border border-dashed border-line-strong bg-sand-soft px-4 py-8 text-center text-sm text-muted">
+          {search
+            ? `Nothing in the gallery matches “${search}”.`
+            : 'There are no photographs in the gallery yet.'}
+        </p>
+      ) : (
+        <div
+          role="listbox"
+          aria-label="Photographs in the gallery"
+          className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1"
+        >
+          {artworks.map((artwork) => {
+            const selected = value?.from === 'gallery' && value.imageUrl === artwork.imageUrl;
+            return (
+              <button
+                key={artwork.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                title={`${artwork.title} — ${artwork.artist.name}`}
+                onClick={() =>
+                  onChange(
+                    selected
+                      ? null
+                      : {
+                          from: 'gallery',
+                          imageUrl: artwork.imageUrl,
+                          photographerId: artwork.artist.id,
+                          caption: `${artwork.title} — ${artwork.artist.name}`,
+                        },
+                  )
+                }
+                className={cn(
+                  'group relative overflow-hidden rounded-md transition-all',
+                  selected
+                    ? 'ring-2 ring-bronze ring-offset-2 ring-offset-surface'
+                    : 'ring-1 ring-line hover:ring-bronze/50',
+                )}
+              >
+                <Photo
+                  src={artwork.thumbnailUrl || artwork.imageUrl}
+                  alt={artwork.title}
+                  ratio="aspect-[4/3]"
+                  className="w-full"
+                />
+                <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-ink/85 to-transparent px-2 pb-1.5 pt-5 text-left text-[0.6875rem] text-canvas">
+                  {artwork.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Add a photograph to the homepage carousel, in two steps.
+ *
+ * It used to be one screen whose only button said "Add to homepage" — so the
+ * button that publishes to the front page of the site was live from the moment
+ * the dialog opened, sitting next to an empty picker. Choosing the image and
+ * agreeing to publish it were the same click.
+ *
+ * Now: choose the photograph, Next, then confirm the credit and publish. The
+ * split also gives the gallery option somewhere to live, and gives step two a
+ * full-width preview of what is about to go up.
+ */
 function AddSlideDialog({
   artistOptions,
   onAdd,
@@ -620,13 +1082,26 @@ function AddSlideDialog({
   pending: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+  const [step, setStep] = React.useState<1 | 2>(1);
+  const [source, setSource] = React.useState<'upload' | 'gallery'>('upload');
+  const [chosen, setChosen] = React.useState<ChosenImage | null>(null);
   const [photographerId, setPhotographerId] = React.useState(NO_CREDIT);
 
   const close = () => {
     setOpen(false);
-    setImageUrl(null);
+    setStep(1);
+    setSource('upload');
+    setChosen(null);
     setPhotographerId(NO_CREDIT);
+  };
+
+  // Step two opens with the credit the gallery already knows, and with "No
+  // credit" for an upload, which is the honest default — an uploaded file tells
+  // us nothing about who took it.
+  const toStepTwo = () => {
+    if (!chosen) return;
+    setPhotographerId(chosen.photographerId ?? NO_CREDIT);
+    setStep(2);
   };
 
   return (
@@ -638,47 +1113,112 @@ function AddSlideDialog({
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add to the homepage carousel</DialogTitle>
+            <DialogTitle>
+              {step === 1 ? 'Choose a photograph' : 'Credit and publish'}
+            </DialogTitle>
             <DialogDescription>
-              Choose the photograph, credit the photographer if there is one, and save. It is on
-              the homepage as soon as you save.
+              {step === 1
+                ? 'Pick one that is already in the gallery, or upload a new file.'
+                : 'Check the credit, then add it. It is on the homepage as soon as you do.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <ImageField value={imageUrl} onChange={setImageUrl} folder="hero" />
+          {step === 1 ? (
+            <div className="space-y-4 py-2">
+              <Tabs
+                value={source}
+                onValueChange={(next) => {
+                  // Switching source clears the pick rather than carrying a
+                  // gallery credit onto an uploaded file, or vice versa.
+                  setSource(next as 'upload' | 'gallery');
+                  setChosen(null);
+                }}
+              >
+                <SegmentedList>
+                  <SegmentedTrigger value="upload">Upload a file</SegmentedTrigger>
+                  <SegmentedTrigger value="gallery">From the gallery</SegmentedTrigger>
+                </SegmentedList>
+              </Tabs>
 
-            <Field
-              label="Photographer credit"
-              hint="Optional. Their name appears under the photograph on the homepage."
-            >
-              <SimpleSelect
-                value={photographerId}
-                onValueChange={setPhotographerId}
-                options={artistOptions}
-                placeholder="No credit"
-              />
-            </Field>
-          </div>
+              {source === 'upload' ? (
+                <ImageField
+                  value={chosen?.from === 'upload' ? chosen.imageUrl : null}
+                  onChange={(url) =>
+                    setChosen(url ? { from: 'upload', imageUrl: url, photographerId: null } : null)
+                  }
+                  folder="hero"
+                />
+              ) : (
+                <GalleryPicker value={chosen} onChange={setChosen} />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {chosen && (
+                <div className="space-y-2">
+                  <Photo
+                    src={chosen.imageUrl}
+                    alt=""
+                    ratio="aspect-[16/9]"
+                    className="photo-edge rounded-md"
+                  />
+                  <p className="text-xs text-subtle">
+                    {chosen.from === 'gallery'
+                      ? `From the gallery — ${chosen.caption}`
+                      : 'Uploaded from this computer'}
+                  </p>
+                </div>
+              )}
+
+              <Field
+                label="Photographer credit"
+                hint={
+                  chosen?.from === 'gallery'
+                    ? 'Taken from the gallery entry. Change it only if it is wrong.'
+                    : 'Optional. Their name appears under the photograph on the homepage.'
+                }
+              >
+                <SimpleSelect
+                  value={photographerId}
+                  onValueChange={setPhotographerId}
+                  options={artistOptions}
+                  placeholder="No credit"
+                />
+              </Field>
+            </div>
+          )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              loading={pending}
-              disabled={!imageUrl}
-              onClick={() => {
-                if (!imageUrl) return;
-                onAdd({
-                  imageUrl,
-                  photographerId: photographerId === NO_CREDIT ? null : photographerId,
-                });
-                close();
-              }}
-            >
-              Add to homepage
-            </Button>
+            {step === 1 ? (
+              <>
+                <Button variant="outline" onClick={close}>
+                  Cancel
+                </Button>
+                <Button disabled={!chosen} onClick={toStepTwo}>
+                  Next
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setStep(1)} disabled={pending}>
+                  Back
+                </Button>
+                <Button
+                  loading={pending}
+                  disabled={!chosen}
+                  onClick={() => {
+                    if (!chosen) return;
+                    onAdd({
+                      imageUrl: chosen.imageUrl,
+                      photographerId: photographerId === NO_CREDIT ? null : photographerId,
+                    });
+                    close();
+                  }}
+                >
+                  Add to homepage
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

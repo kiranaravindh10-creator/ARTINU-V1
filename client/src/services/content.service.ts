@@ -1,5 +1,9 @@
 import { api } from '@/lib/api';
-import type { HeroSlide, FeaturedCollection, Cafe, CollaborationSlide, CreateHeroSlideInput, UpdateHeroSlideInput, CreateFeaturedCollectionInput, UpdateFeaturedCollectionInput, CreateCafeInput, UpdateCafeInput, CreateCollaborationSlideInput, UpdateCollaborationSlideInput } from '@artinu/shared';
+import { DEFAULT_SLIDESHOW_SETTINGS } from '@artinu/shared';
+import type { HeroSlide, FeaturedCollection, Cafe, CollaborationSlide, CreateHeroSlideInput, UpdateHeroSlideInput, CreateFeaturedCollectionInput, UpdateFeaturedCollectionInput, CreateCafeInput, UpdateCafeInput, CreateCollaborationSlideInput, UpdateCollaborationSlideInput, SlideshowSettings } from '@artinu/shared';
+
+/** The `ui_content` row the homepage slideshow settings live in. */
+export const SLIDESHOW_CONTENT_ID = 'homepage_slideshow';
 
 export interface PaginatedResponse<T> {
   items: T[];
@@ -38,6 +42,26 @@ export const contentService = {
   async setContent(id: string, contentData: any) {
     const { data } = await api.put(`/content/${id}`, { data: contentData });
     return data;
+  },
+
+  // Homepage slideshow settings
+
+  /**
+   * How the carousel plays. The server fills any missing field from the schema
+   * defaults, so this resolves to a complete object even on an install where
+   * nobody has opened the settings panel — the `??` is only there for a
+   * response shape older than that change.
+   */
+  async getSlideshowSettings(): Promise<SlideshowSettings> {
+    const { data } = await api.get<{ data: SlideshowSettings | null }>(`/content/${SLIDESHOW_CONTENT_ID}`);
+    return data.data ?? { ...DEFAULT_SLIDESHOW_SETTINGS };
+  },
+
+  async saveSlideshowSettings(settings: SlideshowSettings) {
+    const { data } = await api.put<{ data: SlideshowSettings }>(`/content/${SLIDESHOW_CONTENT_ID}`, {
+      data: settings,
+    });
+    return data.data;
   },
 
   // Hero Slides

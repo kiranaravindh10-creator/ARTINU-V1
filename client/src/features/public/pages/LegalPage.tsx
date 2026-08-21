@@ -1,13 +1,23 @@
-import { CONTACT, MIN_ORDER_QUANTITY } from '@artinu/shared';
+import { COMMUNITY_GUIDELINES_VERSION, CONTACT, MIN_ORDER_QUANTITY } from '@artinu/shared';
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Container, Section } from '@/components/layout/primitives';
 import { cn } from '@/lib/utils';
 
+/**
+ * A block inside a policy section.
+ *
+ * A plain string is a paragraph. `{ list: [...] }` is a bullet list, and
+ * `{ heading }` a sub-heading — both needed by the Community Guidelines, which
+ * enumerate what may be uploaded and what may not. Rendering those as prose
+ * would bury the one part of the document people actually scan for.
+ */
+type LegalBlock = string | { list: string[] } | { heading: string };
+
 interface LegalSection {
   id: string;
   title: string;
-  paragraphs: string[];
+  paragraphs: LegalBlock[];
 }
 
 interface LegalDocument {
@@ -94,7 +104,7 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         id: 'contact-privacy',
         title: '8. Contact',
         paragraphs: [
-          `Questions about this policy go to ${CONTACT.email}, or by post to ${CONTACT.address.line1}, ${CONTACT.address.line2}, ${CONTACT.address.city} ${CONTACT.address.pin}.`,
+          `Questions about this policy go to ${CONTACT.email}, and we answer them ourselves rather than routing you through a form.`,
         ],
       },
     ],
@@ -265,16 +275,268 @@ const DOCUMENTS: Record<string, LegalDocument> = {
     ],
   },
 
+  /*
+    ARTINU Photographer Community Guidelines — the operative document.
+
+    This is CEO-supplied policy text, reproduced as given. Section numbering and
+    wording are preserved; the only editorial changes are formatting ones the
+    page needs (enumerations become lists, sub-headings become sub-headings).
+    Several of these sections are enforced in code, not just published:
+
+      §12  three-warning policy      → server/src/services/enforcement.service
+      §13  10-day new-account rule   → server/src/services/lifecycle.service
+      §14  96-day inactivity rule    → server/src/services/lifecycle.service
+      §11  5-day removal processing  → server/src/services/removal.service
+
+    If the text changes, bump COMMUNITY_GUIDELINES_VERSION in shared/constants
+    so photographers are asked to acknowledge the new version.
+  */
   community: {
-    title: 'Community Guidelines',
-    updated: UPDATED,
-    intro: 'Welcome to the ARTINU community. Please respect the following guidelines.',
+    title: 'ARTINU Photographer Community Guidelines',
+    updated: `${UPDATED} · version ${COMMUNITY_GUIDELINES_VERSION}`,
+    intro:
+      'These guidelines describe what ARTINU asks of the photographers who show work through the platform, and what ARTINU does in return. Please read them before you upload.',
     sections: [
       {
-        id: 'placeholder',
-        title: '1. Guidelines',
+        id: 'about',
+        title: '1. About ARTINU',
         paragraphs: [
-          'Placeholder content for community guidelines.',
+          'ARTINU is a platform that brings independent photography and visual art into cafés and other physical spaces.',
+          'Our goal is simple: discover great photographers, showcase their work, and create opportunities for artists to earn from their photography.',
+          'By uploading work to ARTINU, you are joining a curated creative community.',
+        ],
+      },
+      {
+        id: 'what-you-can-upload',
+        title: '2. What You Can Upload',
+        paragraphs: [
+          'We welcome original photography across different styles, including:',
+          {
+            list: [
+              'Street photography',
+              'Architecture',
+              'Travel',
+              'Nature and landscapes',
+              'People and portraits',
+              'Food and culture',
+              'Abstract photography',
+              'Minimalist photography',
+              'Urban photography',
+              'Black-and-white photography',
+              'Experimental and conceptual work',
+            ],
+          },
+          'We especially encourage photographs that work well as large-format wall art.',
+        ],
+      },
+      {
+        id: 'own-the-work',
+        title: '3. You Must Own the Work',
+        paragraphs: [
+          'Only upload photographs that you have personally created or have the legal right to license.',
+          'Do not upload:',
+          {
+            list: [
+              "Someone else's photographs",
+              'Images downloaded from the internet',
+              'AI-generated images presented as your own photography',
+              'Copyrighted artwork you do not have permission to use',
+              'Photographs containing unauthorized third-party creative work where that use could create copyright issues',
+            ],
+          },
+          'ARTINU may request proof of ownership or original files if necessary.',
+        ],
+      },
+      {
+        id: 'people-and-property',
+        title: '4. People and Private Property',
+        paragraphs: [
+          'If your photograph clearly identifies a person, especially in a commercial or posed context, you should have the appropriate permission where required.',
+          'For photographs taken inside private properties, events, businesses, or restricted locations, you are responsible for ensuring that you had permission to photograph and commercially license the image where necessary.',
+        ],
+      },
+      {
+        id: 'quality',
+        title: '5. Quality Standards',
+        paragraphs: [
+          'Please upload photographs that are suitable for high-quality printing.',
+          'We recommend:',
+          {
+            list: [
+              'High-resolution original files',
+              'Sharp, properly exposed images',
+              'Minimal compression',
+              'No excessive filters or artifacts',
+              'No watermarks on the submitted artwork',
+              'No screenshots of photographs',
+            ],
+          },
+          'ARTINU may reject images that cannot produce a good-quality physical print.',
+        ],
+      },
+      {
+        id: 'content',
+        title: '6. Content Guidelines',
+        paragraphs: [
+          'ARTINU is a public-facing platform and our artwork may be displayed in cafés and other businesses.',
+          'Do not submit content that is:',
+          {
+            list: [
+              'Explicitly sexual',
+              'Pornographic',
+              'Hate-based or discriminatory',
+              'Promoting violence or criminal activity',
+              'Harassing or threatening',
+              'Intentionally deceptive or misleading',
+              "Infringing another person's intellectual property",
+              'Illegal or otherwise unsuitable for public display',
+            ],
+          },
+          'ARTINU may also reject content that is technically acceptable but unsuitable for our partner venues.',
+        ],
+      },
+      {
+        id: 'curation',
+        title: '7. Curation',
+        paragraphs: [
+          'Uploading a photograph does not guarantee that it will be selected for display.',
+          'ARTINU may curate submissions based on:',
+          {
+            list: [
+              'Artistic quality',
+              'Originality',
+              'Print suitability',
+              'Visual composition',
+              'Café/venue suitability',
+              'Customer preferences',
+              'Collection themes',
+              'Available display formats',
+            ],
+          },
+          'We may accept some photographs from a photographer while declining others.',
+        ],
+      },
+      {
+        id: 'titles',
+        title: '8. Titles and Descriptions',
+        paragraphs: [
+          'Each submission should include:',
+          { heading: 'Photograph title' },
+          'A short, meaningful title.',
+          { heading: 'Location' },
+          'Where the photograph was taken, if relevant.',
+          { heading: 'Description' },
+          'One or two sentences explaining the photograph or the story behind it.',
+          { heading: 'Photographer name' },
+          'The name you want displayed with your work.',
+        ],
+      },
+      {
+        id: 'credit',
+        title: '9. Artist Credit',
+        paragraphs: [
+          'ARTINU believes photographers should receive visible credit for their work.',
+          'Where practical, selected artwork may display: Photograph by [Photographer Name]',
+          'ARTINU may also credit photographers through its digital platforms and promotional content.',
+        ],
+      },
+      {
+        id: 'licensing',
+        title: '10. Commercial Licensing',
+        paragraphs: [
+          'When you submit a photograph to ARTINU, you confirm that you have the rights necessary to allow ARTINU to consider the photograph for commercial display.',
+          'If your photograph is selected, ARTINU may use the photograph for:',
+          {
+            list: [
+              'Physical display at partner cafés',
+              'Printing and framing',
+              "ARTINU's website and digital platforms",
+              'Marketing and promotional material',
+              'Social media',
+              'Photography collections and catalogues',
+            ],
+          },
+          'ARTINU will not claim ownership of your underlying copyright unless a separate written agreement specifically states otherwise.',
+        ],
+      },
+      {
+        id: 'removal',
+        title: '11. Removal & Account Deletion',
+        paragraphs: [
+          'Photographers may request the removal of their photograph or deletion of their ARTINU account.',
+          'However, if a photograph is currently being displayed as part of an ARTINU installation, the photograph will remain active until it has been physically removed from the installation.',
+          'Once the photograph has been removed from the installation, ARTINU will process the photograph removal or account deletion within 5 days.',
+          'This 5-day period allows ARTINU to complete the necessary removal and operational processes.',
+        ],
+      },
+      {
+        id: 'conduct',
+        title: '12. Account Conduct & Warnings',
+        paragraphs: [
+          "ARTINU expects all photographers to follow these Community Guidelines and maintain genuine, respectful participation in the community.",
+          { heading: 'Three-Warning Policy' },
+          "Photographers who repeatedly fail to follow ARTINU's Community Guidelines may receive warnings.",
+          'Three warnings may result in the permanent suspension or banning of the account.',
+          'Depending on the seriousness of a violation, ARTINU may take immediate action without issuing three warnings, particularly in cases involving fraud, copyright infringement, harassment, impersonation, or other serious misconduct.',
+          { heading: 'Fake or Duplicate Accounts' },
+          "Photographers must not create fake, misleading, or duplicate accounts for the purpose of manipulating ARTINU's community, submissions, engagement, rankings, or other platform activity.",
+          "Creating or operating accounts that impersonate another person or intentionally misrepresent the photographer's identity is prohibited.",
+          'ARTINU may suspend or permanently ban accounts involved in such activity.',
+        ],
+      },
+      {
+        id: 'new-accounts',
+        title: '13. New Account Activity',
+        paragraphs: [
+          'ARTINU encourages new photographers to participate actively after creating an account.',
+          'If an account is created but no artwork is uploaded within the first 10 days, ARTINU may issue a warning and contact the photographer.',
+          'If the photographer does not respond to the warning or does not show meaningful activity, ARTINU may suspend or ban the account.',
+        ],
+      },
+      {
+        id: 'inactive-accounts',
+        title: '14. Inactive Accounts',
+        paragraphs: [
+          'Accounts that remain inactive for 96 consecutive days or have not uploaded any artwork during that period may be suspended.',
+          'ARTINU may review inactive accounts before suspension and may restore an account if the photographer returns and meets the Community Guidelines.',
+        ],
+      },
+      {
+        id: 'respect',
+        title: '15. Respect the Community',
+        paragraphs: [
+          'ARTINU is a community, not just a marketplace.',
+          'Please:',
+          {
+            list: [
+              'Respect other photographers',
+              "Do not copy another artist's work",
+              'Do not manipulate votes, rankings, or engagement',
+              'Do not spam submissions',
+              'Do not harass other community members',
+              'Give constructive feedback',
+              'Support emerging photographers',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'moderation',
+        title: "16. ARTINU's Right to Moderate",
+        paragraphs: [
+          'ARTINU may reject, remove, suspend, or permanently ban submissions or accounts that violate these guidelines or create legal, safety, or reputational concerns for ARTINU or its venue partners.',
+          'ARTINU may also take action against activity that attempts to circumvent these guidelines through multiple accounts or other means.',
+          'We may update these guidelines as the ARTINU community grows.',
+        ],
+      },
+      {
+        id: 'principle',
+        title: '17. The Principle Behind ARTINU',
+        paragraphs: [
+          'Create. Submit. Get Discovered.',
+          'Your photograph could start on a phone, camera, or laptop and end up on the wall of a café where hundreds of people see it.',
+          'We want ARTINU to make that journey easier for photographers.',
+          'Keep creating. Keep experimenting. Keep shooting.',
         ],
       },
     ],
@@ -331,7 +593,7 @@ export default function LegalPage() {
         <div className="grid gap-12 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-16">
           <aside className="hidden lg:block">
             <nav className="sticky top-24" aria-label="On this page">
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                 On this page
               </p>
               <ul className="mt-4 space-y-2">
@@ -359,7 +621,7 @@ export default function LegalPage() {
             <h1 className="mt-4 font-display text-[2.25rem] leading-tight text-ink sm:text-[2.75rem]">
               {doc.title}
             </h1>
-            <p className="mt-3 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
+            <p className="mt-3 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
               Last updated {doc.updated}
             </p>
             <p className="prose-quiet mt-6 border-b border-line pb-8">{doc.intro}</p>
@@ -367,11 +629,40 @@ export default function LegalPage() {
             {doc.sections.map((section) => (
               <section key={section.id} id={section.id} className="scroll-mt-28 pt-10">
                 <h2 className="font-display text-xl text-ink">{section.title}</h2>
-                {section.paragraphs.map((paragraph, index) => (
-                  <p key={index} className="prose-quiet mt-3 max-w-none">
-                    {paragraph}
-                  </p>
-                ))}
+                {section.paragraphs.map((block, index) => {
+                  if (typeof block === 'string') {
+                    return (
+                      <p key={index} className="prose-quiet mt-3 max-w-none">
+                        {block}
+                      </p>
+                    );
+                  }
+                  if ('heading' in block) {
+                    return (
+                      <h3
+                        key={index}
+                        className="mt-6 font-label text-[0.6875rem] uppercase tracking-[0.16em] text-bronze"
+                      >
+                        {block.heading}
+                      </h3>
+                    );
+                  }
+                  return (
+                    <ul key={index} className="mt-3 space-y-1.5">
+                      {block.list.map((item) => (
+                        <li key={item} className="prose-quiet flex gap-3 max-w-none">
+                          {/* A rule, not a bullet glyph: the marker should not
+                              compete with the words in a policy document. */}
+                          <span
+                            className="mt-[0.7em] h-px w-3 shrink-0 bg-line-strong"
+                            aria-hidden
+                          />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })}
               </section>
             ))}
 

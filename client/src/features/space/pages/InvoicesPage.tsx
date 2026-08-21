@@ -64,7 +64,7 @@ export default function InvoicesPage() {
         ) : invoices && invoices.length > 0 ? (
           <>
             <div
-              className={`${COLS} hidden border-b border-line pb-2.5 font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:grid`}
+              className={`${COLS} hidden border-b border-line pb-2.5 font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:grid`}
             >
               <span>Invoice ID</span>
               <span>Date</span>

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import {
+  ANNOUNCEMENT_AUDIENCES,
   ART_STYLES,
   ARTWORK_COLORS,
+  DEFAULT_SLIDESHOW_SETTINGS,
   FRAME_COLORS,
   FRAME_MATERIALS,
   FRAME_SIZES,
@@ -12,6 +14,7 @@ import {
   OTP,
   PRINT_FINISHES,
   ROTATION_INTERVALS,
+  SLIDESHOW_LIMITS,
   SPACE_TYPES,
 } from './constants.js';
 
@@ -153,6 +156,21 @@ export const registerStep4Schema = z.object({
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: 'Please accept the terms to create your account' }),
   }),
+  /**
+   * Community Guidelines acknowledgement, separate from the Terms box.
+   *
+   * Two boxes rather than one because they are two documents with different
+   * consequences: the Terms are a contract, the Guidelines are the rules a
+   * photographer is agreeing to be moderated against. Bundling them would mean
+   * ARTINU could not honestly say a photographer had read the Guidelines when
+   * enforcing §12 against them.
+   *
+   * `z.literal(true)` refuses `false` and refuses a missing field, so the box
+   * cannot ship pre-checked and cannot be skipped.
+   */
+  acceptGuidelines: z.literal(true, {
+    errorMap: () => ({ message: 'Please confirm you have read the Community Guidelines' }),
+  }),
 });
 
 /** The whole wizard, submitted in one call once step 4 is confirmed. */
@@ -260,6 +278,73 @@ export const artworkUploadSchema = z.object({
   /** data:image/...;base64,... — the SDD's base64 upload flow. */
   imageBase64: z.string().min(32, 'Attach a photograph'),
   fileName: z.string().max(200).optional(),
+});
+
+/**
+ * Editing a photograph that is already published.
+ *
+ * The same rules as `artworkUploadSchema` for the fields a photographer may
+ * revise, but every one optional — a PATCH carries whatever changed and nothing
+ * else. The photograph itself, its category and its Photo ID are deliberately
+ * absent: the image is what was reviewed and what may already be printed and
+ * hanging on a wall, so replacing it is a new upload rather than an edit.
+ *
+ * `PATCH /artworks/:id` used to take `req.body` straight from the request and
+ * filter it against an array of allowed key *names* only, so the names were
+ * checked and the values never were. That accepted `title: ""` (a blank card in
+ * the gallery), `title` as an object, a 4,000-character description past what
+ * the column and the layout expect, and an unbounded `tags` array. `.strict()`
+ * additionally rejects an unknown key outright rather than silently dropping it,
+ * so a typo'd field name fails loudly instead of appearing to save.
+ */
+export const artworkEditSchema = z
+  .object({
+    title: z.string().min(2, 'Give this photograph a title').max(160),
+    description: z.string().max(600).nullable(),
+    story: z.string().max(1500).nullable(),
+    mood: z.array(enumOf(MOODS)).max(3, 'Choose up to 3 moods'),
+    colors: z.array(z.enum(values(ARTWORK_COLORS))).max(3),
+    tags: z.array(z.string().min(2).max(30)).max(10, 'Up to 10 tags'),
+    suitableFor: z.array(z.string().min(2).max(40)).max(10),
+    location: z.string().min(2, 'Enter the location where this was photographed').max(160),
+  })
+  .partial()
+  .strict()
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: 'Nothing to update',
+  });
+
+/**
+ * A staff announcement, sent to every account in one audience at once.
+ *
+ * `link` is optional and must be a site-relative path when present. An absolute
+ * URL here would let an announcement point every artist at an external site
+ * from inside their own notification bell, which is the shape of a phishing
+ * message even when nobody meant it that way.
+ *
+ * ── Why the second character is checked separately ──────────────────────────
+ *
+ * "Starts with /" is not the same as "is on this site". `//evil.com` starts
+ * with a slash and is a protocol-relative URL: the browser fills in the current
+ * scheme and navigates off-site. `/\evil.com` is treated the same way by some
+ * browsers. Both would sail through a plain `^\/…` pattern, which is exactly
+ * the bypass this rule exists to prevent — so the character after the leading
+ * slash must not be another slash or a backslash.
+ */
+export const announcementSchema = z.object({
+  audience: enumOf(ANNOUNCEMENT_AUDIENCES),
+  title: z.string().trim().min(3, 'Give the announcement a subject').max(120),
+  body: z.string().trim().min(10, 'Write the message').max(1000),
+  link: z
+    .string()
+    .trim()
+    .regex(
+      /^\/(?![/\\])[\w\-./?=&#]*$/,
+      'Links must be a path on ARTINU, starting with a single /',
+    )
+    .max(200)
+    .optional()
+    .or(z.literal('')),
 });
 
 export const artworkReviewSchema = z.object({
@@ -395,6 +480,47 @@ export const galleryQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(60).default(24),
 });
 
+// ── Homepage slideshow ──────────────────────────────────────────────────────
+
+/**
+ * Every field is optional and every field has a default, so a record saved by
+ * an older build — or a hand-edited one missing a key — parses to a complete,
+ * playable set of settings rather than being rejected.
+ *
+ * The defaults are taken from DEFAULT_SLIDESHOW_SETTINGS rather than written out
+ * again here. Spelling them twice is how `caption` ended up defaulting to an
+ * empty string in this schema while the constant held the real sentence — a
+ * fresh install would have parsed its way to a hero with no caption at all.
+ *
+ * The bounds are the point of validating this at all: `intervalMs: 0` would
+ * spin the homepage through every photograph as fast as the browser can paint,
+ * and a negative one would break the timer outright.
+ */
+export const slideshowSettingsSchema = z.object({
+  autoPlay: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.autoPlay),
+  intervalMs: z.coerce
+    .number()
+    .int()
+    .min(SLIDESHOW_LIMITS.intervalMs.min)
+    .max(SLIDESHOW_LIMITS.intervalMs.max)
+    .default(DEFAULT_SLIDESHOW_SETTINGS.intervalMs),
+  transition: z.enum(['fade', 'slide']).default(DEFAULT_SLIDESHOW_SETTINGS.transition),
+  transitionMs: z.coerce
+    .number()
+    .int()
+    .min(SLIDESHOW_LIMITS.transitionMs.min)
+    .max(SLIDESHOW_LIMITS.transitionMs.max)
+    .default(DEFAULT_SLIDESHOW_SETTINGS.transitionMs),
+  kenBurns: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.kenBurns),
+  pauseOnHover: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.pauseOnHover),
+  showThumbnails: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.showThumbnails),
+  showArrows: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.showArrows),
+  showCounter: z.boolean().default(DEFAULT_SLIDESHOW_SETTINGS.showCounter),
+  // An empty caption is a real choice — it collapses the right half of the
+  // control strip — so the field is optional but never rejected for being blank.
+  caption: z.string().trim().max(SLIDESHOW_LIMITS.caption.max).default(DEFAULT_SLIDESHOW_SETTINGS.caption),
+});
+
 // ── Inferred form types ─────────────────────────────────────────────────────
 
 export type SignInInput = z.infer<typeof signInSchema>;
@@ -411,8 +537,11 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 export type SpaceInput = z.infer<typeof spaceSchema>;
 export type ArtworkUploadInput = z.infer<typeof artworkUploadSchema>;
+export type ArtworkEditInput = z.infer<typeof artworkEditSchema>;
+export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type ConsultationInput = z.infer<typeof consultationSchema>;
 export type ArtistApplicationInput = z.infer<typeof artistApplicationSchema>;
 export type SupportTicketInput = z.infer<typeof supportTicketSchema>;
 export type GalleryQuery = z.infer<typeof galleryQuerySchema>;
+export type SlideshowSettingsInput = z.infer<typeof slideshowSettingsSchema>;

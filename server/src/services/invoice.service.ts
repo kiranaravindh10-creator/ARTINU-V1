@@ -180,10 +180,12 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
       <div>
         <p class="eyebrow">Tax Invoice</p>
         <h1>ARTINU</h1>
+        <!-- Contact details rather than a postal address: ARTINU publishes
+             none, and the three empty lines this used to emit made every
+             invoice look truncated. See the note on CONTACT in shared. -->
         <div class="muted" style="margin-top:8px">
-          ${escapeHtml(CONTACT.address.line1)}<br />
-          ${escapeHtml(CONTACT.address.line2)}<br />
-          ${escapeHtml(CONTACT.address.city)} ${escapeHtml(CONTACT.address.pin)}, ${escapeHtml(CONTACT.address.country)}
+          ${escapeHtml(CONTACT.email)}<br />
+          ${escapeHtml(CONTACT.phone)}
         </div>
       </div>
       <div class="meta">

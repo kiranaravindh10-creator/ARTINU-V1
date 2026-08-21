@@ -298,7 +298,7 @@ export default function RegisterSpacePage() {
             </div>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Where it is
               </legend>
 
@@ -335,7 +335,7 @@ export default function RegisterSpacePage() {
             </fieldset>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Who we speak to
               </legend>
 
@@ -378,7 +378,7 @@ export default function RegisterSpacePage() {
             </fieldset>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Help us ARTINU
               </legend>
               <p className="text-xs text-muted">
@@ -465,7 +465,7 @@ export default function RegisterSpacePage() {
                         setValue('imageUrls', next, { shouldDirty: true });
                       }}
                       aria-label="Remove photograph"
-                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>

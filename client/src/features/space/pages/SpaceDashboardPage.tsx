@@ -317,7 +317,7 @@ export default function SpaceDashboardPage() {
                     what support asks for, and the owner has nowhere else to
                     look it up once the registration screen is gone. */}
                 {space.code && (
-                  <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-bronze">
+                  <p className="mt-1 font-label text-[0.625rem] uppercase tracking-[0.12em] text-bronze">
                     {space.code}
                   </p>
                 )}

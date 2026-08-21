@@ -104,12 +104,66 @@ const schema = z.object({
   MAIL_MONTHLY_LIMIT: z.coerce.number().int().positive().default(3000),
 
   /**
+   * The automated birthday greeting to artists, on their date of birth.
+   *
+   * On by default — the feature is the point of collecting the date. Set to
+   * false to silence it without a deploy (a provider incident, or a staging
+   * copy of the production database that must not mail real people).
+   */
+  BIRTHDAY_EMAILS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /**
+   * Minutes east of UTC that "midnight" means for the birthday sweep.
+   *
+   * 330 is IST, where ARTINU's artists are. An offset rather than a timezone
+   * name because it needs no tz database, and India has no daylight saving for
+   * one to track. Change it only if the audience moves.
+   */
+  BIRTHDAY_TZ_OFFSET_MINUTES: z.coerce.number().int().min(-720).max(840).default(330),
+
+  /**
+   * The nightly Community Guidelines sweeps — §13 (10 days, no upload) and
+   * §14 (96 days inactive).
+   *
+   * On by default: they are how the published policy is actually applied.
+   * Gated separately from birthday email so switching one off never silently
+   * switches off the other. Set false on a staging copy of production data,
+   * where warning real photographers would be a mistake.
+   */
+  LIFECYCLE_SWEEPS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /**
    * Anthropic API key for the upload image-safety check (requirements §28).
    * Unset means the visual check does not run — uploads are then published on
    * the text and dimension checks alone, which cannot see the photograph.
    */
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-opus-5'),
+
+  /**
+   * Where the location fields get their place suggestions.
+   *
+   * `photon` is the default because it needs no key and no signup: OpenStreetMap
+   * data through Komoot's public instance, which unlike Nominatim is intended
+   * for autocomplete. It is best-effort with no SLA, which is an acceptable
+   * trade for a field that degrades to plain text when suggestions are
+   * unavailable.
+   *
+   * `google` gives materially better coverage of Indian localities and needs
+   * GOOGLE_PLACES_API_KEY plus billing. Switching is this one value — the lookup
+   * runs server-side precisely so that a key never reaches the browser.
+   *
+   * `none` turns suggestions off and leaves every location field as a plain text
+   * input.
+   */
+  GEOCODE_PROVIDER: z.enum(['photon', 'google', 'none']).default('photon'),
+  GOOGLE_PLACES_API_KEY: z.string().optional(),
 
   PAYMENT_PROVIDER: z.enum(['mock_qr', 'razorpay', 'stripe']).default('mock_qr'),
   PAYMENT_UPI_VPA: z.string().default('artinu@upi'),

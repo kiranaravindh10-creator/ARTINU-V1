@@ -13,6 +13,7 @@ import { PasswordRules } from '@/features/auth/components/AuthBits';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -29,9 +30,30 @@ export default function ResetPasswordPage() {
     defaultValues: { token, password: '', confirmPassword: '' },
   });
 
+  const { isAuthenticated, signOut } = useAuth();
+
   const reset = useMutation({
     mutationFn: (input: ResetPasswordInput) => authService.resetPassword(input),
-    onSuccess: () => {
+    onSuccess: async () => {
+      /*
+        End any session that was already open in this browser.
+
+        This page is reachable while signed in — a reset link has to work
+        whoever the browser thinks you are, which is the whole point of the
+        route sitting outside GuestOnlyRoute. That leaves two problems to
+        close here.
+
+        The security one: the password just changed, and the most likely
+        reason anyone resets a password is that they think someone else has
+        it. Leaving the old session live would mean the reset secured the
+        credential and not the account.
+
+        The visible one: /signin is guest-only, so navigating there with a
+        session still attached bounces straight back to the dashboard, and
+        the reset appears to have done nothing.
+      */
+      if (isAuthenticated) await signOut();
+
       toast.success('Your password has been updated. Sign in with it now.');
       navigate('/signin', { replace: true });
     },

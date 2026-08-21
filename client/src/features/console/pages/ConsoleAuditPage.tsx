@@ -92,7 +92,7 @@ export default function ConsoleAuditPage() {
 
                       {entry.meta && Object.keys(entry.meta).length > 0 && (
                         <div className="mt-4">
-                          <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                          <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                             Details
                           </p>
                           <dl className="mt-2 space-y-1">

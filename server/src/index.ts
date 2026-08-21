@@ -3,6 +3,7 @@ import { driverSummary, env, reportDriverFallbacks } from '@/config/env';
 import { restoredFromDisk } from '@/database/db';
 import { ensureSeeded } from '@/database/seed';
 import { reconcileReviewQueue } from '@/services/moderation-queue.service';
+import { startScheduler } from '@/services/scheduler.service';
 import { logger } from '@/utils/logger';
 
 async function main() {
@@ -31,6 +32,11 @@ async function main() {
     );
     if (seeded) logger.info('Seeded demo data — sign in with ceo@artinu.in / ARTINU@CEO2026');
     else if (restoredFromDisk) logger.info('Restored the previous session from .data/db.json');
+
+    // Started only once the port is actually ours. Doing this before `listen`
+    // succeeds would leave a second copy of the process sweeping for birthdays
+    // on every failed cold start.
+    startScheduler();
   });
 
   server.on('error', (error: NodeJS.ErrnoException) => {

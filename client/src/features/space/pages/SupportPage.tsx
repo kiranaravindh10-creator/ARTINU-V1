@@ -1,7 +1,7 @@
 import { CONTACT, formatDateTime, supportTicketSchema, type SupportTicketInput } from '@artinu/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LifeBuoy, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { LifeBuoy, Mail, MessageCircle, Phone } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useLocation } from 'react-router-dom';
@@ -130,20 +130,12 @@ export default function SupportPage() {
             >
               <Mail className="size-4 text-bronze" aria-hidden /> {CONTACT.supportEmail}
             </a>
-            <p className="flex items-start gap-2.5 text-sm leading-relaxed text-muted">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-bronze" aria-hidden />
-              <span>
-                {CONTACT.address.line1}
-                <br />
-                {CONTACT.address.city} {CONTACT.address.pin}
-              </span>
-            </p>
 
             <a
               href={whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
+              className="inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
             >
               <MessageCircle className="size-3.5 text-bronze" aria-hidden /> Chat on WhatsApp
             </a>
@@ -192,7 +184,7 @@ export default function SupportPage() {
 
                     {ticket.reply && (
                       <div className="mt-4 rounded-md border-l-2 border-bronze bg-sand-soft p-3">
-                        <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
+                        <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
                           ARTINU
                         </p>
                         <p className="mt-1 text-sm text-ink-soft">{ticket.reply}</p>

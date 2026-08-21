@@ -108,7 +108,7 @@ export function TrendChart({
   return (
     <figure ref={ref} className={cn('w-full', className)}>
       {label && (
-        <figcaption className="mb-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+        <figcaption className="mb-3 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
           {label}
         </figcaption>
       )}
@@ -148,7 +148,7 @@ export function TrendChart({
                 x={padding.left - 10}
                 y={lineY + 3}
                 textAnchor="end"
-                className="fill-[var(--color-subtle)] font-mono text-[9px]"
+                className="fill-[var(--color-subtle)] font-label tabular-nums text-[9px]"
               >
                 {formatValue(max * (1 - fraction), format)}
               </text>
@@ -202,7 +202,7 @@ export function TrendChart({
                 x={x(index)}
                 y={height - 5}
                 textAnchor="middle"
-                className="fill-[var(--color-subtle)] font-mono text-[9px]"
+                className="fill-[var(--color-subtle)] font-label tabular-nums text-[9px]"
               >
                 {entry.label}
               </text>

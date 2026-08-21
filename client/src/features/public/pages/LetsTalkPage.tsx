@@ -13,12 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Headphones,
-  Lightbulb,
   Mail,
-  MapPin,
   MessageCircle,
   Phone,
-  Sparkles,
   User,
   Video,
 } from 'lucide-react';
@@ -28,9 +25,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { errorMessage } from '@/lib/api';
@@ -56,23 +55,28 @@ const toKey = (date: Date) =>
   the tell — a space owner deciding whether to give up forty minutes learns
   nothing from it. These say what the visit is.
 */
+/*
+  Four reasons, no glyphs.
+
+  A lightbulb for "A proposal, not a catalogue" and a sparkle for "One team,
+  start to finish" were decoration standing in for meaning, and a row of four
+  outlined discs is the single most recognisable tell of a generated feature
+  grid. The headings say it; the discs only said it again, less clearly.
+*/
 const WHY = [
   {
-    icon: CalendarDays,
     title: 'Forty minutes, in the room',
     body: 'We look at your light through the day, your wall colours, how people move through the space.',
   },
   {
-    icon: Lightbulb,
     title: 'A proposal, not a catalogue',
     body: 'You get photographs chosen for your walls, not a gallery to scroll through.',
   },
   {
-    icon: Sparkles,
     title: 'One team, start to finish',
     body: 'The people who read the room are the ones who print, frame and hang the work.',
   },
-  { icon: Check, title: 'Nothing to sign', body: 'The consultation is free, and it can end there.' },
+  { title: 'Nothing to sign', body: 'The consultation is free, and it can end there.' },
 ];
 
 /**
@@ -244,14 +248,14 @@ export default function LetsTalkPage() {
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
             <p className="eyebrow">Book a consultation</p>
-            <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter as="h1" className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               {hero.headline.map((line, index) => (
                 <React.Fragment key={line}>
                   {index > 0 && <br />}
                   {line}
                 </React.Fragment>
               ))}
-            </h1>
+            </Typewriter>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">{hero.blurb}</p>
             <CircleArrowLink to="#form" direction="down" className="mt-9">
@@ -332,12 +336,21 @@ export default function LetsTalkPage() {
               </Field>
 
               <Field label="Location" htmlFor="location" required error={errors.location?.message}>
-                <Input
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <LocationInput
                   id="location"
-                  placeholder="City / Area"
+                  name={field.name}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Start typing your city or area"
                   invalid={!!errors.location}
-                  {...register('location')}
                 />
+              )}
+            />
               </Field>
 
               <Field label="Tell us more about your space" htmlFor="message" error={errors.message?.message}>
@@ -420,7 +433,7 @@ export default function LetsTalkPage() {
                   {WEEKDAYS.map((day) => (
                     <span
                       key={day}
-                      className="pb-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-subtle"
+                      className="pb-2 font-label text-[0.625rem] uppercase tracking-[0.12em] text-subtle"
                     >
                       {day}
                     </span>
@@ -543,29 +556,28 @@ export default function LetsTalkPage() {
       {/* ── Why consult ────────────────────────────────────────────────── */}
       <Section size="compact" className="pt-0">
         <Container>
-          <div className="relative overflow-hidden rounded-xl bg-ink px-6 py-10 text-canvas sm:px-10">
-            <Photo
-              src={IMAGES.gallerywall}
-              alt=""
-              className="absolute inset-0 opacity-15"
-              imgClassName="object-cover"
-            />
-            <div className="relative">
-              <h2 className="font-display text-2xl text-canvas">Why consult with ARTINU?</h2>
-              <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                {WHY.map((item, index) => (
-                  <div
-                    key={item.title}
-                    className={cn('lg:pl-8', index > 0 && 'lg:border-l lg:border-canvas/15')}
-                  >
-                    <span className="flex size-10 items-center justify-center rounded-full border border-canvas/25 text-bronze-light">
-                      <item.icon className="size-4" aria-hidden />
-                    </span>
-                    <h3 className="mt-4 text-sm font-medium text-canvas">{item.title}</h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-canvas/55">{item.body}</p>
-                  </div>
-                ))}
-              </div>
+          {/*
+            The photograph behind this panel is gone too. It sat at 15% opacity
+            under four columns of text — enough for a cup of coffee to be clearly
+            readable through the words without ever being looked at, which cost
+            the copy contrast and bought atmosphere nobody asked for. Ink on its
+            own is the quieter closing note, and the text now has the panel to
+            itself.
+
+            The dividers moved from `lg:border-l` to a rule above each column for
+            the same reason as the other four-column rows: a left border only
+            separates them at the large breakpoint, so on a tablet the four ran
+            together as one block.
+          */}
+          <div className="rounded-xl bg-ink px-6 py-10 text-canvas sm:px-10">
+            <h2 className="font-display text-2xl text-canvas">Why consult with ARTINU?</h2>
+            <div className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+              {WHY.map((item) => (
+                <div key={item.title} className="border-t border-canvas/20 pt-5">
+                  <h3 className="font-display text-lg text-canvas">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-canvas/60">{item.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </Container>
@@ -586,7 +598,7 @@ function ContactBlock() {
       <Container>
         <div className="grid gap-8 rounded-xl border border-line bg-surface p-8 sm:grid-cols-3 sm:p-10">
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Talk to us
             </h3>
             <a
@@ -605,29 +617,23 @@ function ContactBlock() {
               href={whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
             >
               <MessageCircle className="size-3.5 text-bronze" aria-hidden /> Chat on WhatsApp
             </a>
           </div>
 
-          <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">Studio</h3>
-            <p className="mt-4 flex items-start gap-2.5 text-sm leading-relaxed text-muted">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-bronze" aria-hidden />
-              <span>
-                {CONTACT.address.line1}
-                <br />
-                {CONTACT.address.line2}
-                <br />
-                {CONTACT.address.city} {CONTACT.address.pin}
-              </span>
-            </p>
-            <p className="mt-3 text-xs text-subtle">Map directions coming soon.</p>
-          </div>
+          {/*
+            The "Studio" column is gone.
+
+            It printed a street address ARTINU does not publish, followed by
+            "Map directions coming soon." — a promise of directions to a place
+            with no address. Consultations happen at the client's space, which
+            is what the form beside this actually books.
+          */}
 
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Working hours
             </h3>
             <dl className="mt-4 space-y-2 text-sm">

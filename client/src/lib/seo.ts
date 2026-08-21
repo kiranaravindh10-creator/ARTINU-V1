@@ -93,15 +93,18 @@ export const DEFAULT_SEO: SEOProps = {
           closes: '18:30',
         },
       },
-      // Stated locality only. There is no street address in CONTACT, and
-      // inventing one to qualify for a LocalBusiness rich result would be
-      // exactly the kind of unsupported schema that earns a manual action.
-      address: {
-        '@type': 'PostalAddress',
-        addressLocality: 'Bengaluru',
-        addressRegion: 'Karnataka',
-        addressCountry: 'IN',
-      },
+      /*
+        No `address` property.
+
+        A schema.org PostalAddress is a claim that the organisation is located
+        at the place it names, and ARTINU publishes no premises. The block that
+        used to sit here asserted Bengaluru/Karnataka as the company's address
+        purely to look more complete to a crawler, which is the kind of
+        unsupported markup that earns a manual action rather than a rich result.
+
+        `areaServed` below is a different claim and a true one — where the work
+        is delivered, not where the company sits.
+      */
       areaServed: {
         '@type': 'GeoCircle',
         geoMidpoint: {

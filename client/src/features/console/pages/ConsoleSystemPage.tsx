@@ -148,7 +148,7 @@ export default function ConsoleSystemPage() {
               </div>
             </dl>
 
-            <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+            <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
               Mounted API modules
             </h3>
             <div className="mt-3 flex flex-wrap gap-1.5">

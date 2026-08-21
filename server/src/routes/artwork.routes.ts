@@ -1,4 +1,5 @@
 import {
+  artworkEditSchema,
   artworkUploadSchema,
   galleryQuerySchema,
   startingPrice,
@@ -9,7 +10,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@/database/db';
 import { paginate } from '@/database/table';
-import { asyncHandler, requireAuth, requireRole, uploadLimiter, validate } from '@/middleware/index';
+import {
+  asyncHandler,
+  cachePublic,
+  requireAuth,
+  requireRole,
+  uploadLimiter,
+  validate,
+} from '@/middleware/index';
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { now } from '@/utils/ids';
 import { logger } from '@/utils/logger';
@@ -61,6 +69,18 @@ function matchesFacets(artwork: Artwork, query: GalleryQuery): boolean {
 
 artworkRouter.get(
   '/',
+  /*
+    The homepage asks this twice on every load (the popular strip, then the
+    featured collection by id) and the gallery asks it once per scroll page.
+    Thirty seconds of shared caching removes the repeat within a visit and
+    across visitors, while a newly approved photograph still appears within
+    half a minute.
+
+    Signed-in callers are excluded automatically: the response embeds each
+    viewer's own wishlist state via `withArtists(…, req.user?.id)`, and
+    `cachePublic` marks anything carrying credentials `private, no-store`.
+  */
+  cachePublic(30),
   validate(galleryQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const query = req.valid as GalleryQuery;
@@ -118,6 +138,10 @@ artworkRouter.get(
 
 artworkRouter.get(
   '/facets',
+  // Counts over the whole approved collection, identical for everyone and
+  // recomputed from every row on each call. The gallery requests it alongside
+  // the first page of results.
+  cachePublic(60),
   asyncHandler(async (_req, res) => {
     const artworks = await db.artworks.find({ where: { status: 'approved' } });
 
@@ -406,21 +430,51 @@ artworkRouter.get(
   }),
 );
 
+/**
+ * Edit a photograph you published.
+ *
+ * Ownership is checked against the row rather than anything the client sent, so
+ * a photographer who guesses another artist's id gets a 403 and no information
+ * about whether that id exists. `requireRole('artist')` is not sufficient on its
+ * own here — every artist passes it — which is why the `artistId` comparison
+ * below is the check that matters.
+ *
+ * `validate(artworkEditSchema)` replaces a hand-rolled key filter that checked
+ * field *names* against an allow-list and never looked at the values. The
+ * allow-list survives in the schema, which now also enforces the same lengths,
+ * enums and array bounds an upload has to satisfy — an edit could otherwise put
+ * a photograph into a state the upload form would have rejected.
+ *
+ * A rejected review is deliberately editable: fixing the title or location a
+ * moderator objected to is exactly what a photographer should be able to do.
+ * Only the image is fixed, and it is not a field here.
+ */
 artworkRouter.patch(
   '/:id',
   requireAuth,
   requireRole('artist'),
+  validate(artworkEditSchema),
   asyncHandler(async (req, res) => {
     const artwork = await db.artworks.byId(req.params.id);
     if (!artwork) throw notFound('That photograph');
     if (artwork.artistId !== req.user!.id) throw forbidden('That is not your photograph.');
 
-    const allowed = ['title', 'description', 'story', 'tags', 'mood', 'colors', 'suitableFor', 'location'];
-    const patch = Object.fromEntries(
-      Object.entries(req.body as Record<string, unknown>).filter(([key]) => allowed.includes(key)),
-    );
+    const patch = req.valid as Record<string, unknown>;
 
-    res.json(await db.artworks.update(artwork.id, { ...patch, updatedAt: now() }));
+    const updated = await db.artworks.update(artwork.id, { ...patch, updatedAt: now() });
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'artwork.edited',
+      entity: 'artwork',
+      entityId: artwork.id,
+      // Which fields moved, not what they now say — the audit trail should not
+      // become a second copy of every description on the site.
+      meta: { fields: Object.keys(patch) },
+      ip: req.ip,
+    });
+
+    res.json(updated);
   }),
 );
 

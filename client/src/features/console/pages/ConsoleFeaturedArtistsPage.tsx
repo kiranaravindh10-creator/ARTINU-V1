@@ -145,7 +145,7 @@ export default function ConsoleFeaturedArtistsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── The carousel, in order ─────────────────────────────────────── */}
         <div className="min-w-0">
-          <h2 className="mb-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+          <h2 className="mb-3 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
             In the carousel ({list.length})
           </h2>
 
@@ -171,7 +171,7 @@ export default function ConsoleFeaturedArtistsPage() {
                   <li key={row.artistId}>
                     <Card>
                       <CardContent className="flex items-center gap-3 p-3">
-                        <span className="w-5 shrink-0 text-center font-mono text-xs text-subtle">
+                        <span className="w-5 shrink-0 text-center font-label tabular-nums text-xs text-subtle">
                           {index + 1}
                         </span>
                         <Avatar
@@ -239,7 +239,7 @@ export default function ConsoleFeaturedArtistsPage() {
 
         {/* ── Everyone else ──────────────────────────────────────────────── */}
         <div className="min-w-0">
-          <h2 className="mb-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+          <h2 className="mb-3 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
             Add an artist
           </h2>
 

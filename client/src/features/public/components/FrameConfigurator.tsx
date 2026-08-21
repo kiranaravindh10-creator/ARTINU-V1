@@ -44,7 +44,7 @@ function OptionRow<T extends readonly { value: string; label: string; descriptio
 }) {
   return (
     <div>
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">{title}</p>
+      <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">{title}</p>
       <div className="mt-2.5 flex flex-wrap gap-2">
         {options.map((option) => {
           const active = option.value === value;
@@ -159,7 +159,7 @@ export function FrameConfigurator({
             />
 
             <div>
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">Colour</p>
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">Colour</p>
               <div className="mt-2.5 flex flex-wrap gap-2.5">
                 {FRAME_COLORS.map((color) => {
                   const active = color.value === frame.color;
@@ -203,7 +203,7 @@ export function FrameConfigurator({
             />
 
             <div>
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                 Quantity
               </p>
               <div className="mt-2.5 flex items-center gap-3">
