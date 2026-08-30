@@ -406,6 +406,9 @@ const artist = await call(
     location: 'Chicago, USA',
     artStyle: 'street',
     acceptTerms: true,
+    // Required since the Community Guidelines went in; the sign-up form ticks
+    // it explicitly rather than assuming consent.
+    acceptGuidelines: true,
   }),
 );
 check('Artist registration succeeds', artist.status === 201, `HTTP ${artist.status}`);
@@ -426,6 +429,11 @@ const owner = await call(
     city: 'Barcelona',
     phone: '9876501234',
     dateOfBirth: '1976-03-27',
+    // The owner chooses their own password now. It used to be issued by the
+    // server and handed back once, which locked out anyone who navigated away
+    // from that screen — so the field is sent here as the form sends it.
+    password: 'Artinu@2026Test',
+    confirmPassword: 'Artinu@2026Test',
     acceptTerms: true,
   }),
 );

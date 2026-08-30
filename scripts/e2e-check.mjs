@@ -164,11 +164,23 @@ check('Unauthenticated session refused', noAuth.status === 401, `HTTP ${noAuth.s
 
 console.log('\n── UPLOAD PIPELINE ────────────────────────────────────────');
 
+/*
+  Every upload carries a story, including the ones expected to be rejected.
+
+  It is required and has a twenty-character floor, because it is printed on the
+  plate beside the photograph. Leaving it off the rejection cases would still
+  have made them "fail", but for the wrong reason — a check named "corrupt image
+  rejected" that actually fired on a missing caption is a check that stops
+  testing the thing it is named after.
+*/
+const STORY = 'A regression-run photograph, uploaded by the end-to-end check.';
+
 const blank = await call(
   '/artworks',
   json(
     {
       title: 'QA Blank',
+      story: STORY,
       category: 'street',
       mood: [],
       colors: [],
@@ -187,6 +199,7 @@ const tiny = await call(
   json(
     {
       title: 'QA Tiny 64px',
+      story: STORY,
       category: 'street',
       mood: [],
       colors: [],
@@ -205,6 +218,7 @@ const oddRatio = await call(
   json(
     {
       title: 'QA Panorama',
+      story: STORY,
       category: 'street',
       mood: [],
       colors: [],
@@ -222,6 +236,7 @@ const notAnImage = await call(
   json(
     {
       title: 'QA Corrupt',
+      story: STORY,
       category: 'street',
       mood: [],
       colors: [],
@@ -239,6 +254,7 @@ const upload = await call(
   json(
     {
       title: 'QA Published Photo',
+      story: STORY,
       description: 'regression run',
       category: 'street',
       mood: ['serene'],

@@ -183,13 +183,6 @@ export const artistRegistrationSchema = registerStep1Schema
   .merge(registerStep3Schema)
   .merge(registerStep4Schema);
 
-/** Same wizard shape for a space owner signing up from the Spaces side. */
-/**
- * No password field: ARTINU issues the space owner an ID and a password when
- * the space is registered (requirements §1), and hands both back once in the
- * registration response. Adding a password box here would be asking for a
- * credential the system is about to overwrite.
- */
 /**
  * Space owner sign-up.
  *
