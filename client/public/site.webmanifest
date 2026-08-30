@@ -1,7 +1,7 @@
 {
   "name": "ARTINU",
   "short_name": "ARTINU",
-  "description": "ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months.",
+  "description": "ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#14120f",
@@ -24,9 +24,9 @@
   "categories": ["art", "photography", "lifestyle", "business"],
   "shortcuts": [
     {
-      "name": "Book a Consultation",
-      "short_name": "Consultation",
-      "description": "Book a free consultation for your space",
+      "name": "Book a wall visit",
+      "short_name": "Wall visit",
+      "description": "Book a free wall visit for your space",
       "url": "/lets-talk",
       "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
     },

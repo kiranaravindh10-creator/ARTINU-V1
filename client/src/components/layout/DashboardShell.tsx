@@ -58,11 +58,18 @@ export function DashboardShell({
   basePath,
   groups,
   variant = 'rail',
+  footer,
 }: {
   area: string;
   basePath: string;
   groups: DashboardNavGroup[];
   variant?: ShellVariant;
+  /**
+   * Rendered below the routed content. Opt-in rather than always-on: a space
+   * owner wants a phone number at the bottom of their order, while a staff
+   * console screen does not need one under an audit table.
+   */
+  footer?: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
   const location = useLocation();
@@ -77,7 +84,7 @@ export function DashboardShell({
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-canvas-soft lg:flex">
           <Link to={basePath} className="flex items-baseline gap-2.5 px-6 py-7 leading-none">
             <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-            <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+            <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
               {area}
             </span>
           </Link>
@@ -111,7 +118,7 @@ export function DashboardShell({
               <SheetContent side="left" className="w-72 bg-canvas p-0">
                 <div className="flex h-16 items-center gap-2.5 px-6">
                   <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-                  <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+                  <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
                     {area}
                   </span>
                 </div>
@@ -126,6 +133,8 @@ export function DashboardShell({
           <main className="dash-panel flex-1">
             <Outlet />
           </main>
+
+          {footer}
         </div>
       </div>
     );
@@ -140,7 +149,7 @@ export function DashboardShell({
           className="flex flex-col items-center gap-1 leading-none transition-opacity hover:opacity-60"
         >
           <span className="font-display text-base tracking-[-0.02em] text-ink">ARTINU</span>
-          <span className="font-mono text-[0.4375rem] uppercase tracking-[0.2em] text-subtle">
+          <span className="font-label text-[0.4375rem] uppercase tracking-[0.2em] text-subtle">
             {area}
           </span>
         </Link>
@@ -178,7 +187,7 @@ export function DashboardShell({
             <SheetContent side="left" className="w-72 bg-canvas p-0">
               <div className="flex h-16 items-center gap-2.5 px-6">
                 <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
-                <span className="font-mono text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
+                <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
                   {area}
                 </span>
               </div>
@@ -193,6 +202,8 @@ export function DashboardShell({
         <main className="dash-panel flex-1">
           <Outlet />
         </main>
+
+        {footer}
       </div>
     </div>
   );
@@ -207,7 +218,7 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
       {groups.map((group, index) => (
         <div key={group.title ?? index}>
           {group.title && (
-            <p className="px-3 pb-2.5 font-mono text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
+            <p className="px-3 pb-2.5 font-label text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
               {group.title}
             </p>
           )}
@@ -221,22 +232,27 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
                   cn(
                     'group flex items-center gap-3 rounded-md px-3 py-2 text-[0.8125rem] transition-colors',
                     isActive
-                      ? 'bg-bronze-soft font-medium text-ink'
+                      ? 'bg-ink font-medium text-canvas'
                       : 'text-muted hover:bg-sand hover:text-ink',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
+                    {/*
+                      The icon inherits currentColor when the row is filled.
+                      It used to stay bronze while the label went ink, so an
+                      active row carried two accent colours at once.
+                    */}
                     <item.icon
                       className={cn(
-                        'size-4 shrink-0 stroke-[1.5]',
-                        isActive ? 'text-bronze' : 'text-subtle group-hover:text-ink',
+                        'size-4 shrink-0',
+                        isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
                       )}
                     />
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.badgeKey === 'notifications' && count > 0 && (
-                      <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-mono text-[0.5625rem] text-white">
+                      <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
                         {count > 99 ? '99+' : count}
                       </span>
                     )}
@@ -266,13 +282,43 @@ function RailLink({ item }: { item: DashboardNavItem }) {
         cn(
           'relative flex size-10 items-center justify-center rounded-[0.625rem] transition-colors duration-200',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze/40',
-          isActive ? 'bg-bronze-soft text-bronze' : 'text-subtle hover:bg-sand-soft hover:text-ink',
+          /*
+            THE DULL ICONS.
+
+            Measured against the tokens: the inactive icon was `text-subtle`,
+            #928a80 on the #f7f5f2 canvas, which is 3.13:1 - the bare floor for a
+            graphical object, and the state ten of the eleven rail icons are in
+            at any moment. That is what "these icons are really dull" was.
+
+            The selected one was barely better as a signal: bronze on
+            bronze-soft is a pale wash rather than a selection.
+
+            Now it is a filled chip with a white glyph - 6.67:1, and the "plain
+            white" the founder asked for - and the resting state moves up to
+            `text-muted` (#6b645c), 5.36:1. A heavier stroke on the active icon
+            because at 18px a 1.5 stroke disappears against a filled ground.
+          */
+          isActive
+            ? 'bg-bronze text-white shadow-subtle'
+            : 'text-muted hover:bg-sand-soft hover:text-ink',
         )
       }
     >
-      <item.icon className="size-[1.125rem] stroke-[1.5]" />
-      {badge > 0 && (
-        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-bronze" aria-hidden />
+      {({ isActive }) => (
+        <>
+          <item.icon className={cn('size-[1.125rem]', isActive ? 'stroke-[2]' : 'stroke-[1.5]')} />
+          {badge > 0 && (
+            <span
+              /* On a filled chip the bronze dot disappears into the ground, so
+                 it flips to the paper colour when the item is selected. */
+              className={cn(
+                'absolute right-1.5 top-1.5 size-1.5 rounded-full',
+                isActive ? 'bg-canvas' : 'bg-bronze',
+              )}
+              aria-hidden
+            />
+          )}
+        </>
       )}
     </NavLink>
   );
@@ -287,7 +333,7 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
       {groups.map((group, index) => (
         <div key={group.title ?? index} className="flex flex-col gap-0.5">
           {group.title && (
-            <p className="px-3 pb-2 font-mono text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
+            <p className="px-3 pb-2 font-label text-[0.5625rem] uppercase tracking-[0.18em] text-subtle">
               {group.title}
             </p>
           )}
@@ -300,7 +346,7 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
                 cn(
                   'group flex items-center gap-3 rounded-md px-3 py-2 text-[0.8125rem] transition-colors',
                   isActive
-                    ? 'bg-bronze-soft font-medium text-ink'
+                    ? 'bg-ink font-medium text-canvas'
                     : 'text-muted hover:bg-sand-soft hover:text-ink',
                 )
               }
@@ -309,13 +355,13 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
                 <>
                   <item.icon
                     className={cn(
-                      'size-[1.0625rem] shrink-0 stroke-[1.5]',
-                      isActive ? 'text-bronze' : 'text-subtle group-hover:text-ink',
+                      'size-[1.0625rem] shrink-0',
+                      isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
                     )}
                   />
                   <span className="flex-1 truncate">{item.label}</span>
                   {item.badgeKey === 'notifications' && count > 0 && (
-                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-mono text-[0.5625rem] text-white">
+                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
                       {count > 99 ? '99+' : count}
                     </span>
                   )}
@@ -348,7 +394,7 @@ function NotificationBell({ basePath }: { basePath: string }) {
     >
       <Bell className="size-[1.125rem] stroke-[1.5]" />
       {count > 0 && (
-        <span className="flex size-6 items-center justify-center rounded-full bg-bronze-soft font-mono text-[0.625rem] text-bronze-deep">
+        <span className="flex size-6 items-center justify-center rounded-full bg-bronze-soft font-label tabular-nums text-[0.625rem] text-bronze-deep">
           {count > 99 ? '99' : count}
         </span>
       )}

@@ -14,7 +14,7 @@ async function main() {
   const queue = await reconcileReviewQueue();
   if (queue.published.length || queue.rejected.length) {
     logger.info(
-      `review queue reconciled — ${queue.published.length} published, ${queue.rejected.length} rejected, ` +
+      `review queue reconciled - ${queue.published.length} published, ${queue.rejected.length} rejected, ` +
         `${queue.scanned - queue.published.length - queue.rejected.length} genuinely awaiting a photographer`,
     );
   }
@@ -29,7 +29,7 @@ async function main() {
     logger.info(
       `drivers  data=${driverSummary.data} auth=${driverSummary.auth} storage=${driverSummary.storage} email=${driverSummary.email} payments=${driverSummary.payments}`,
     );
-    if (seeded) logger.info('Seeded demo data — sign in with ceo@artinu.in / ARTINU@CEO2026');
+    if (seeded) logger.info('Seeded demo data - sign in with ceo@artinu.in / ARTINU@CEO2026');
     else if (restoredFromDisk) logger.info('Restored the previous session from .data/db.json');
   });
 
@@ -40,7 +40,7 @@ async function main() {
       `Port ${env.PORT} is already in use.
 
 ` +
-        `  Something else is listening there — most likely a copy of this API that is
+        `  Something else is listening there - most likely a copy of this API that is
 ` +
         `  still running from an earlier attempt.
 

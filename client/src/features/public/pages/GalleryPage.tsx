@@ -1,16 +1,20 @@
-import { formatNumber, type ArtworkWithArtist, MIN_ORDER_QUANTITY } from '@artinu/shared';
+import {
+  formatNumber,
+  type ArtworkWithArtist,
+  type Paginated,
+  MIN_ORDER_QUANTITY,
+} from '@artinu/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ChevronLeft, ChevronRight, Filter, Heart, ImageOff, RotateCw, Search, ShoppingBag, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Filter, Heart, ImageOff, RotateCw, Search, Frame } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
+import { Container, Section } from '@/components/layout/primitives';
 import { PageHeader } from '@/components/layout/DashboardShell';
-import { Reveal } from '@/components/motion/reveal';
+import { GalleryCommunityHero } from '@/features/public/components/GalleryCommunityHero';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/display';
 import { Input } from '@/components/ui/input';
-import { Photo } from '@/components/ui/photo';
 import {
   ArtworkCard,
   ArtworkCardSkeleton,
@@ -21,13 +25,59 @@ import { FrameConfigurator } from '@/features/public/components/FrameConfigurato
 import { Lightbox } from '@/features/public/components/Lightbox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
+import { readCached, writeCached } from '@/lib/persistedCache';
 import { errorMessage } from '@/lib/api';
 import { catalogService } from '@/services/catalog.service';
 import { spaceService } from '@/services/space.service';
 import { contentService } from '@/services/content.service';
 import { cn } from '@/lib/utils';
+
+/*
+  The gallery's first screen, kept across reloads.
+
+  The API runs on a free Render dyno that sleeps after fifteen minutes of
+  quiet, and a cold start measured from here took 44 seconds. Until it answers
+  this page has nothing to draw but skeletons, which is precisely the report
+  that came back about it - "every single time this is getting loading up very
+  slowly". The photographs were never the slow part; waking the dyno was.
+
+  So the first page of the default view is stored under a versioned key and
+  handed back as `initialData` on the next visit. The grid paints on the first
+  frame from the previous visit, and React Query refetches in the background
+  and swaps in whatever changed.
+
+  Deliberately narrow:
+
+    - Nothing is cached while a search term is set. A day-old answer to
+      somebody's search is not a placeholder, it is a wrong answer.
+    - The key carries the sort, so "newest" never paints from "popular".
+    - The grid renders `showPrice={false}` at both of its call sites, which is
+      what makes the catalogue safe to persist at all - see the note in
+      persistedCache about never storing anything with a price in it.
+*/
+const GALLERY_FIRST_PAGE_CACHE = 'gallery.firstPage';
+
+/**
+ * The public view of a page of results - per-user state removed.
+ *
+ * `wishlisted` is set only for a signed-in space owner, so it is exactly the
+ * kind of field persistedCache warns against keeping: localStorage outlives the
+ * session, and a heart restored from it would be somebody's saved item drawn
+ * from a stale copy. Stripping it means hearts are only ever rendered from a
+ * live answer; the cached paint shows the photograph and nothing about who
+ * saved it.
+ */
+function withoutUserState(page: Paginated<ArtworkWithArtist>): Paginated<ArtworkWithArtist> {
+  return {
+    ...page,
+    items: page.items.map((item) => {
+      const copy = { ...item };
+      delete copy.wishlisted;
+      return copy;
+    }),
+  };
+}
 
 /**
  * One gallery, mounted twice.
@@ -109,8 +159,19 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
     wishlist.mutate(artworkId);
   };
 
+  /*
+    Read once per sort, not on every render: `readCached` touches localStorage
+    and parses JSON, and this sits directly in the render path of the grid.
+  */
+  const cacheKey = `${GALLERY_FIRST_PAGE_CACHE}.${sortBy}`;
+  const cachedFirstPage = React.useMemo(
+    () => (searchQuery ? null : readCached<Paginated<ArtworkWithArtist>>(cacheKey)),
+    [cacheKey, searchQuery],
+  );
+
   const {
     data,
+    dataUpdatedAt,
     isLoading,
     isError,
     error,
@@ -136,7 +197,35 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       return undefined;
     },
     initialPageParam: 1,
+    /*
+      `initialDataUpdatedAt` carries the cache's OWN timestamp, not "now".
+      Without it React Query would treat a day-old grid as freshly fetched and
+      sit on it for the full 60s staleTime before checking. With it, anything
+      older than that revalidates on mount - paint immediately, correct quietly.
+    */
+    ...(cachedFirstPage
+      ? {
+          initialData: { pages: [cachedFirstPage.data], pageParams: [1] },
+          initialDataUpdatedAt: cachedFirstPage.at,
+        }
+      : {}),
   });
+
+  /*
+    Persist the first page, but only when it came off the network.
+
+    While the grid is still painting from localStorage React Query reports the
+    cache's own timestamp as `dataUpdatedAt`. Writing then would stamp a fresh
+    `at` onto data that never came back from the API, and the entry could never
+    age out - a gallery frozen at whatever it looked like the day the dyno last
+    answered. Comparing the two timestamps is what tells the two apart.
+  */
+  const firstPage = data?.pages[0];
+  React.useEffect(() => {
+    if (searchQuery || !firstPage) return;
+    if (cachedFirstPage && dataUpdatedAt === cachedFirstPage.at) return;
+    writeCached(cacheKey, withoutUserState(firstPage));
+  }, [cacheKey, searchQuery, firstPage, dataUpdatedAt, cachedFirstPage]);
 
   // Captured here rather than called inside the JSX: within the
   // `isFetchNextPageError` branch React Query v5 narrows the result union and
@@ -161,6 +250,30 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   const top20Artworks = top20Data?.items ?? [];
 
   /*
+    Is the Curator's Top Picks strip on screen? The condition is written once
+    here because two separate things depend on it: whether the strip renders, and
+    whether the main grid below has to leave those photographs out.
+  */
+  /*
+    The curated strip shows for space owners too.
+
+    It was gated on `!isSpace`, so the one audience who is actually choosing
+    photographs for a wall never saw the curated selection - the picks were
+    folded silently into the grid instead, and the space below the search box
+    on Browse Art sat empty. Same list, same manager control; it is simply
+    shown to both audiences now, under a heading that suits each.
+  */
+  const showTopPicks = top20Artworks.length > 0 && !searchQuery;
+
+  /*
+    A space owner is picking a handful for a wall, not browsing an editorial
+    feature, so their strip is deliberately short. The manager's list can hold
+    as many as they like; this only limits how many are surfaced here.
+  */
+  const SUGGESTED_FOR_SPACE = 5;
+  const strip = isSpace ? top20Artworks.slice(0, SUGGESTED_FOR_SPACE) : top20Artworks;
+
+  /*
    * One pass, one Set, both kinds of duplicate.
    *
    * Pagination is offset-based, so a photograph published while someone is
@@ -173,13 +286,31 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   const allArtworks = React.useMemo(() => {
     const seen = new Set<string>();
     const unique = [];
-    for (const artwork of [...top20Artworks, ...(data?.pages.flatMap((page) => page.items) ?? [])]) {
+    const paged = data?.pages.flatMap((page) => page.items) ?? [];
+
+    /*
+      When the strip is showing, its twenty photographs are ALREADY on the page,
+      so seeding `seen` with their ids keeps them out of the grid below.
+
+      They used to be prepended into this list as well as rendered in the strip,
+      so the twenty curated photographs appeared twice on every gallery load -
+      two DOM subtrees, two decodes, twice the bytes - and the founder's "the
+      gallery loads slowly every single time" was partly just the page doing the
+      most expensive fifth of its work over again.
+
+      When the strip is hidden (a space owner, or an active search) they are
+      folded into the grid instead, so nothing curated disappears.
+    */
+    const source = showTopPicks ? paged : [...top20Artworks, ...paged];
+    if (showTopPicks) for (const artwork of top20Artworks) seen.add(artwork.id);
+
+    for (const artwork of source) {
       if (seen.has(artwork.id)) continue;
       seen.add(artwork.id);
       unique.push(artwork);
     }
     return unique;
-  }, [top20Data, data]);
+  }, [top20Data, data, showTopPicks]);
   const lightbox = useLightbox(allArtworks);
 
   const lightboxNode = lightbox.isOpen && (
@@ -223,13 +354,13 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
         </div>
       )}
 
-      {/* End of the gallery — required by §18, and the difference between
-          "you've seen everything" and "this is broken". */}
-      {!hasNextPage && allArtworks.length > 12 && (
-        <p className="mt-12 text-center text-sm text-subtle">
-          That&rsquo;s all {allArtworks.length} photographs.
-        </p>
-      )}
+      {/*
+        The end of the gallery used to announce itself — "That's all 27
+        photographs." Removed on request. It was doing two things and only one of
+        them was wanted: marking the end, which the layout already does, and
+        publishing the size of the catalogue, which reads as small while the
+        collection is still growing.
+      */}
     </>
   );
 
@@ -239,7 +370,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       open
       onOpenChange={(open) => !open && setConfiguring(null)}
       onConfirm={(frame, quantity) => {
-        cart.add(configuring, frame, quantity);
+        cart.add(configuring, frame);
         setConfiguring(null);
         lightbox.close();
         toast.success(`${configuring.title} added to your cart`, {
@@ -273,7 +404,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
           actions={
             <Button variant={cart.count > 0 ? 'primary' : 'outline'} asChild>
               <Link to="/space/cart">
-                <ShoppingBag />
+                <Frame />
                 Cart{cart.count > 0 ? ` (${cart.count})` : ''}
               </Link>
             </Button>
@@ -282,7 +413,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
 
         {cart.count > 0 && !cart.meetsMinimum && (
           <p className="mb-6 border-l-2 border-bronze bg-bronze-soft/40 px-4 py-3 text-sm text-bronze-deep">
-            Orders start at {MIN_ORDER_QUANTITY} frames — add {MIN_ORDER_QUANTITY - cart.count} more
+            Orders start at {MIN_ORDER_QUANTITY} frames - add {MIN_ORDER_QUANTITY - cart.count} more
             to check out.
           </p>
         )}
@@ -305,10 +436,17 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
               </form>
             </div>
           </aside>
-          <div className={cn('mt-8', isFetchingNextPage && !isLoading && 'opacity-60 transition-opacity')}>
+          {/*
+            The grid used to drop to opacity-60 while the NEXT page was loading,
+            so scrolling greyed out the photographs the visitor was looking at.
+            The sentinel at the bottom already says more is coming.
+          */}
+          <div className="mt-8">
             {isLoading ? (
               <ArtworkMasonry>
-                {Array.from({ length: 12 }, (_, index) => (
+                {/* 24, the page size - twelve left the grid half-height, so it
+                    jumped when the results landed. */}
+                {Array.from({ length: 24 }, (_, index) => (
                   <ArtworkCardSkeleton key={index} index={index} />
                 ))}
               </ArtworkMasonry>
@@ -323,6 +461,26 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                       showPrice={false}
                       onOpen={lightbox.open}
                       onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                      /*
+                        The way a space owner puts a photograph in their cart.
+
+                        The header above has always said "click any image …
+                        then add the ones you want", but no card carried an Add
+                        button: the only route into the cart was the public
+                        artwork page, which is now an editorial page about the
+                        photograph rather than a checkout. Ordering belongs in
+                        the space dashboard, so it lives here.
+                      */
+                      action={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={() => setConfiguring(artwork)}
+                        >
+                          <Frame className="size-4" /> Add to frame
+                        </Button>
+                      }
                     />
                   ))}
                 </ArtworkMasonry>
@@ -331,8 +489,43 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                     way to reach the rest of the catalogue. */}
                 {loadMoreSentinel}
               </>
+            ) : isError ? (
+              /*
+                Broken is not the same as empty.
+
+                The public variant below has always had this branch; the space
+                owner one did not, so a failed request fell through to "No
+                photographs found." — telling a paying customer, on the only
+                screen they order from, that ARTINU has no photographs at all.
+                The API sleeps on a free dyno and a cold start was measured at 43
+                seconds, so this was not a rare path.
+              */
+              <EmptyState
+                icon={<ImageOff />}
+                title="We couldn't load the gallery."
+                description={errorMessage(error)}
+                action={
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: qk.galleryInfinite({
+                          sort: sortBy,
+                          search: searchQuery || undefined,
+                        }),
+                      })
+                    }
+                  >
+                    Try again
+                  </Button>
+                }
+              />
             ) : (
-              <EmptyState title="No photographs found." />
+              <EmptyState
+                icon={<ImageOff />}
+                title="No photographs match that."
+                description="Try a different search, or clear the filters."
+              />
             )}
           </div>
         </div>
@@ -346,58 +539,53 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   /* ── The public gallery ───────────────────────────────────────────────── */
   return (
     <>
-      {/* ── Editorial opening ──────────────────────────────────────────── */}
-      <section className="grid items-center gap-10 px-5 pb-14 pt-10 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16 lg:px-12 lg:pb-20">
-        <Reveal>
-          <p className="eyebrow">Curated moments. Real stories.</p>
-          <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] text-ink sm:text-[3.5rem]">
-            Photography
-            <br />
-            that speaks.
-          </h1>
-          <span className="rule mt-7" />
-          <p className="prose-quiet mt-7 max-w-sm">
-            A collection of real stories captured by independent photographers from around the world.
-          </p>
-          <CircleArrowLink to="/artists" className="mt-9">
-            Discover artists
-          </CircleArrowLink>
-        </Reveal>
+      {/*
+        The gallery now opens on the people, not on a collage.
 
-        <Reveal delay={0.1} className="grid grid-cols-3 gap-3 lg:gap-4" aria-hidden>
-          <Photo
-            src={IMAGES.boatLake}
-            alt=""
-            ratio="aspect-[3/5]"
-            className="photo-edge col-span-1 self-end"
-          />
-          <Photo src={IMAGES.street} alt="" ratio="aspect-[3/5]" className="photo-edge col-span-1" />
-          <div className="col-span-1 grid gap-3 lg:gap-4">
-            <Photo src={IMAGES.photographer} alt="" ratio="aspect-[4/3]" className="photo-edge" />
-            <Photo src={IMAGES.valley} alt="" ratio="aspect-[4/3]" className="photo-edge" />
-          </div>
-        </Reveal>
-      </section>
+        What was here was four fixed Unsplash photographs marked aria-hidden
+        beside the words "Photography that speaks." — nothing in it came from
+        ARTINU, and a visitor could read the whole thing without learning that
+        anyone in particular had taken any of it. The replacement is the real
+        roster and grows on its own as photographers join.
+
+        Everything below this point — top picks, the search box, the sort
+        control and the gallery itself — is untouched.
+      */}
+      <GalleryCommunityHero />
 
       {/* ── Working gallery ────────────────────────────────────────────── */}
 
-      {!isSpace && top20Artworks.length > 0 && !searchQuery && (
+      {showTopPicks && (
         <Section tone="soft" className="pt-0 pb-12">
           <Container>
-            <div className="mb-6 flex items-center gap-2">
-              <Sparkles className="size-5 text-bronze" />
-              <h2 className="font-display text-2xl text-ink">Curator's Top Picks</h2>
+            {/*
+              A sparkle is the "magic AI feature" glyph, and it was standing next
+              to a heading about human curation - the opposite of what the
+              section means. Every other section on this site introduces itself
+              with an eyebrow and a hairline rule, so this one does too.
+            */}
+            <div className="mb-6">
+              <p className="eyebrow">Chosen this month</p>
+              <h2 className="mt-3 font-display text-2xl text-ink">
+                {isSpace ? 'Suggested artwork' : <>Curator&rsquo;s top picks</>}
+              </h2>
+              <span className="rule mt-4" />
             </div>
             <ArtworkMasonry>
-              {top20Artworks.map((artwork) => (
+              {strip.map((artwork, index) => (
+                // The first six are eager. These are the first photographs below
+                // the hero, and every one of them used to be lazy +
+                // fetchPriority=low while four eager fetches were spent further
+                // down the main grid, below the fold.
                 <ArtworkCard
                   key={artwork.id}
                   artwork={artwork}
+                  priority={index < 6}
                   onOpen={lightbox.open}
                   action={
                     isSpace ? (
                       <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => setConfiguring(artwork)}>
-                        <ShoppingBag className="size-4" /> Add
+                        <Frame className="size-4" /> Add
                       </Button>
                     ) : (
                       <Button size="sm" variant="ghost" className="w-full" onClick={() => onToggleWishlist(artwork.id)}>
@@ -442,10 +630,17 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
             </div>
           </div>
 
-          <div className={cn('mt-8', isFetchingNextPage && !isLoading && 'opacity-60 transition-opacity')}>
+          {/*
+            The grid used to drop to opacity-60 while the NEXT page was loading,
+            so scrolling greyed out the photographs the visitor was looking at.
+            The sentinel at the bottom already says more is coming.
+          */}
+          <div className="mt-8">
             {isLoading ? (
               <ArtworkMasonry>
-                {Array.from({ length: 12 }, (_, index) => (
+                {/* 24, the page size - twelve left the grid half-height, so it
+                    jumped when the results landed. */}
+                {Array.from({ length: 24 }, (_, index) => (
                   <ArtworkCardSkeleton key={index} index={index} />
                 ))}
               </ArtworkMasonry>
@@ -493,19 +688,25 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       <Section size="compact" className="pt-0">
         <Container size="wide">
           <div className="flex flex-col items-start justify-between gap-6 rounded-xl bg-ink px-6 py-8 text-canvas sm:flex-row sm:items-center sm:px-10">
+            {/*
+              Four generated-marketing tells in three lines: a sparkle, "Can't
+              find what you're looking for?", "our team", and "the perfect art for
+              your space". Replaced with what actually happens when someone gets
+              in touch, and a rule instead of a glyph.
+            */}
             <div className="flex items-start gap-4">
-              <Sparkles className="mt-0.5 size-5 shrink-0 text-bronze-light" aria-hidden />
+              <span className="mt-2 hidden h-px w-8 shrink-0 bg-bronze-light/60 sm:block" aria-hidden />
               <div>
                 <h2 className="font-display text-xl text-canvas sm:text-2xl">
-                  Can&rsquo;t find what you&rsquo;re looking for?
+                  Not sure what would work on your wall?
                 </h2>
                 <p className="mt-1 text-sm text-canvas/60">
-                  Our team can help you find the perfect art for your space.
+                  We will come and look at the room, then bring a few prints to hold up against it.
                 </p>
               </div>
             </div>
             <Button variant="light" asChild className="shrink-0">
-              <Link to="/lets-talk">Book a Consultation</Link>
+              <Link to="/lets-talk">Book a wall visit</Link>
             </Button>
           </div>
         </Container>
@@ -514,7 +715,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   );
 }
 
-/** ‹ 1 2 3 … 52 › — a real pager, not an infinite scroll. */
+/** ‹ 1 2 3 … 52 › - a real pager, not an infinite scroll. */
 function Pagination({
   page,
   totalPages,

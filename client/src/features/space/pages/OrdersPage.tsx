@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ShoppingBag } from 'lucide-react';
+import { ArrowRight, Frame } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { PanelHeader } from '@/components/layout/DashboardShell';
@@ -16,7 +16,9 @@ import { orderService } from '@/services/space.service';
 const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'pending_payment', label: 'Awaiting payment' },
-  { value: 'printing', label: 'In production' },
+  // "In production" - ARTINU does not produce anything. It prints a
+  // photograph and puts it in a frame, and that is what the tab now says.
+  { value: 'printing', label: 'Printing & framing' },
   { value: 'installation_scheduled', label: 'Installation' },
   { value: 'completed', label: 'Completed' },
 ];
@@ -33,7 +35,7 @@ export default function OrdersPage() {
   return (
     <div>
       <PanelHeader
-        icon={ShoppingBag}
+        icon={Frame}
         title="Orders"
         description="Track and manage your orders."
       />
@@ -86,7 +88,7 @@ export default function OrdersPage() {
 
                   <Status tone={ORDER_TONE[order.status] ?? 'neutral'} className="w-44 shrink-0">
                     {order.status === 'pending_payment'
-                      ? 'Awaiting payment — finish it'
+                      ? 'Awaiting payment - finish it'
                       : ORDER_STATUS_LABELS[order.status]}
                   </Status>
 
@@ -126,7 +128,7 @@ export default function OrdersPage() {
         </>
       ) : (
         <EmptyState
-          icon={<ShoppingBag />}
+          icon={<Frame />}
           title="No orders here yet."
           description="Once you commission a collection it will appear here, with live tracking."
           action={

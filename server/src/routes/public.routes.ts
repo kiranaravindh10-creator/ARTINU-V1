@@ -42,7 +42,7 @@ async function availabilityFor(date: string): Promise<{
     return {
       date,
       slots: CONSULTATION_SLOTS.map((time) => ({ time, available: false })),
-      reason: 'We are closed on Sundays — please pick another day.',
+      reason: 'We are closed on Sundays - please pick another day.',
     };
   }
 
@@ -317,7 +317,7 @@ publicRouter.post(
 
     void sendMail({
       to: req.user!.email,
-      subject: `We received your request — ${ticket.subject}`,
+      subject: `We received your request - ${ticket.subject}`,
       heading: 'We have your request.',
       body: `“${ticket.message}”\n\nSomeone from the team will be in touch shortly.`,
     });

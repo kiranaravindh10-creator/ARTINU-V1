@@ -1,5 +1,5 @@
 import { formatCurrency, formatDateTime, PAYMENT_STATUSES, type Payment } from '@artinu/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreditCard } from 'lucide-react';
 import * as React from 'react';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { StatGrid, StatTile } from '@/components/ui/stat';
 import {
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/table';
 import { FilterChips } from '@/components/ui/tabs';
 import { qk } from '@/lib/query';
+import { toast } from 'sonner';
+import { errorMessage } from '@/lib/api';
 import { adminService } from '@/services/admin.service';
 
 type AdminPayment = Payment & { orderReference?: string };
@@ -44,6 +47,34 @@ const FILTERS = [
 
 export default function ConsolePaymentsPage() {
   const [status, setStatus] = React.useState('all');
+  const [rejecting, setRejecting] = React.useState<Payment | null>(null);
+  const [rejectReason, setRejectReason] = React.useState('');
+  const queryClient = useQueryClient();
+
+  const refreshPayments = () => {
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
+  };
+
+  const verify = useMutation({
+    mutationFn: (id: string) => adminService.verifyPayment(id),
+    onSuccess: () => {
+      toast.success('Payment verified. The invoice is on its way to the customer.');
+      refreshPayments();
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const reject = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      adminService.rejectPayment(id, reason),
+    onSuccess: () => {
+      toast.success('Marked as not received. The customer has been told why.');
+      setRejecting(null);
+      setRejectReason('');
+      refreshPayments();
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
   const [selected, setSelected] = React.useState<AdminPayment | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -68,7 +99,7 @@ export default function ConsolePaymentsPage() {
       <SubNav
         items={[
           { to: '/console/payments', label: 'Payments in' },
-          { to: '/console/accounts', label: 'Payouts out' },
+          { to: '/console/accounts', label: 'Accounts' },
         ]}
       />
 
@@ -113,7 +144,7 @@ export default function ConsolePaymentsPage() {
                   <TableRow key={payment.id}>
                     <TableCell className="font-mono text-xs text-ink">{payment.reference}</TableCell>
                     <TableCell className="font-mono text-xs text-muted">
-                      {payment.orderReference ?? '—'}
+                      {payment.orderReference ?? '-'}
                     </TableCell>
                     <TableCell className="text-xs capitalize text-muted">
                       {payment.provider.replace('_', ' ')}
@@ -131,9 +162,36 @@ export default function ConsolePaymentsPage() {
                       {formatDateTime(payment.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setSelected(payment)}>
-                        Open
-                      </Button>
+                      {/*
+                        A payment sitting at "verifying" is a customer who says
+                        they have paid and an order that cannot go to print
+                        until somebody looks. These two buttons are the whole
+                        of that decision, so they are on the row rather than
+                        behind Open - the person doing this has a bank tab in
+                        one hand and is working down the list.
+                      */}
+                      {payment.status === 'verifying' ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            loading={verify.isPending && verify.variables === payment.id}
+                            onClick={() => verify.mutate(payment.id)}
+                          >
+                            Money received
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRejecting(payment)}
+                          >
+                            Not received
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => setSelected(payment)}>
+                          Open
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -144,6 +202,61 @@ export default function ConsolePaymentsPage() {
       ) : (
         <EmptyState icon={<CreditCard />} title="No payments match that filter." />
       )}
+
+      {/*
+        Saying no needs a reason.
+
+        The customer believes they have paid. Rejecting without telling them
+        why leaves them with a dead order and no idea whether to pay again, so
+        the reason is required here and is sent to them verbatim.
+      */}
+      <Sheet open={Boolean(rejecting)} onOpenChange={(open) => !open && setRejecting(null)}>
+        <SheetContent side="right" className="max-w-md">
+          {rejecting && (
+            <div>
+              <h2 className="font-display text-2xl text-ink">Payment not received?</h2>
+              <p className="prose-quiet mt-2 text-sm">
+                {formatCurrency(rejecting.amount)} claimed against reference{' '}
+                <span className="font-mono text-ink">{rejecting.reference}</span>. Only do this
+                after checking the account.
+              </p>
+
+              <label
+                htmlFor="reject-reason"
+                className="mt-6 block font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle"
+              >
+                What should we tell the customer?
+              </label>
+              <Input
+                id="reject-reason"
+                className="mt-2"
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                placeholder="No transfer found against this reference"
+              />
+
+              <div className="mt-6 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRejecting(null);
+                    setRejectReason('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  loading={reject.isPending}
+                  disabled={rejectReason.trim().length < 5}
+                  onClick={() => reject.mutate({ id: rejecting.id, reason: rejectReason.trim() })}
+                >
+                  Mark as not received
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent side="right" className="max-w-md">
@@ -159,7 +272,7 @@ export default function ConsolePaymentsPage() {
               </div>
 
               <dl className="mt-6 space-y-3 text-sm">
-                <Row label="Order">{selected.orderReference ?? '—'}</Row>
+                <Row label="Order">{selected.orderReference ?? '-'}</Row>
                 <Row label="Provider">{selected.provider.replace('_', ' ')}</Row>
                 <Row label="Attempts">{selected.attempts}</Row>
                 <Row label="Created">{formatDateTime(selected.createdAt)}</Row>

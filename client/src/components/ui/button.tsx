@@ -27,7 +27,7 @@ const buttonVariants = cva(
       },
       shape: {
         rect: 'rounded-md',
-        pill: 'rounded-full uppercase tracking-[0.12em] font-mono text-[0.6875rem] font-medium',
+        pill: 'rounded-full uppercase tracking-[0.12em] font-label text-[0.6875rem] font-medium',
       },
       size: {
         sm: 'h-9 px-3.5 text-[0.8125rem] [&_svg]:size-4',

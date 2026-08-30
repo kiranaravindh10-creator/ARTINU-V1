@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bell, LayoutGrid, LogOut, Menu, Search, ShoppingBag, User } from 'lucide-react';
+import { ArrowUpRight, Bell, LayoutGrid, LogOut, Menu, Search, Frame, User } from 'lucide-react';
 import * as React from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
@@ -61,7 +61,10 @@ export function PublicNav() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'relative py-1 font-mono text-[0.6875rem] uppercase tracking-[0.16em] transition-colors',
+                  // Playfair at reading size, mixed case — see --font-nav in
+                  // globals.css for why this is no longer a tracked-out
+                  // uppercase label.
+                  'relative py-1 font-nav text-[1.0625rem] leading-none tracking-[0.01em] transition-colors',
                   isActive ? 'text-ink' : 'text-muted hover:text-ink',
                 )
               }
@@ -95,9 +98,9 @@ export function PublicNav() {
           {isAuthenticated && user?.role === 'space_owner' && (
             <Button variant="ghost" size="icon" asChild aria-label={`Cart, ${count} items`}>
               <Link to="/space/cart" className="relative">
-                <ShoppingBag />
+                <Frame />
                 {count > 0 && (
-                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-bronze font-mono text-[0.5625rem] text-white">
+                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-bronze font-label tabular-nums text-[0.5625rem] text-white">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}

@@ -14,6 +14,8 @@ import { spaceRouter } from '@/routes/space.routes';
 import { uploadRouter } from '@/routes/upload.routes';
 import { userRouter } from '@/routes/user.routes';
 import { contentRouter } from '@/routes/content.routes';
+import { placesRouter } from '@/routes/places.routes';
+import { announcementRouter } from '@/routes/announcement.routes';
 import { contentManagerRouter } from '@/routes/contentManager.routes';
 
 /** API modules, one per SDD §17 entry. */
@@ -33,6 +35,8 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/analytics', analyticsRouter);
 apiRouter.use('/ops', operationsRouter);
 apiRouter.use('/content', contentRouter);
+apiRouter.use('/places', placesRouter);
+apiRouter.use('/announcements', announcementRouter);
 apiRouter.use('/content-manager', contentManagerRouter);
 
 // Public forms that do not belong to a single resource module:

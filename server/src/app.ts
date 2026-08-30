@@ -41,6 +41,17 @@ export function createApp() {
   app.use(compression());
   app.use(cookieParser());
 
+  /*
+    The payment webhook needs the RAW body, and must be mounted before the JSON
+    parser sees it.
+
+    Razorpay signs the exact bytes it posted. `express.json()` parses and discards
+    them, and re-serialising the parsed object changes key order and whitespace,
+    so the recomputed HMAC would never match. `express.raw` on this one path keeps
+    the original buffer; every other route still gets parsed JSON.
+  */
+  app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
+
   // Uploads arrive as base64 data URLs (SDD §11), so the JSON body limit has to
   // clear a full-resolution photograph plus encoding overhead.
   app.use(express.json({ limit: '50mb' }));

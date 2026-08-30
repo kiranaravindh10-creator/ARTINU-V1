@@ -187,7 +187,7 @@ export async function releaseFramesFromSpace(
   }
 
   if (frames.length) {
-    logger.info(`Released ${frames.length} frame(s) from space ${spaceId} — now reusable`);
+    logger.info(`Released ${frames.length} frame(s) from space ${spaceId} - now reusable`);
   }
   return { released: frames.length, frames };
 }

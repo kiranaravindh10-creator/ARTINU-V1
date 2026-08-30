@@ -36,6 +36,7 @@ create table if not exists profiles (
   full_name    text not null,
   display_name text,
   phone        text,
+  date_of_birth date,
   avatar_url   text,
   cover_url    text,
   city         text,
@@ -53,6 +54,8 @@ genres       jsonb not null default '[]'::jsonb,
 create unique index if not exists profiles_user_idx on profiles (user_id);
 -- Existing deployments may predate artist cover images.
 alter table profiles add column if not exists cover_url text;
+-- Existing deployments may predate date of birth on registration (migration 009).
+alter table profiles add column if not exists date_of_birth date;
 -- Existing deployments may predate the Photo ID system.
 alter table profiles add column if not exists photographer_code text;
 alter table profiles add column if not exists next_photo_number integer not null default 1;

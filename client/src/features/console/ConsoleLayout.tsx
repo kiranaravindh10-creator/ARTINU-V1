@@ -8,12 +8,13 @@ import {
   Frame,
   LayoutDashboard,
   LayoutTemplate,
+  Megaphone,
   Printer,
   ServerCog,
+  SlidersHorizontal,
   Truck,
   UserRound,
   Users,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { DashboardShell, type DashboardNavGroup } from '@/components/layout/DashboardShell';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,17 +67,34 @@ const GROUPS: { title?: string; items: ConsoleItem[] }[] = [
   {
     title: 'Money',
     items: [
-      { to: '/console/payments', label: 'Payments & payouts', icon: Banknote, modules: ['payments', 'accounts'] },
+      { to: '/console/payments', label: 'Payments', icon: Banknote, modules: ['payments', 'accounts'] },
       { to: '/console/reports', label: 'Reports', icon: ChartNoAxesColumn, modules: ['reports'] },
     ],
   },
 {
         title: 'Administration',
         items: [
+          {
+            to: '/console/notifications',
+            label: 'Notifications',
+            icon: Megaphone,
+            modules: ['announcements'],
+          },
           { to: '/console/users', label: 'People & access', icon: UserRound, modules: ['users'] },
           { to: '/console/users/employees', label: 'Employees', icon: Users, modules: ['users'] },
-          { to: '/console/content', label: 'Content manager', icon: LayoutTemplate, modules: ['system'] },
-          { to: '/console/content/manager', label: 'Content dashboard', icon: SlidersHorizontal, modules: ['system'] },
+          /*
+            One homepage, one link.
+        
+            There were two: "Content manager" and "Content dashboard", both
+            under the `system` module, which no manager holds — so the person
+            who maintains the homepage could not see either of them. The
+            homepage editor is now the first entry and sits under `content`,
+            which the manager, the IT team and the CEO all hold; the curated ID
+            lists behind the second link are a separate, rarer job and are
+            labelled as such.
+          */
+          { to: '/console/content/manager', label: 'Homepage', icon: LayoutTemplate, modules: ['content'] },
+          { to: '/console/content', label: 'Curated lists', icon: SlidersHorizontal, modules: ['content'] },
           { to: '/console/system', label: 'System', icon: ServerCog, modules: ['system'] },
         ],
       },

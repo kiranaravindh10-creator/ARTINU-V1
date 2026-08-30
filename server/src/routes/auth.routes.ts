@@ -5,6 +5,7 @@ import {
   passwordSchema,
   phoneSignInSchema,
   resetPasswordSchema,
+  ROTATION_INTERVALS,
   signInSchema,
   signUpSchema,
   spaceOwnerRegistrationSchema,
@@ -18,7 +19,7 @@ import { badRequest, notFound } from '@/utils/errors';
 import { logger } from '@/utils/logger';
 import { now } from '@/utils/ids';
 import { recordAudit } from '@/services/audit.service';
-import { sendPasswordResetEmail } from '@/services/email.service';
+import { sendNoAccountEmail, sendPasswordResetEmail } from '@/services/email.service';
 import { notify } from '@/services/notification.service';
 import { storeBase64 } from '@/services/storage.service';
 import { assignPhotographerCodeIfArtist } from '@/services/photo-id.service';
@@ -109,12 +110,23 @@ authRouter.post(
     const input = req.valid as {
       fullName: string;
       email: string;
+      phone: string;
+      dateOfBirth: string;
       password: string;
       role: 'space_owner' | 'artist';
     };
 
-    const user = await createUser({ email: input.email, password: input.password, role: input.role });
-    await createProfile(user.id, { fullName: input.fullName });
+    const user = await createUser({
+      email: input.email,
+      password: input.password,
+      role: input.role,
+      phone: input.phone,
+    });
+    await createProfile(user.id, {
+      fullName: input.fullName,
+      phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
+    });
 
     // Same reasoning as the dedicated artist and space-owner routes: neither of
     // these may cost someone their account once the user row is committed.
@@ -165,6 +177,8 @@ authRouter.post(
     const input = req.valid as {
       fullName: string;
       email: string;
+      phone: string;
+      dateOfBirth: string;
       password: string;
       artistName: string;
       location: string;
@@ -174,7 +188,12 @@ authRouter.post(
       avatarBase64?: string | null;
     };
 
-    const user = await createUser({ email: input.email, password: input.password, role: 'artist' });
+    const user = await createUser({
+      email: input.email,
+      password: input.password,
+      role: 'artist',
+      phone: input.phone,
+    });
 
     let avatarUrl: string | null = null;
     if (input.avatarBase64) {
@@ -186,6 +205,8 @@ authRouter.post(
     await createProfile(user.id, {
       fullName: input.fullName,
       displayName: input.artistName,
+      phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
       city: city ?? input.location,
       country: country ?? null,
       bio: input.bio ?? null,
@@ -243,24 +264,38 @@ authRouter.post(
       spaceType: string;
       city: string;
       phone: string;
+      dateOfBirth: string;
+      password: string;
     };
 
-    // Requirements §1: the owner does not invent credentials, ARTINU issues
-    // them. Generated here so the plaintext exists only for this request — it
-    // goes back in the response, is never emailed, and is never stored.
-    const password = issuedPassword();
+    /*
+      The owner's own password.
 
+      This used to call `issuedPassword()` and set `mustChangePassword`, on the
+      reading of requirements §1 that ARTINU issues credentials rather than the
+      owner inventing them. That holds when a human at ARTINU provisions the
+      account and hands the credential over — `create:staff` still works exactly
+      that way, and should.
+
+      It does not hold for self-service sign-up. The generated password was
+      returned once in this response, rendered once on the next screen, never
+      emailed and never stored, so closing the tab locked the owner out of an
+      account they had just created. A password only they have ever seen needs no
+      forced replacement, so `mustChangePassword` goes too — which is also why
+      sign-in now lands on the dashboard rather than on a reset screen.
+    */
     const user = await createUser({
       email: input.email,
-      password,
+      password: input.password,
       role: 'space_owner',
       phone: input.phone,
-      mustChangePassword: true,
+      mustChangePassword: false,
     });
 
     await createProfile(user.id, {
       fullName: input.fullName,
       phone: input.phone,
+      dateOfBirth: input.dateOfBirth,
       city: input.city,
       country: 'India',
     });
@@ -285,7 +320,10 @@ authRouter.post(
       contactEmail: input.email,
       wallCount: null,
       imageUrls: [],
-      rotationIntervalMonths: 3,
+      // ROTATION_INTERVALS[0] rather than a hardcoded 3: three months is a
+      // WITHDRAWN cadence, so every space registered here was being created
+      // on a schedule the product no longer sells.
+      rotationIntervalMonths: ROTATION_INTERVALS[0],
       verified: false,
       createdAt: now(),
       updatedAt: now(),
@@ -331,7 +369,10 @@ authRouter.post(
     // replaced, which is what `mustChangePassword` on the user enforces.
     res.status(201).json({
       ...(await buildSession(user)),
-      credentials: { spaceCode, email: user.email, password },
+      // No password here any more: the owner chose it, so the server has
+      // nothing to hand back that they do not already know. The space code is
+      // not a secret and is genuinely useful, so it stays.
+      credentials: { spaceCode, email: user.email, password: null },
     });
   }),
 );
@@ -345,15 +386,61 @@ authRouter.post(
     const { email } = req.valid as { email: string };
     const user = await findByEmail(email);
 
-    // Always the same response, whether or not the account exists.
+    /*
+      The response is identical either way, and stays that way: telling a caller
+      whether an address is registered turns this endpoint into an account
+      enumerator.
+
+      What was missing is the other half — the server said nothing either. The
+      outcome was invisible from both sides, so "no email arrived" could equally
+      be an unregistered address, a spent allowance, or SendGrid refusing the
+      sender, and there was no way to tell which. It is logged now, because the
+      recorded mailbox cannot help: it writes to server/.data/mail on local disk,
+      and the hosting filesystem is wiped on every deploy and every restart.
+    */
     if (!user) {
+      /*
+        No account - and that is exactly when an email matters most.
+
+        This used to log a warning and return. The caller got "check your
+        inbox", nothing ever arrived, and there was no way for them to discover
+        that the address simply was not registered. Now they are told, in the
+        only channel that cannot leak the answer to anyone else.
+
+        The response below is identical to the registered case on purpose. See
+        sendNoAccountEmail.
+      */
+      const outcome = await sendNoAccountEmail(email);
+      if (outcome.delivered) {
+        logger.info(`Password reset requested for unregistered ${email} - told them so by email.`);
+      } else {
+        logger.error(
+          `Password reset requested for unregistered ${email}, and the "no account" email was NOT delivered` +
+            (outcome.skippedReason ? ` - ${outcome.skippedReason}` : ' - see the mail error above.'),
+        );
+      }
       res.json({ sent: true });
       return;
     }
 
     const profile = await profileFor(user.id);
     const record = await issueToken(user.id, 'password_reset', 60);
-    await sendPasswordResetEmail(user.email, profile?.fullName ?? 'there', record.token);
+    const result = await sendPasswordResetEmail(
+      user.email,
+      profile?.fullName ?? 'there',
+      record.token,
+    );
+
+    // `delivered` was returned and thrown away. A refused send and a successful
+    // one produced exactly the same log line: none.
+    if (result.delivered) {
+      logger.info(`Password reset email sent to ${user.email}.`);
+    } else {
+      logger.error(
+        `Password reset email for ${user.email} was NOT delivered` +
+          (result.skippedReason ? ` - ${result.skippedReason}` : ' - see the mail error above.'),
+      );
+    }
 
     res.json({ sent: true, devToken: env.isProduction ? undefined : record.token });
   }),

@@ -63,10 +63,6 @@ const authRoutes: RouteObject = {
       path: 'forgot-password',
       element: lazyPage(() => import('@/features/auth/pages/ForgotPasswordPage')),
     },
-    {
-      path: 'reset-password',
-      element: lazyPage(() => import('@/features/auth/pages/ResetPasswordPage')),
-    },
     { path: 'register', element: <Navigate to="/register/artist" replace /> },
     {
       path: 'register/artist',
@@ -76,7 +72,17 @@ const authRoutes: RouteObject = {
       path: 'register/artphiles',
       element: lazyPage(() => import('@/features/auth/pages/ArtPhilesRegisterPage')),
     },
-    { path: 'register/space', element: <Navigate to="/lets-talk" replace /> },
+    /*
+      Space owner sign-up.
+
+      This was `<Navigate to="/lets-talk" />` — the page and the API endpoint both
+      existed, but the route sent anyone who reached it to the consultation form
+      instead, so there was no way to actually register a space owner.
+    */
+    {
+      path: 'register/space',
+      element: lazyPage(() => import('@/features/auth/pages/SpaceRegisterPage')),
+    },
   ],
 };
 
@@ -315,8 +321,20 @@ const consoleRoutes: RouteObject = {
           ],
         },
         {
+          path: 'notifications',
+          element: <ModuleRoute module="announcements" />,
+          children: [
+            {
+              index: true,
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleAnnouncementsPage'),
+              ),
+            },
+          ],
+        },
+        {
           path: 'content',
-          element: <ModuleRoute module="system" />,
+          element: <ModuleRoute module="content" />,
           children: [
             {
               index: true,
@@ -352,7 +370,50 @@ const consoleRoutes: RouteObject = {
   ],
 };
 
+/*
+  Email confirmation, outside every guard.
+
+  Two things had to be true and neither was. First, the route has to exist: the
+  verification email has always linked to `/verify-email?token=…` and nothing was
+  registered for that path, so every "Confirm email" button ARTINU ever sent
+  landed on the 404 page.
+
+  Second, it must not be guest-only. Registration signs the new owner in
+  immediately, so the person clicking the link in their inbox is almost always
+  already authenticated — inside `authRoutes` the GuestOnlyRoute wrapper would
+  have redirected them away from the page whose entire job is to consume their
+  token. It gets its own entry rather than joining a group for that reason.
+*/
+const verifyEmailRoute: RouteObject = {
+  path: 'verify-email',
+  errorElement: <RouteError />,
+  element: lazyPage(() => import('@/features/auth/pages/VerifyEmailPage')),
+};
+
+/*
+  Setting a new password, for exactly the same reason as verify-email above.
+
+  This lived inside `authRoutes`, wrapped in GuestOnlyRoute, and the guard is
+  wrong here. "Guest only" assumes anyone resetting a password is signed out,
+  and that is not who clicks these links. The person who clicks is very often
+  signed in already - on this machine, on an old session, or on the wrong
+  account entirely, which is frequently WHY they are resetting. GuestOnlyRoute
+  redirects them straight to a dashboard, the token is never consumed, and the
+  reset link looks broken while being perfectly valid. The token then expires an
+  hour later having never been used.
+
+  `forgot-password` stays guest-only: that one you reach by choosing it, and if
+  you are already signed in you do not need it.
+*/
+const resetPasswordRoute: RouteObject = {
+  path: 'reset-password',
+  errorElement: <RouteError />,
+  element: lazyPage(() => import('@/features/auth/pages/ResetPasswordPage')),
+};
+
 export const router = createBrowserRouter([
+  verifyEmailRoute,
+  resetPasswordRoute,
   authRoutes,
   accountRoutes,
   spaceRoutes,

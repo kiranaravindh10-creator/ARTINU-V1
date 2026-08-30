@@ -1,13 +1,18 @@
 import {
+  adminCreateOrderSchema,
+  adminProvisionSpaceSchema,
   API_ROUTES,
   artworkReviewSchema,
   formatCurrency,
+  PRICING,
   ORDER_STATUS_LABELS,
   ROLE_MODULES,
   ROLES,
   updateOrderCostSchema,
   updateOrderStatusSchema,
   USER_STATUSES,
+  type AdminCreateOrderInput,
+  type AdminProvisionSpaceInput,
   type Artwork,
   type CostBreakdown,
   type OrderStatus,
@@ -16,7 +21,12 @@ import {
 import { Router } from 'express';
 import { z } from 'zod';
 import { driverSummary, env } from '@/config/env';
-import { clearMail, getMail, listMail, mailboxSummary } from '@/services/mailbox.service';
+import {
+  clearMail,
+  getMailDurable,
+  listMailDurable,
+  mailboxSummaryDurable,
+} from '@/services/mailbox.service';
 import { db } from '@/database/db';
 import { paginate } from '@/database/table';
 import {
@@ -25,15 +35,21 @@ import {
   recentErrors,
   requireInternal,
   requireModule,
+  requireRole,
   validate,
 } from '@/middleware/index';
 import { badRequest, conflict, forbidden, notFound } from '@/utils/errors';
-import { now } from '@/utils/ids';
+import { now, paymentReference } from '@/utils/ids';
 import {
   consoleAnalytics,
   reportBundle,
 } from '@/services/analytics.service';
+import { ensureSpaceCode, issuedPassword } from '@/services/space-code.service';
+import { sendWelcomeEmailOnce } from '@/services/welcome-email.service';
 import { recordAudit, recentAudit } from '@/services/audit.service';
+import { createOrderForSpace } from '@/services/order.service';
+import { settlePayment } from '@/services/settlement.service';
+import { findCoupon } from '@/services/coupon.service';
 import { deleteAccountCompletely } from '@/services/account-deletion.service';
 import { logger } from '@/utils/logger';
 import {
@@ -47,11 +63,11 @@ import {
 } from '@/services/auth.service';
 import {
   sendArtistInstallationUpdate,
+  sendArtworkRemoved,
   sendInstallationUpdate,
   sendMail,
   sendModerationDecision,
   sendPasswordResetEmail,
-  sendPayoutProcessed,
 } from '@/services/email.service';
 import { notify, notifyRole } from '@/services/notification.service';
 import { advanceOrder, canTransition } from '@/services/order.service';
@@ -118,6 +134,133 @@ adminRouter.get(
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 
+/**
+ * Place an order on a space's behalf.
+ *
+ * THE CASE THIS EXISTS FOR
+ *
+ * Not every café owner is going to log in. A good number will say "you know
+ * what we want, just do it" over the phone or across a counter, and until now
+ * there was no way to turn that into an order: `POST /orders` is
+ * `requireRole('space_owner')` and `createOrder` asserts the caller owns the
+ * space, so staff were blocked twice over.
+ *
+ * WHAT IT DOES NOT DO
+ *
+ * It does not take a price. `items` and `spaceId` are the only things trusted
+ * from the body, and every rupee is recomputed server-side by the same
+ * `priceDraft` a self-service checkout uses. Staff can decide WHAT is being
+ * bought, never what it costs.
+ *
+ * It does not change who the order belongs to. `createOrderForSpace` attributes
+ * it to the space's owner, so the moment it exists it shows up on their
+ * dashboard, invoices to them, and rotates on their schedule. The staff member
+ * appears in the audit log and nowhere else.
+ *
+ * PAID vs UNPAID
+ *
+ * `markPaid: false` leaves it at `pending_payment`, identical to a cart that
+ * has not been through checkout - the owner can still pay it online later.
+ *
+ * `markPaid: true` records a `manual` payment and runs it through
+ * `settlePayment`, the SAME function the Razorpay webhook uses. That matters:
+ * simply patching the status to `confirmed` is permitted by `canTransition`
+ * and would look correct in the console while silently skipping the invoice,
+ * the artist notifications, the selection counts and - most importantly - the
+ * artists' payout accrual. An order nobody gets paid for is worse than no
+ * order.
+ */
+adminRouter.post(
+  '/orders',
+  requireModule('orders'),
+  validate(adminCreateOrderSchema),
+  asyncHandler(async (req, res) => {
+    const input = req.valid as AdminCreateOrderInput;
+
+    const space = await db.spaces.byId(input.spaceId);
+    if (!space) throw notFound('That space');
+
+    const owner = await db.users.byId(space.ownerId);
+    if (!owner) {
+      throw badRequest('That space has no account attached, so an order cannot be placed on it.');
+    }
+
+    const order = await createOrderForSpace(
+      {
+        spaceId: input.spaceId,
+        items: input.items,
+        couponCode: input.couponCode ?? null,
+        includeSecurityDeposit: input.includeSecurityDeposit,
+        notes: input.notes ?? null,
+      },
+      space,
+    );
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'order.created_by_staff',
+      entity: 'order',
+      entityId: order.id,
+      meta: {
+        spaceId: space.id,
+        ownerId: space.ownerId,
+        total: order.pricing.total,
+        markPaid: input.markPaid,
+      },
+      ip: req.ip,
+    });
+
+    if (!input.markPaid) {
+      // Unpaid: tell the owner there is something waiting for them.
+      await notify({
+        userId: space.ownerId,
+        type: 'order_update',
+        title: `Order ${order.reference} is ready to pay`,
+        body: `We have put together ${order.pricing.quantity} frames for ${space.name}.`,
+        link: `/space/orders/${order.id}`,
+      });
+      res.status(201).json(order);
+      return;
+    }
+
+    /*
+      Paid offline. The payment row is created already settled in intent and
+      then handed to `settlePayment`, which flips it to `succeeded` and does the
+      other seven things. `reference` is what finance matches against the bank
+      statement, so an operator-supplied one wins over the generated one.
+    */
+    const reference = input.paymentReference?.trim() || paymentReference();
+
+    const payment = await db.payments.insert({
+      orderId: order.id,
+      provider: 'manual',
+      amount: order.pricing.total,
+      currency: PRICING.CURRENCY,
+      status: 'awaiting_payment',
+      qrPayload: null,
+      qrImageDataUrl: null,
+      reference,
+      gatewayOrderId: null,
+      gatewayPaymentId: null,
+      expiresAt: null,
+      attempts: 1,
+      failureReason: `Recorded by staff (${input.paymentMethod}).`,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+
+    await db.orders.update(order.id, { paymentId: payment.id, updatedAt: now() });
+
+    const settled = await settlePayment(payment, order, null, {
+      reference,
+      actor: { id: req.user!.id, email: req.user!.email },
+      ip: req.ip,
+    });
+
+    res.status(201).json(settled.order);
+  }),
+);
+
 adminRouter.get(
   '/orders',
   requireModule('orders'),
@@ -180,7 +323,7 @@ adminRouter.patch(
     await notify({
       userId: order.ownerId,
       type: status === 'completed' ? 'order_completed' : 'order_update',
-      title: `${order.reference} — ${ORDER_STATUS_LABELS[status] ?? status}`,
+      title: `${order.reference} - ${ORDER_STATUS_LABELS[status] ?? status}`,
       body: note || SENTENCE[status] || 'Your order has moved to the next stage.',
       link: `/space/orders/${order.id}`,
     });
@@ -343,20 +486,25 @@ adminRouter.post(
       });
 
       const artistUser = await db.users.byId(artistId);
-      const theirTitles = order.items
-        .filter((item) => item.artistId === artistId)
-        .map((item) => `“${item.artworkTitle}”`)
-        .join(', ');
 
       if (artistUser) {
+        // Same reason as in settlement.service: the Photo ID lives on the
+        // artwork, not on the order item, so it is resolved here.
+        const placements = [];
+        for (const item of order.items.filter((line) => line.artistId === artistId)) {
+          const artwork = await db.artworks.byId(item.artworkId);
+          placements.push({ title: item.artworkTitle, photoId: artwork?.photoId ?? null });
+        }
+
         const theirProfile = await profileFor(artistId);
         void sendArtistInstallationUpdate(
           artistUser.email,
           theirProfile?.fullName ?? 'there',
-          theirTitles,
+          placements,
           space?.name ?? 'an ARTINU space',
           space?.city ?? 'India',
           input.scheduledFor,
+          space?.type === 'home_decor',
         );
       }
     }
@@ -773,7 +921,7 @@ adminRouter.get(
         ...payment,
         // The QR is large and irrelevant in a list — drop it.
         qrImageDataUrl: null,
-        orderReference: referenceById.get(payment.orderId) ?? '—',
+        orderReference: referenceById.get(payment.orderId) ?? '-',
       })),
     });
   }),
@@ -795,7 +943,7 @@ adminRouter.post(
   validate(
     z.object({
       amount: z.coerce.number().positive().optional(),
-      reason: z.string().min(4, 'Say why — the customer sees this.').max(400),
+      reason: z.string().min(4, 'Say why - the customer sees this.').max(400),
     }),
   ),
   asyncHandler(async (req, res) => {
@@ -813,7 +961,7 @@ adminRouter.post(
 
     const updated = await db.payments.update(payment.id, {
       status: 'refunded',
-      failureReason: `Refunded ${formatCurrency(refunded)} — ${reason}`,
+      failureReason: `Refunded ${formatCurrency(refunded)} - ${reason}`,
       updatedAt: now(),
     });
 
@@ -839,7 +987,7 @@ adminRouter.post(
         const ownerProfile = await profileFor(order.ownerId);
         void sendMail({
           to: owner.email,
-          subject: `Refund issued — ${order.reference}`,
+          subject: `Refund issued - ${order.reference}`,
           heading: `${formatCurrency(refunded)} is being returned.`,
           body: `${ownerProfile?.fullName ?? 'Hello'}, we have issued a refund on order ${order.reference}.
 
@@ -892,47 +1040,321 @@ adminRouter.get(
       items: result.items.map((payout) => ({
         ...payout,
         artistName: nameByUser.get(payout.artistId) ?? 'ARTINU artist',
-        orderReference: payout.orderId ? (referenceById.get(payout.orderId) ?? '—') : '—',
+        orderReference: payout.orderId ? (referenceById.get(payout.orderId) ?? '-') : '-',
       })),
     });
   }),
 );
 
-adminRouter.post(
-  '/payouts/:id/pay',
-  requireModule('accounts'),
+/*
+  The "mark this payout paid" route is gone, along with the payout it settled.
+
+  ARTINU does not pay photographers. The endpoint existed to move a payout row
+  to 'paid', notify the artist that "your earnings have been transferred" and
+  email them an amount - three statements about money that was never going to
+  move. Nothing opens a payout row any more (see settlement.service), so the
+  route had nothing left to act on but historical rows, where marking one paid
+  would have been simply untrue.
+
+  The payouts table and its read-only listing above are left in place so any
+  historical row still reads back.
+*/
+
+/**
+ * Take a photograph down, with a reason.
+ *
+ * ── Who ─────────────────────────────────────────────────────────────────────
+ *
+ * Manager, IT and CEO, named explicitly rather than gated on a module. The
+ * only module all three share is `content`, which means the homepage - the
+ * carousel and the collaborations - and hanging a takedown off it would give
+ * anyone who could edit the homepage the power to remove a photographer's
+ * work. These are different jobs and should not share a key.
+ *
+ * ── Archive, not delete ─────────────────────────────────────────────────────
+ *
+ * Same as the artist's own delete: the photograph may already be on an invoice
+ * or hanging on a wall, and a row that vanishes takes the order history with
+ * it. Archiving hides it from the gallery and stops it being selected again,
+ * which is what "removed" actually needs to mean.
+ *
+ * ── The reason is mandatory ─────────────────────────────────────────────────
+ *
+ * Not optional, not defaulted. It is the only thing the photographer will be
+ * told, and a takedown with no explanation is how you lose the person who
+ * uploaded it. It is stored on the audit record and sent to them verbatim.
+ */
+adminRouter.delete(
+  '/artworks/:id',
+  requireRole('ceo', 'manager', 'it_team'),
+  validate(
+    z.object({
+      reason: z
+        .string()
+        .trim()
+        .min(5, 'Give the photographer a reason - it is the only explanation they get')
+        .max(400),
+    }),
+  ),
   asyncHandler(async (req, res) => {
-    const payout = await db.payouts.byId(req.params.id);
-    if (!payout) throw notFound('That payout');
-    if (payout.status === 'paid') throw badRequest('That payout has already been paid.');
+    const { reason } = req.valid as { reason: string };
 
-    const updated = await db.payouts.update(payout.id, { status: 'paid', paidAt: now() });
+    const artwork = await db.artworks.byId(req.params.id);
+    if (!artwork) throw notFound('That photograph');
+    if (artwork.status === 'archived') {
+      throw badRequest('That photograph has already been removed.');
+    }
 
-    await notify({
-      userId: payout.artistId,
-      type: 'payout_processed',
-      title: 'Your payout has been sent',
-      body: `Your earnings for ${payout.periodLabel} have been transferred.`,
-      link: '/studio/payouts',
+    const removed = await db.artworks.update(artwork.id, {
+      status: 'archived',
+      updatedAt: now(),
     });
 
-    const paidArtist = await db.users.byId(payout.artistId);
-    if (paidArtist) {
-      const paidProfile = await profileFor(payout.artistId);
-      void sendPayoutProcessed(
-        paidArtist.email,
-        paidProfile?.fullName ?? 'there',
-        payout.amount,
-        payout.periodLabel,
+    /*
+      Tell the photographer, in the app and by email.
+
+      The email is fire-and-forget: a takedown that has already been written to
+      the database must not be reported as a failure because SMTP was down, and
+      the notification below survives regardless.
+    */
+    await notify({
+      userId: artwork.artistId,
+      type: 'upload_rejected',
+      title: `"${artwork.title}" has been removed`,
+      body: reason,
+      link: '/studio/portfolio',
+    });
+
+    const artist = await db.users.byId(artwork.artistId);
+    if (artist) {
+      const artistProfile = await profileFor(artwork.artistId);
+      void sendArtworkRemoved(
+        artist.email,
+        artistProfile?.fullName ?? 'there',
+        artwork.title,
+        reason,
+        artwork.photoId ?? null,
       );
     }
 
     await recordAudit({
       actor: { id: req.user!.id, email: req.user!.email },
-      action: 'payout.paid',
-      entity: 'payout',
-      entityId: payout.id,
-      meta: { amount: payout.amount, artistId: payout.artistId },
+      action: 'artwork.removed',
+      entity: 'artwork',
+      entityId: artwork.id,
+      meta: { reason, photoId: artwork.photoId ?? null, artistId: artwork.artistId },
+      ip: req.ip,
+    });
+
+    res.json(removed);
+  }),
+);
+
+/**
+ * Release a payment somebody has checked against the account.
+ *
+ * ── Why these roles ─────────────────────────────────────────────────────────
+ *
+ * Manager and operations, plus the CEO. They are the two desks that actually
+ * reconcile a UPI transfer - one opens the Google Pay ledger or the bank
+ * statement, the other is holding an order that cannot go to print until the
+ * money is confirmed. The `payments` MODULE is CEO and accounts only, so
+ * gating on it would have locked out both of the people who do this job.
+ *
+ * ── What it does ────────────────────────────────────────────────────────────
+ *
+ * Hands off to `settlePayment`, the same function a real gateway webhook uses.
+ * That is deliberate: the invoice, the artist notifications, the order advance
+ * and the audit entry all happen in one place, so a manually verified payment
+ * is indistinguishable downstream from a gateway one.
+ */
+adminRouter.post(
+  '/payments/:id/verify',
+  requireRole('ceo', 'manager', 'operations'),
+  asyncHandler(async (req, res) => {
+    const payment = await db.payments.byId(req.params.id);
+    if (!payment) throw notFound('That payment');
+
+    if (payment.status === 'succeeded') {
+      throw badRequest('That payment has already been verified.');
+    }
+    if (payment.status !== 'verifying') {
+      throw badRequest('That payment is not waiting to be verified.');
+    }
+
+    const order = await db.orders.byId(payment.orderId);
+    if (!order) throw notFound('The order for that payment');
+
+    const settled = await settlePayment(payment, order, null, {
+      reference: payment.reference,
+      actor: { id: req.user!.id, email: req.user!.email },
+      ip: req.ip,
+    });
+
+    res.json(settled);
+  }),
+);
+
+/**
+ * The money did not arrive, or the reference does not match anything.
+ *
+ * The reason is required and is sent to the customer: somebody who believes
+ * they have paid needs to know what to do next, and "rejected" on its own
+ * tells them nothing. The order returns to `payment_failed`, which is the same
+ * state a declined card leaves it in, so they can retry from their order.
+ */
+adminRouter.post(
+  '/payments/:id/reject',
+  requireRole('ceo', 'manager', 'operations'),
+  validate(
+    z.object({
+      reason: z
+        .string()
+        .trim()
+        .min(5, 'Say why, so the customer knows what to do next')
+        .max(400),
+    }),
+  ),
+  asyncHandler(async (req, res) => {
+    const { reason } = req.valid as { reason: string };
+
+    const payment = await db.payments.byId(req.params.id);
+    if (!payment) throw notFound('That payment');
+    if (payment.status !== 'verifying') {
+      throw badRequest('That payment is not waiting to be verified.');
+    }
+
+    const order = await db.orders.byId(payment.orderId);
+    if (!order) throw notFound('The order for that payment');
+
+    const rejected = await db.payments.update(payment.id, {
+      status: 'failed',
+      failureReason: reason,
+      updatedAt: now(),
+    });
+    const failedOrder = await advanceOrder(order, 'payment_failed', { note: reason });
+
+    await notify({
+      userId: order.ownerId,
+      type: 'payment_failed',
+      title: `We could not confirm your payment for ${order.reference}`,
+      body: `${reason} You can submit a new reference or pay again from your order.`,
+      link: `/space/orders/${order.id}`,
+    });
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'payment.rejected',
+      entity: 'payment',
+      entityId: payment.id,
+      meta: { reason, reference: payment.reference, amount: payment.amount },
+      ip: req.ip,
+    });
+
+    res.json({ payment: rejected, order: failedOrder });
+  }),
+);
+
+/**
+ * Coupons: list, create, update, deactivate.
+ *
+ * ── Who ─────────────────────────────────────────────────────────────────────
+ *
+ * CEO, manager and IT, named explicitly. A coupon is money off a real order,
+ * so this is deliberately not hung on a broad module that other roles happen
+ * to share.
+ *
+ * ── Why there is no delete ──────────────────────────────────────────────────
+ *
+ * Deactivating stops a code working immediately and keeps the record of what
+ * it was worth. Deleting one that has already discounted orders leaves those
+ * orders pointing at a code nobody can look up.
+ */
+adminRouter.get(
+  '/coupons',
+  requireRole('ceo', 'manager', 'it_team'),
+  asyncHandler(async (_req, res) => {
+    const coupons = await db.coupons.find({
+      orderBy: { field: 'createdAt', direction: 'desc' },
+    });
+    res.json(coupons);
+  }),
+);
+
+const couponBody = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(3)
+    .max(40)
+    // Stored upper case so lookup never depends on how it was typed.
+    .transform((value) => value.toUpperCase()),
+  type: z.enum(['percent', 'flat']),
+  value: z.coerce.number().positive(),
+  label: z.string().trim().min(3).max(120),
+  active: z.boolean().default(true),
+  startsAt: z.string().optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+  minOrderAmount: z.coerce.number().nonnegative().optional().nullable(),
+  maxDiscount: z.coerce.number().positive().optional().nullable(),
+  categories: z.array(z.string()).default([]),
+  usageLimit: z.coerce.number().int().positive().optional().nullable(),
+});
+
+adminRouter.post(
+  '/coupons',
+  requireRole('ceo', 'manager', 'it_team'),
+  validate(couponBody),
+  asyncHandler(async (req, res) => {
+    const input = req.valid as z.infer<typeof couponBody>;
+
+    // A percentage over 100 discounts more than the order is worth.
+    if (input.type === 'percent' && input.value > 100) {
+      throw badRequest('A percentage discount cannot be more than 100%.');
+    }
+
+    const clash = await findCoupon(input.code);
+    if (clash) throw badRequest('That code already exists.');
+
+    const coupon = await db.coupons.insert({
+      ...input,
+      usedCount: 0,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'coupon.created',
+      entity: 'coupon',
+      entityId: coupon.id,
+      meta: { code: coupon.code, type: coupon.type, value: coupon.value },
+      ip: req.ip,
+    });
+
+    res.status(201).json(coupon);
+  }),
+);
+
+adminRouter.patch(
+  '/coupons/:id',
+  requireRole('ceo', 'manager', 'it_team'),
+  validate(couponBody.partial()),
+  asyncHandler(async (req, res) => {
+    const existing = await db.coupons.byId(req.params.id);
+    if (!existing) throw notFound('That coupon');
+
+    const updated = await db.coupons.update(existing.id, {
+      ...(req.valid as Record<string, unknown>),
+      updatedAt: now(),
+    });
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'coupon.updated',
+      entity: 'coupon',
+      entityId: existing.id,
+      meta: req.valid as Record<string, unknown>,
       ip: req.ip,
     });
 
@@ -1127,7 +1549,7 @@ adminRouter.delete(
     const summary = await deleteAccountCompletely(target.id);
 
     logger.warn(
-      `Account ${summary.email} (${summary.role}) permanently deleted by ${req.user!.email} — ` +
+      `Account ${summary.email} (${summary.role}) permanently deleted by ${req.user!.email} - ` +
         `${summary.artworks} artworks, ${summary.orders} orders, ${summary.invoices} invoices, ` +
         `${summary.spaces} spaces, ${summary.filesRemoved} files`,
     );
@@ -1171,13 +1593,15 @@ adminRouter.get(
     const limit = Math.min(200, Number(req.query.limit ?? 100));
 
     res.json({
-      ...mailboxSummary(),
+      ...(await mailboxSummaryDurable()),
       // Kept under its original name so the Console contract does not change;
       // it now means "a real provider is configured", SendGrid or SMTP.
       smtpConfigured: env.mailConfigured,
       mailProvider: env.MAIL_PROVIDER,
       // The HTML body is large; it is fetched per message instead.
-      items: listMail({ to, actor, requestId, limit }).map(({ html: _html, ...rest }) => rest),
+      items: (await listMailDurable({ to, actor, requestId, limit })).map(
+        ({ html: _html, ...rest }) => rest,
+      ),
     });
   }),
 );
@@ -1186,7 +1610,7 @@ adminRouter.get(
   '/mail/:id',
   requireModule('system'),
   asyncHandler(async (req, res) => {
-    const mail = getMail(req.params.id);
+    const mail = await getMailDurable(req.params.id);
     if (!mail) throw notFound('That email');
     res.json(mail);
   }),
@@ -1224,9 +1648,9 @@ Sent at ${new Date().toISOString()} by ${req.user!.email}.`,
       smtpConfigured: env.mailConfigured,
       mailProvider: env.MAIL_PROVIDER,
       message: result.delivered
-        ? `Sent to ${to} via ${env.MAIL_PROVIDER}. Check the inbox — and the spam folder.`
+        ? `Sent to ${to} via ${env.MAIL_PROVIDER}. Check the inbox - and the spam folder.`
         : env.mailConfigured
-          ? `${env.MAIL_PROVIDER} rejected it. The server log has the reason — an unverified sender is the usual cause.`
+          ? `${env.MAIL_PROVIDER} rejected it. The server log has the reason - an unverified sender is the usual cause.`
           : 'No mail provider configured, so it was captured here instead of being delivered.',
     });
   }),
@@ -1271,74 +1695,161 @@ adminRouter.get(
   }),
 );
 
+/**
+ * Register a space on an owner's behalf.
+ *
+ * ── Why this was rewritten rather than wired up ────────────────────────────
+ *
+ * A route with this path already existed and nothing called it, which turned
+ * out to be a mercy. It could not work on Postgres: it supplied
+ * `id: \`spc_${now()}\``, and `now()` is an ISO timestamp, so the insert into a
+ * `uuid primary key` column fails with SQLSTATE 22P02. Worse, the insert was
+ * NOT awaited, so that failure became an unhandled rejection while the handler
+ * cheerfully returned `{ ok: true }`. On the memory driver it appeared to work;
+ * against the real database it created an owner with no space and reported
+ * success.
+ *
+ * The rest of what it did wrong, all now fixed:
+ *
+ *   - It emailed the plaintext password. Mail cannot be recalled; the password
+ *     is returned once, in the response, for staff to read out.
+ *   - It never set `mustChangePassword`, so a generated password became a
+ *     permanent one.
+ *   - It never allocated a space code, so the row showed "-" in the console.
+ *   - It wrote a row `spaceSchema` rejects - empty phone, empty photographs,
+ *     the address duplicated into the city, and a withdrawn 3-month cadence -
+ *     so the space broke the first time its owner opened their own edit form.
+ *   - It set `verified: true`, bypassing the verification step the Verify
+ *     button exists to perform.
+ *   - It refused an email that already had an account, when a chain with three
+ *     cafés is one owner with three spaces.
+ *   - Its audit row was `entity: 'system'` with no id, so it could not be found.
+ *   - If any write failed, the half-created user permanently burned the email
+ *     address: `findByEmail` then rejected every retry.
+ */
 adminRouter.post(
   '/spaces/provision',
   requireModule('spaces'),
-  validate(
-    z.object({
-      fullName: z.string().min(2),
-      email: z.string().email(),
-      businessName: z.string().min(2),
-      location: z.string().min(2),
-    })
-  ),
+  validate(adminProvisionSpaceSchema),
   asyncHandler(async (req, res) => {
-    const { fullName, email, businessName, location } = req.valid as {
-      fullName: string;
-      email: string;
-      businessName: string;
-      location: string;
-    };
+    const input = req.valid as AdminProvisionSpaceInput;
+    const { ownerName, ownerEmail, ownerPhone, ...space } = input;
 
-    const existing = await findByEmail(email);
-    if (existing) {
-      throw conflict('A user with that email already exists.');
+    /*
+      An existing owner gets another space, not a 409.
+
+      This is the common case rather than the edge case: the people who ask
+      staff to set things up for them are the ones opening their second and
+      third café.
+    */
+    const existing = await findByEmail(ownerEmail);
+    const ownerExisted = Boolean(existing);
+
+    let owner = existing;
+    let temporary: string | null = null;
+
+    if (!owner) {
+      temporary = issuedPassword();
+      owner = await createUser({
+        email: ownerEmail,
+        password: temporary,
+        role: 'space_owner',
+        emailVerified: true,
+        // Staff generated this password and will read it down a phone. It is a
+        // way in, not a credential - the owner sets a real one on first sign-in.
+        mustChangePassword: true,
+      });
+      await createProfile(owner.id, { fullName: ownerName, phone: ownerPhone ?? null });
+    } else if (owner.role !== 'space_owner') {
+      throw conflict(
+        `${ownerEmail} already has an ARTINU account, but it is not a space owner account.`,
+      );
     }
 
-    const password = temporaryPassword();
-    const user = await createUser({
-      email,
-      password,
-      role: 'space_owner',
-      emailVerified: true,
+    let created;
+    try {
+      created = await db.spaces.insert({
+        // No `id`. The table layer fills it with a real uuid - see the note above.
+        ownerId: owner.id,
+        name: space.name,
+        type: space.type,
+        theme: space.theme ?? null,
+        cuisine: space.cuisine ?? null,
+        wallColor: space.wallColor ?? null,
+        lighting: space.lighting ?? null,
+        addressLine1: space.addressLine1,
+        addressLine2: space.addressLine2 ?? null,
+        city: space.city,
+        state: space.state ?? null,
+        pin: space.pin || null,
+        contactName: space.contactName,
+        contactPhone: space.contactPhone,
+        contactEmail: space.contactEmail,
+        wallCount: space.wallCount ?? null,
+        imageUrls: space.imageUrls ?? [],
+        rotationIntervalMonths: space.rotationIntervalMonths,
+        // Staff entering a room they visited is not the same as verifying it.
+        verified: false,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    } catch (error) {
+      /*
+        Roll the new account back.
+
+        Without this a failed space insert leaves a user and profile committed
+        on that email address, and every retry is refused by findByEmail above -
+        the address is burned and the owner can never be registered again.
+        Only a NEW account is removed; an existing owner is left alone.
+      */
+      if (!ownerExisted && owner) {
+        /*
+          The profile is keyed by its OWN uuid with `userId` as a separate
+          column, so it has to be looked up rather than removed by the user id -
+          `db.profiles.remove(owner.id)` deletes nothing and leaves an orphan.
+        */
+        const profile = await db.profiles.findOne({ userId: owner.id }).catch(() => null);
+        if (profile) await db.profiles.remove(profile.id).catch(() => undefined);
+        await db.users.remove(owner.id).catch(() => undefined);
+        logger.warn(`Rolled back the account for ${ownerEmail} after the space insert failed.`);
+      }
+      throw error;
+    }
+
+    // Never blocking: a project that has not run migration 006 gets a null code
+    // and a working space rather than a failed creation.
+    const spaceCode = await ensureSpaceCode(created).catch((error) => {
+      logger.error(`Could not allocate a space ID for ${created.name}`, error);
+      return null;
     });
 
-    await createProfile(user.id, {
-      fullName,
-    });
+    if (!ownerExisted) {
+      void sendWelcomeEmailOnce(owner, ownerName, 'space_owner');
+    }
 
-    db.spaces.insert({
-      id: `spc_${now()}`,
-      ownerId: user.id,
-      name: businessName,
-      type: 'cafe',
-      addressLine1: location,
-      city: location,
-      contactName: fullName,
-      contactEmail: email,
-      contactPhone: '',
-      verified: true,
-      imageUrls: [],
-      rotationIntervalMonths: 3,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    await sendMail({
-      to: email,
-      subject: 'Welcome to ARTINU',
-      heading: 'Your space has been provisioned.',
-      body: `Your manager has created a space account for you.\n\nEmail: ${email}\nPassword: ${password}\n\nPlease sign in and change your password.`,
+    await notify({
+      userId: owner.id,
+      type: 'system',
+      title: ownerExisted ? `${created.name} was added to your account` : 'Welcome to ARTINU',
+      body: 'Add a few photographs of the room so we can curate a collection that actually fits it.',
+      link: '/space/register-space',
     });
 
     await recordAudit({
       actor: { id: req.user!.id, email: req.user!.email },
-      action: 'user.provisioned',
-      entity: 'system',
-      meta: { email, role: 'space_owner' },
+      action: 'space.provisioned',
+      entity: 'space',
+      entityId: created.id,
+      meta: { ownerEmail, ownerExisted, spaceCode },
       ip: req.ip,
     });
 
-    res.json({ ok: true, userId: user.id });
-  })
+    res.status(201).json({
+      space: created,
+      spaceCode,
+      ownerExisted,
+      // Read it out, then it is gone. Deliberately not emailed.
+      temporaryPassword: temporary,
+    });
+  }),
 );

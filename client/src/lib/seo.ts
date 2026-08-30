@@ -35,12 +35,12 @@ export interface BreadcrumbItem {
 }
 
 export const DEFAULT_SEO: SEOProps = {
-  title: 'ARTINU — Photography that brings spaces to life',
+  title: 'ARTINU - Photography that brings spaces to life',
   description:
-    'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months. Zero upfront cost.',
+    'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost.',
   canonical: SITE_URL,
   ogType: 'website',
-  ogTitle: 'ARTINU — Photography that brings spaces to life',
+  ogTitle: 'ARTINU - Photography that brings spaces to life',
   ogDescription:
     'Curated photography on rotation for real spaces. We handle curation, framing, installation and rotation.',
   ogImage: {
@@ -50,7 +50,7 @@ export const DEFAULT_SEO: SEOProps = {
     alt: 'A framed artwork curated by ARTINU in a real space',
   },
   twitterCard: 'summary_large_image',
-  twitterTitle: 'ARTINU — Photography that brings spaces to life',
+  twitterTitle: 'ARTINU - Photography that brings spaces to life',
   twitterDescription:
     'Curated photography on rotation for real spaces. We handle curation, framing, installation and rotation.',
   twitterImage: {
@@ -66,7 +66,7 @@ export const DEFAULT_SEO: SEOProps = {
       name: SITE_NAME,
       url: SITE_URL,
       description:
-        'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months. Zero upfront cost.',
+        'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost.',
       inLanguage: 'en-IN',
     },
     {
@@ -76,7 +76,7 @@ export const DEFAULT_SEO: SEOProps = {
       url: SITE_URL,
       logo: `${SITE_URL}/favicon.svg`,
       description:
-        'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months.',
+        'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month.',
       // Only channels ARTINU actually publishes on — `sameAs` is a claim to
       // search engines that these profiles are ours, so a dead URL here is
       // worse than an omission.
@@ -152,15 +152,15 @@ export function buildBreadcrumbs(items: BreadcrumbItem[]) {
 export const PAGE_SEO: Record<string, SEOProps> = {
   '/': {
     ...DEFAULT_SEO,
-    title: 'ARTINU — Photography that brings spaces to life',
+    title: 'ARTINU - Photography that brings spaces to life',
     description:
-      'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months. Zero upfront cost.',
+      'ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost.',
     canonical: SITE_URL,
     breadcrumbs: [{ name: 'Home', url: SITE_URL }],
   },
   '/about': {
     ...DEFAULT_SEO,
-    title: 'About ARTINU — Our Story, Team & Mission',
+    title: 'About ARTINU - Our Story, Team & Mission',
     description:
       'Learn about ARTINU\'s journey from a simple idea to transforming spaces across India. Meet our team and discover what drives us to bring photography to life.',
     canonical: generateCanonical('/about'),
@@ -171,7 +171,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/spaces': {
     ...DEFAULT_SEO,
-    title: 'Spaces We Transform — Cafés, Restaurants, Offices & More | ARTINU',
+    title: 'Spaces We Transform - Cafés, Restaurants, Offices & More | ARTINU',
     description:
       'ARTINU works with cafés, restaurants, hotels, offices and retail spaces across India. Discover how rotating photography transforms commercial spaces.',
     canonical: generateCanonical('/spaces'),
@@ -182,7 +182,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/gallery': {
     ...DEFAULT_SEO,
-    title: 'Photography Gallery — Curated Artworks for Your Space | ARTINU',
+    title: 'Photography Gallery - Curated Artworks for Your Space | ARTINU',
     description:
       'Browse ARTINU\'s curated gallery of photography across categories: architecture, nature, abstract, lifestyle, travel, people and more. Find the perfect piece for your space.',
     canonical: generateCanonical('/gallery'),
@@ -193,7 +193,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/artists': {
     ...DEFAULT_SEO,
-    title: 'Artists & Photographers — Meet the Creators Behind ARTINU',
+    title: 'Artists & Photographers - Meet the Creators Behind ARTINU',
     description:
       'Discover the talented photographers and artists behind ARTINU\'s curated collections. Learn about their styles, stories and the spaces they\'ve transformed.',
     canonical: generateCanonical('/artists'),
@@ -204,9 +204,9 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/lets-talk': {
     ...DEFAULT_SEO,
-    title: 'Book a Consultation — Bring Your Space to Life | ARTINU',
+    title: 'Book a Wall Visit - Bring Your Space to Life | ARTINU',
     description:
-      'Book a free consultation with ARTINU. We\'ll visit your space, understand your needs, and propose a curated photography collection. No obligation.',
+      'Book a free wall visit with ARTINU. We come to your space, look at the walls, and propose a curated photography collection. No obligation.',
     canonical: generateCanonical('/lets-talk'),
     breadcrumbs: [
       { name: 'Home', url: SITE_URL },
@@ -215,7 +215,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/join': {
     ...DEFAULT_SEO,
-    title: 'Join ARTINU — For Photographers & Art Lovers',
+    title: 'Join ARTINU - For Photographers & Art Lovers',
     description:
       'Apply to join ARTINU as a photographer or art enthusiast. Submit your portfolio and become part of our curated community.',
     canonical: generateCanonical('/join'),
@@ -226,7 +226,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/join/apply': {
     ...DEFAULT_SEO,
-    title: 'Photographer Application — Join ARTINU as a Creator',
+    title: 'Photographer Application - Join ARTINU as a Creator',
     description:
       'Apply to join ARTINU as a photographer. Submit your portfolio, tell us about your style, and become part of our curated artist community.',
     canonical: generateCanonical('/join/apply'),
@@ -239,7 +239,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/join/submitted': {
     ...DEFAULT_SEO,
-    title: 'Application Submitted — ARTINU',
+    title: 'Application Submitted - ARTINU',
     description: 'Your application has been received. Our team will review it and get back to you soon.',
     canonical: generateCanonical('/join/submitted'),
     noindex: true,
@@ -251,7 +251,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/help': {
     ...DEFAULT_SEO,
-    title: 'Help & Support — ARTINU',
+    title: 'Help & Support - ARTINU',
     description:
       'Find answers to common questions about ARTINU\'s photography curation, installation, rotation and billing services.',
     canonical: generateCanonical('/help'),
@@ -262,7 +262,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/legal/privacy': {
     ...DEFAULT_SEO,
-    title: 'Privacy Policy — ARTINU',
+    title: 'Privacy Policy - ARTINU',
     description: 'ARTINU\'s privacy policy covering data collection, usage and your rights.',
     canonical: generateCanonical('/legal/privacy'),
     noindex: true,
@@ -273,7 +273,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/legal/terms': {
     ...DEFAULT_SEO,
-    title: 'Terms of Service — ARTINU',
+    title: 'Terms of Service - ARTINU',
     description: 'ARTINU\'s terms of service for photography curation and rotation services.',
     canonical: generateCanonical('/legal/terms'),
     noindex: true,
@@ -284,7 +284,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/legal/cookie': {
     ...DEFAULT_SEO,
-    title: 'Cookie Policy — ARTINU',
+    title: 'Cookie Policy - ARTINU',
     description: 'ARTINU\'s cookie policy explaining how we use cookies and similar technologies.',
     canonical: generateCanonical('/legal/cookie'),
     noindex: true,
@@ -295,7 +295,7 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/legal/artist-agreement': {
     ...DEFAULT_SEO,
-    title: 'Artist Agreement — ARTINU',
+    title: 'Artist Agreement - ARTINU',
     description: 'ARTINU\'s artist agreement for photographers and creators.',
     canonical: generateCanonical('/legal/artist-agreement'),
     noindex: true,
@@ -306,42 +306,42 @@ export const PAGE_SEO: Record<string, SEOProps> = {
   },
   '/signin': {
     ...DEFAULT_SEO,
-    title: 'Sign In — ARTINU',
+    title: 'Sign In - ARTINU',
     description: 'Sign in to your ARTINU account to access your dashboard, collections and settings.',
     canonical: generateCanonical('/signin'),
     noindex: true,
   },
   '/register/artist': {
     ...DEFAULT_SEO,
-    title: 'Register as Artist — ARTINU',
+    title: 'Register as Artist - ARTINU',
     description: 'Create an artist account to submit your portfolio and join ARTINU\'s curated community.',
     canonical: generateCanonical('/register/artist'),
     noindex: true,
   },
   '/register/artphiles': {
     ...DEFAULT_SEO,
-    title: 'Register as ArtPhiles — ARTINU',
+    title: 'Register as ArtPhiles - ARTINU',
     description: 'Create an art enthusiast account to discover and follow your favorite artists.',
     canonical: generateCanonical('/register/artphiles'),
     noindex: true,
   },
   '/forgot-password': {
     ...DEFAULT_SEO,
-    title: 'Forgot Password — ARTINU',
+    title: 'Forgot Password - ARTINU',
     description: 'Reset your ARTINU account password.',
     canonical: generateCanonical('/forgot-password'),
     noindex: true,
   },
   '/reset-password': {
     ...DEFAULT_SEO,
-    title: 'Reset Password — ARTINU',
+    title: 'Reset Password - ARTINU',
     description: 'Set a new password for your ARTINU account.',
     canonical: generateCanonical('/reset-password'),
     noindex: true,
   },
   '/signin/verify': {
     ...DEFAULT_SEO,
-    title: 'Verify OTP — ARTINU',
+    title: 'Verify OTP - ARTINU',
     description: 'Enter the verification code sent to your email.',
     canonical: generateCanonical('/signin/verify'),
     noindex: true,
@@ -367,7 +367,7 @@ export function getPageSEO(path: string): SEOProps {
     */
     return {
       ...DEFAULT_SEO,
-      title: 'Photograph — ARTINU Gallery',
+      title: 'Photograph - ARTINU Gallery',
       description:
         'A curated photograph available through ARTINU for cafés, restaurants, offices and other real spaces in Bangalore. Printed, framed and installed by us.',
       canonical: generateCanonical(normalizedPath),
@@ -386,7 +386,7 @@ export function getPageSEO(path: string): SEOProps {
     const name = readableFromSlug(slug);
     return {
       ...DEFAULT_SEO,
-      title: `${name} — Photographer on ARTINU`,
+      title: `${name} - Photographer on ARTINU`,
       description: `See photography by ${name} on ARTINU. Prints available for cafés, restaurants and offices in Bangalore, printed, framed and installed by us.`,
       canonical: generateCanonical(normalizedPath),
     };
@@ -395,7 +395,7 @@ export function getPageSEO(path: string): SEOProps {
   if (normalizedPath.startsWith('/legal/')) {
     return {
       ...DEFAULT_SEO,
-      title: 'Legal — ARTINU',
+      title: 'Legal - ARTINU',
       description: 'ARTINU legal documents and policies.',
       canonical: generateCanonical(normalizedPath),
       noindex: true,

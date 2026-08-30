@@ -54,6 +54,7 @@ create table if not exists profiles (
   full_name    text not null,
   display_name text,
   phone        text,
+  date_of_birth date,
   avatar_url   text,
   cover_url    text,
   city         text,
@@ -648,6 +649,7 @@ create table if not exists cafes (
   name        text not null,
   photo_url   text not null,
   description text not null default '',
+  website_url text,
   "order"     integer not null default 0,
   is_active   boolean not null default true,
   created_at  timestamptz not null default now(),
@@ -1226,6 +1228,14 @@ alter table error_logs            enable row level security;
 alter table employees             enable row level security;
 alter table frames                enable row level security;
 alter table frame_movements       enable row level security;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: database/migrations/009_registration_and_collaborations.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+alter table profiles add column if not exists date_of_birth date;
+alter table cafes    add column if not exists website_url text;
+
 
 -- ── Verify ──────────────────────────────────────────────────────────────────
 

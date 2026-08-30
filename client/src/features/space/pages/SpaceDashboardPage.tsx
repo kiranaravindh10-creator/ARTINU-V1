@@ -6,7 +6,7 @@ import {
   type SpaceOwnerAnalytics,
 } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, ShoppingBag } from 'lucide-react';
+import { Building2, Frame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   CircleArrow,
@@ -25,6 +25,7 @@ import { Photo } from '@/components/ui/photo';
 import { useAuth } from '@/contexts/AuthContext';
 import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
+import { catalogService } from '@/services/catalog.service';
 import { analyticsService, spaceService } from '@/services/space.service';
 
 /**
@@ -55,7 +56,15 @@ export default function SpaceDashboardPage() {
   const { profile } = useAuth();
   const firstName = profile?.fullName?.split(' ')[0] ?? 'there';
 
-  const { data: spaces, isLoading: loadingSpaces } = useQuery({
+  const {
+    data: spaces,
+    isLoading: loadingSpaces,
+    // `isError` was never taken off this query, which is what made a failed
+    // request indistinguishable from a brand-new account. See below.
+    isError: spacesFailed,
+    error: spacesError,
+    refetch: refetchSpaces,
+  } = useQuery({
     queryKey: qk.spaces,
     queryFn: () => spaceService.list(),
   });
@@ -82,33 +91,45 @@ export default function SpaceDashboardPage() {
     );
   }
 
-  // A brand-new account has nothing to look at — make the first step warm.
+  /*
+    A failed request is not an empty account.
+
+    `isError` was not read, so when /spaces failed — which on a sleeping free
+    dyno meant every request after an idle period — `spaces` was undefined and
+    the check below fired. An owner whose café has been on the wall for months
+    was shown "Welcome to ARTINU / Hello, Kiran" with their orders, rotation and
+    spend gone, and the only button on screen was "Add your space", which would
+    have created a SECOND space for a room they had already registered.
+
+    Checked before the empty case, so the welcome screen is only ever reached
+    when the request genuinely succeeded and genuinely returned nothing.
+  */
+  if (spacesFailed) {
+    return <ErrorState error={spacesError} onRetry={() => void refetchSpaces()} />;
+  }
+
+  /*
+    A brand-new account.
+
+    This was one column: a greeting, three lines and a button, on an otherwise
+    empty screen - which is what the founder was looking at when he said the
+    page was "entirely blank". Registering a space is still the one thing that
+    matters, so it keeps the whole left side and the only filled button.
+
+    What it now also does is show the product. A space owner who has just signed
+    up has no orders, no rotation and no collection, so every number on this
+    screen would be zero; real photographs from the live gallery are the one
+    thing that is genuinely there on day one, and they answer the question the
+    owner actually has, which is what they are going to get.
+  */
   if (!spaces || spaces.length === 0) {
-    return (
-      <div className="max-w-xl">
-        <p className="eyebrow">Welcome to ARTINU</p>
-        <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] text-ink">
-          Hello, {firstName}.
-        </h1>
-        <span className="rule mt-7" />
-        <p className="mt-7 text-sm leading-relaxed text-muted">
-          Tell us about the room — its type, its light, the colour of the walls — and we&rsquo;ll
-          ARTINU a collection that belongs in it. It takes about two minutes.
-        </p>
-        <Button asChild shape="pill" size="lg" className="mt-9">
-          <Link to="/space/register-space">
-            <Building2 />
-            Add your space
-          </Link>
-        </Button>
-      </div>
-    );
+    return <SpaceWelcome firstName={firstName} />;
   }
 
   const name = primarySpace?.name ?? '';
   const city = primarySpace?.city ?? '';
   const spaceLabel =
-    city && !name.toLowerCase().includes(city.toLowerCase()) ? `${name} — ${city}` : name;
+    city && !name.toLowerCase().includes(city.toLowerCase()) ? `${name} - ${city}` : name;
 
   return (
     <div>
@@ -126,7 +147,7 @@ export default function SpaceDashboardPage() {
               Every wall tells a story.
             </blockquote>
             <figcaption className="mt-1.5 pl-3 text-xs text-canvas/60">
-              ARTINU with intention.
+              Curated with intention.
             </figcaption>
           </figure>
         </div>
@@ -277,7 +298,7 @@ export default function SpaceDashboardPage() {
               </Timeline>
             ) : (
               <EmptyState
-                icon={<ShoppingBag />}
+                icon={<Frame />}
                 title="No orders yet"
                 description="Your first collection starts in the gallery."
                 action={
@@ -317,7 +338,7 @@ export default function SpaceDashboardPage() {
                     what support asks for, and the owner has nowhere else to
                     look it up once the registration screen is gone. */}
                 {space.code && (
-                  <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-bronze">
+                  <p className="mt-1 font-label text-[0.625rem] uppercase tracking-[0.12em] text-bronze">
                     {space.code}
                   </p>
                 )}
@@ -325,6 +346,118 @@ export default function SpaceDashboardPage() {
             ))}
           </div>
         </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The first screen a space owner sees, before they have registered a room.
+ *
+ * The photographs are the newest approved uploads, straight from the public
+ * gallery - real work by real members, not a placeholder grid. If that request
+ * fails or the gallery is empty, the strip is dropped and the page is exactly
+ * what it was before: a greeting and one clear next step. Nothing here invents
+ * content to fill space.
+ */
+function SpaceWelcome({ firstName }: { firstName: string }) {
+  const { data: latest } = useQuery({
+    queryKey: qk.gallery({ sort: 'latest', pageSize: 6 }),
+    queryFn: () => catalogService.gallery({ sort: 'latest', pageSize: 6 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const photographs = latest?.items ?? [];
+
+  return (
+    <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
+      <div className="max-w-xl">
+        <p className="eyebrow">Welcome to ARTINU</p>
+        <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] text-ink">
+          Hello, {firstName}.
+        </h1>
+        <span className="rule mt-7" />
+        <p className="mt-7 text-sm leading-relaxed text-muted">
+          Tell us about the room - its type, its light, the colour of the walls - and we&rsquo;ll
+          curate a collection that belongs in it. It takes about two minutes.
+        </p>
+        <Button asChild shape="pill" size="lg" className="mt-9">
+          <Link to="/space/register-space">
+            <Building2 />
+            Add your space
+          </Link>
+        </Button>
+
+        <div className="mt-10 border-t border-line pt-6">
+          <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+            Or have a look around first
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            <li>
+              <Link
+                to="/space/collections"
+                className="text-ink underline-offset-4 transition-opacity hover:opacity-70 hover:underline"
+              >
+                Browse the collection
+              </Link>
+              <span className="ml-2 text-muted">- everything we can print and frame</span>
+            </li>
+            <li>
+              <Link
+                to="/artists"
+                className="text-ink underline-offset-4 transition-opacity hover:opacity-70 hover:underline"
+              >
+                Meet the photographers
+              </Link>
+              <span className="ml-2 text-muted">- whose work hangs in these spaces</span>
+            </li>
+            <li>
+              <Link
+                to="/space/wishlist"
+                className="text-ink underline-offset-4 transition-opacity hover:opacity-70 hover:underline"
+              >
+                Start a wishlist
+              </Link>
+              <span className="ml-2 text-muted">- save anything you like as you go</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {photographs.length > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              Just uploaded
+            </p>
+            <Link
+              to="/space/collections"
+              className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+            >
+              See all
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {photographs.slice(0, 6).map((artwork, index) => (
+              <Link key={artwork.id} to="/space/collections" className="group block">
+                <Photo
+                  src={artwork.thumbnailUrl || artwork.imageUrl}
+                  alt={artwork.title}
+                  ratio="aspect-[3/4]"
+                  thumbnail
+                  priority={index < 3}
+                  className="rounded-sm"
+                  imgClassName="transition-transform duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
+                />
+                {/* The photographer's name, in the markup rather than on hover. */}
+                <p className="mt-1.5 truncate text-[0.6875rem] text-subtle">
+                  {artwork.artist?.name ?? 'ARTINU artist'}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

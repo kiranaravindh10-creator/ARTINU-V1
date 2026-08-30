@@ -110,7 +110,7 @@ export default function ConsoleReportsPage() {
           artwork.title,
           artwork.views,
           artwork.selections,
-          artwork.views > 0 ? `${((artwork.selections / artwork.views) * 100).toFixed(2)}%` : '—',
+          artwork.views > 0 ? `${((artwork.selections / artwork.views) * 100).toFixed(2)}%` : '-',
         ])}
         render={(row) => [
           <span key="n" className="text-ink">

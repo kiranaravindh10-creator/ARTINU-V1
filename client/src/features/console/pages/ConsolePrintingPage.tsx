@@ -1,11 +1,11 @@
 import {
   formatDate,
-  FRAME_COLORS,
-  FRAME_MATERIALS,
-  FRAME_SIZES,
-  GLASS_TYPES,
+  ALL_FRAME_COLORS,
+  ALL_FRAME_MATERIALS,
+  ALL_FRAME_SIZES,
+  ALL_GLASS_TYPES,
   ORDER_STATUS_LABELS,
-  PRINT_FINISHES,
+  ALL_PRINT_FINISHES,
   type Order,
 } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -90,7 +90,7 @@ export default function ConsolePrintingPage() {
               <section key={stage.status}>
                 <div className="mb-3 flex items-baseline justify-between gap-2">
                   <h2 className="font-display text-lg text-ink">{stage.title}</h2>
-                  <span className="font-mono text-xs text-subtle">{items.length}</span>
+                  <span className="font-label tabular-nums text-xs text-subtle">{items.length}</span>
                 </div>
 
                 <ul className="space-y-3">
@@ -170,14 +170,16 @@ export default function ConsolePrintingPage() {
                       {item.artworkTitle}
                       <span className="block text-xs text-subtle">{item.artistName}</span>
                     </TableCell>
-                    <TableCell className="text-xs">{label(FRAME_SIZES, item.frame.size)}</TableCell>
+                    {/* ALL_ lists - the workshop queue contains orders placed
+                        before the catalogue was cut back. */}
+                    <TableCell className="text-xs">{label(ALL_FRAME_SIZES, item.frame.size)}</TableCell>
                     <TableCell className="text-xs">
-                      {label(FRAME_MATERIALS, item.frame.material)} ·{' '}
-                      {label(FRAME_COLORS, item.frame.color)}
+                      {label(ALL_FRAME_MATERIALS, item.frame.material)} ·{' '}
+                      {label(ALL_FRAME_COLORS, item.frame.color)}
                     </TableCell>
-                    <TableCell className="text-xs">{label(GLASS_TYPES, item.frame.glass)}</TableCell>
+                    <TableCell className="text-xs">{label(ALL_GLASS_TYPES, item.frame.glass)}</TableCell>
                     <TableCell className="text-xs">
-                      {label(PRINT_FINISHES, item.frame.finish)}
+                      {label(ALL_PRINT_FINISHES, item.frame.finish)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-ink">
                       {item.quantity}

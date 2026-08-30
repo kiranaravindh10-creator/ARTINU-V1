@@ -1,53 +1,72 @@
-import {
-  ArrowRight,
-  CalendarCheck,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Globe,
-  Mail,
-  Sparkles,
-  TrendingUp,
-  Upload,
-  UserPlus,
-  Users,
-} from 'lucide-react';
+import { CONTACT } from '@artinu/shared';
+import { CheckCircle2, ChevronDown, Mail } from 'lucide-react';
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Container, Section, StepIcon } from '@/components/layout/primitives';
+import { Container, Section } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
 import { IMAGES } from '@/lib/images';
+import { qk } from '@/lib/query';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
+/*
+  Four propositions, no glyphs.
+
+  Each of these used to sit under a bronze disc holding a lucide icon — a globe
+  for "Get Discovered", a trending-up arrow for "Grow Together". None of them
+  told a photographer anything the heading beside it did not, and four identical
+  discs in a row is the house style of every template that has ever shipped a
+  feature grid. Hairlines separate them now, which is what the rest of the site
+  already uses.
+
+  These are not steps, so they are deliberately not numbered — unlike STEPS
+  below, where the order is the whole point.
+*/
+/*
+  Two of these implied paid work and neither should have.
+
+  "Exclusive Opportunities - access curated projects, shooting opportunities, and
+  partner collaborations" describes a jobs board. ARTINU is not commissioning
+  shoots, and "opportunities" is the word a photographer reads as "gigs". It has
+  been replaced with the thing ARTINU actually does, which is better anyway:
+  your photograph gets printed and hung on a wall in a real room.
+
+  "brands" came out of the first entry for the same reason - it reads as
+  commercial clients.
+*/
 const BENEFITS = [
   {
-    icon: Globe,
     title: 'Get Discovered',
-    body: 'Showcase your work to a growing network of creators, brands, and space owners.',
+    body: 'Show your work to space owners, curators and other photographers.',
   },
   {
-    icon: Users,
     title: 'Meaningful Connections',
     body: 'Collaborate with like-minded photographers and creative professionals.',
   },
   {
-    icon: CalendarCheck,
-    title: 'Exclusive Opportunities',
-    body: 'Access curated projects, shooting opportunities, and partner collaborations.',
+    title: 'Printed, Framed, Hung',
+    body: 'Selected photographs are printed, framed and put on a wall in a real room - with your name beside them.',
   },
   {
-    icon: TrendingUp,
     title: 'Grow Together',
     body: 'Learn, get inspired, and grow your craft in a supportive creative community.',
   },
 ];
 
+/*
+  The phone entry is first on purpose.
+
+  Every one of these four used to be framed by credential or equipment -
+  "professional", "students", "creative makers" - and photographers were signing
+  up and then never uploading. A list that opens with "Professional
+  photographers" tells someone shooting on a phone which category they are not.
+*/
 const WHO = [
+  'Anyone who shoots on a phone',
   'Professional photographers',
   'Emerging & aspiring photographers',
   'Visual storytellers & creative makers',
@@ -55,18 +74,28 @@ const WHO = [
 ];
 
 const GUIDELINES = [
-  'Upload only work you shot yourself. You keep your copyright — always.',
+  'Upload only work you shot yourself. You keep your copyright - always.',
   'No AI-generated or heavily synthesised imagery. Our audience is looking at real places.',
-  'Keep metadata acARTINU: where it was taken, and roughly when.',
+  'Keep metadata accurate: where it was taken, and roughly when.',
   'Nothing hateful, explicit or exploitative. Spaces are public places.',
-  'Quality over quantity — six strong photographs beat thirty average ones.',
+  'Quality over quantity - six strong photographs beat thirty average ones.',
 ];
 
+/*
+  The four steps of applying, in order.
+
+  The icons are gone for the same reason as above — a sparkle beside "Welcome to
+  ARTINU" is decoration — and so are the small grey arrows that used to sit
+  between the columns. Those arrows were the only thing carrying the sequence,
+  they appeared only at the large breakpoint, and they said nothing at all to a
+  screen reader. The numbers carry it instead, on every screen, in a real
+  ordered list.
+*/
 const STEPS = [
-  { icon: UserPlus, title: 'Create Your Profile', body: 'Tell us about you and your photography journey.' },
-  { icon: Upload, title: 'Showcase Your Work', body: 'Upload your best work and share your vision.' },
-  { icon: Check, title: 'Our Team Reviews', body: 'We review your application and get back to you.' },
-  { icon: Sparkles, title: 'Welcome to ARTINU', body: 'Start connecting, collaborating and creating together.' },
+  { title: 'Create Your Profile', body: 'Tell us about you and your photography journey.' },
+  { title: 'Showcase Your Work', body: 'Upload your best work and share your vision.' },
+  { title: 'Our Team Reviews', body: 'We review your application and get back to you.' },
+  { title: 'Welcome to ARTINU', body: 'Start connecting, collaborating and creating together.' },
 ];
 
 export default function JoinPage() {
@@ -88,8 +117,8 @@ export default function JoinPage() {
             </h1>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">
-              Connect. Collaborate. Get discovered. ARTINU is where photographers and spaces come
-              together to create meaningful stories.
+              ARTINU prints photographs and hangs them in cafés, hotels and offices. Shot on a
+              camera or shot on your phone - if it works on a wall, it belongs on one.
             </p>
 
             <Button shape="pill" size="lg" asChild className="mt-9 w-fit">
@@ -115,16 +144,13 @@ export default function JoinPage() {
             Why join ARTINU?
           </h2>
 
-          <Stagger className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-            {BENEFITS.map((benefit, index) => (
-              <StaggerItem
-                key={benefit.title}
-                className={cn('lg:pl-10', index > 0 && 'lg:border-l lg:border-line')}
-              >
-                <StepIcon>
-                  <benefit.icon aria-hidden />
-                </StepIcon>
-                <h3 className="mt-5 font-display text-lg text-ink">{benefit.title}</h3>
+          {/* A rule above each column rather than a border between them: the old
+              lg:border-l divided the four only on large screens, so on a tablet
+              they ran together as one undifferentiated block of text. */}
+          <Stagger className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            {BENEFITS.map((benefit) => (
+              <StaggerItem key={benefit.title} className="border-t border-line pt-5">
+                <h3 className="font-display text-lg text-ink">{benefit.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{benefit.body}</p>
               </StaggerItem>
             ))}
@@ -155,7 +181,7 @@ export default function JoinPage() {
                 type="button"
                 onClick={() => setGuidelinesOpen((value) => !value)}
                 aria-expanded={guidelinesOpen}
-                className="mt-4 inline-flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:text-bronze"
+                className="mt-4 inline-flex items-center gap-1.5 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:text-bronze"
               >
                 See community guidelines
                 <ChevronDown
@@ -175,12 +201,18 @@ export default function JoinPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 grid-rows-2 gap-3">
-              <Photo src={IMAGES.mountains} alt="" className="row-span-2 h-full" />
-              <Photo src={IMAGES.darkroom} alt="" className="col-span-2 h-full" />
-              <Photo src={IMAGES.street} alt="" className="h-full" />
-              <Photo src={IMAGES.photographerField} alt="" className="h-full" />
-            </div>
+            {/*
+              This was four Unsplash photographs with empty alt text - a
+              landscape, a darkroom, a street and a field - decorating a page
+              that asks photographers to submit their own work. Stock imagery on
+              a recruitment page for photographers is the worst place on the
+              site for it.
+
+              Real member work instead, credited. If the gallery has not loaded
+              or is empty the block simply does not render, which is better than
+              filling it back up with stock.
+            */}
+            <MemberWork />
           </div>
         </Container>
       </Section>
@@ -191,27 +223,17 @@ export default function JoinPage() {
           <div className="rounded-xl bg-sand-soft px-6 py-10 sm:px-10">
             <h2 className="font-display text-[1.5rem] text-ink">How it works</h2>
 
-            <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map((step, index) => (
-                <div key={step.title} className="relative flex gap-4">
-                  <StepIcon className="shrink-0 bg-canvas">
-                    <step.icon aria-hidden />
-                  </StepIcon>
-                  <div>
-                    <h3 className="text-sm font-medium text-ink">
-                      {index + 1}. {step.title}
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-muted">{step.body}</p>
-                  </div>
-                  {index < STEPS.length - 1 && (
-                    <ArrowRight
-                      className="absolute -right-4 top-4 hidden size-4 text-line-strong lg:block"
-                      aria-hidden
-                    />
-                  )}
-                </div>
+                <li key={step.title} className="border-t border-line-strong/60 pt-4">
+                  <p className="font-label text-[0.6875rem] uppercase tabular-nums tracking-[0.16em] text-bronze">
+                    {String(index + 1).padStart(2, '0')}
+                  </p>
+                  <h3 className="mt-3 font-display text-lg text-ink">{step.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</p>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </Container>
       </Section>
@@ -221,17 +243,16 @@ export default function JoinPage() {
         <Container>
           <div className="grid gap-8 rounded-xl bg-ink px-6 py-10 text-canvas sm:px-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)]">
             <div className="flex items-start gap-4 lg:border-r lg:border-canvas/15 lg:pr-10">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-canvas/25 text-bronze-light">
-                <Mail className="size-4" aria-hidden />
-              </span>
               <div>
                 <h3 className="font-display text-lg text-canvas">Have questions?</h3>
                 <p className="mt-1 text-sm text-canvas/55">We&rsquo;re here to help.</p>
+                {/* From CONTACT rather than typed in - this was
+                    hello@ARTINU.space, a domain ARTINU does not own. */}
                 <a
-                  href="mailto:hello@ARTINU.space"
+                  href={`mailto:${CONTACT.email}`}
                   className="text-sm text-canvas/80 underline-offset-4 hover:underline"
                 >
-                  hello@ARTINU.space
+                  {CONTACT.email}
                 </a>
               </div>
             </div>
@@ -270,6 +291,50 @@ export default function JoinPage() {
  * the wording carries no number at all rather than advertising a weakness, and
  * the whole block hides itself if the roster is empty or the request fails.
  */
+/**
+ * Four photographs by actual members, in place of the stock collage.
+ *
+ * Small page size and a long stale time: this is decoration with a point to
+ * make, not the gallery, and it must never be the reason the page feels slow.
+ */
+function MemberWork() {
+  const { data } = useQuery({
+    queryKey: qk.gallery({ sort: 'latest', pageSize: 4, joinPage: true }),
+    queryFn: () => catalogService.gallery({ sort: 'latest', pageSize: 4 }),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const works = data?.items ?? [];
+  if (works.length < 4) return null;
+
+  return (
+    <div className="grid grid-cols-3 grid-rows-2 gap-3">
+      {works.map((artwork, index) => (
+        <Link
+          key={artwork.id}
+          // The route is gallery/:artworkId - there is no /artworks path.
+          to={`/gallery/${artwork.id}`}
+          title={`${artwork.title} - ${artwork.artist?.name ?? 'ARTINU artist'}`}
+          className={cn(
+            'group relative block overflow-hidden rounded-sm',
+            index === 0 && 'row-span-2',
+            index === 1 && 'col-span-2',
+          )}
+        >
+          <Photo
+            src={artwork.thumbnailUrl || artwork.imageUrl}
+            alt={`${artwork.title}, by ${artwork.artist?.name ?? 'an ARTINU photographer'}`}
+            thumbnail
+            variants={artwork.imageVariants}
+            className="h-full"
+            imgClassName="h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.04]"
+          />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function CommunityProof() {
   const { data } = useQuery({
     queryKey: ['join', 'community-proof'],

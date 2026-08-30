@@ -217,7 +217,7 @@ async function alertItTeam(record: ErrorLogRecord): Promise<void> {
   const { notifyRole } = await import('@/services/notification.service');
   await notifyRole('it_team', {
     type: 'system',
-    title: `${record.severity === 'critical' ? 'Critical' : 'Recurring'} error — ${record.source}`,
+    title: `${record.severity === 'critical' ? 'Critical' : 'Recurring'} error - ${record.source}`,
     body: `${record.operation ? `${record.operation}: ` : ''}${record.message.slice(0, 180)}`,
     link: '/console/system',
   }).catch((error) => logger.error('Could not alert the IT team about an error', error));

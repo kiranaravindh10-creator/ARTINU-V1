@@ -1,6 +1,7 @@
 import { ImageOff } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { buildVariantSrcSet, type ImageVariants } from '@artinu/shared';
 import { buildHeroSrcSet, buildThumbnailSrcSet, getBlurPlaceholderSync } from '@/lib/imageOptimization';
 
 export interface PhotoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'onLoad' | 'srcSet' | 'sizes'> {
@@ -20,6 +21,16 @@ export interface PhotoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElemen
   sizes?: string;
   /** Explicit srcSet override (rarely needed). */
   srcSet?: string;
+  /**
+   * The artwork's stored resized copies, as width -> url.
+   *
+   * When present this is the BEST source of a srcset and wins over `hero` and
+   * `thumbnail`, because it describes files that actually exist at known widths
+   * rather than guessing a transform from the url's hostname. Absent or empty
+   * for anything uploaded before variants existed, and for seeded stock
+   * imagery - both of which fall back to the old behaviour.
+   */
+  variants?: ImageVariants | null;
   /** Pre-generated blur placeholder data URL. If not provided, a CSS gradient is used. */
   blurPlaceholder?: string;
   className?: string;
@@ -44,6 +55,7 @@ export function Photo({
   thumbnail = false,
   sizes,
   srcSet,
+  variants,
   blurPlaceholder,
   className,
   imgClassName,
@@ -54,16 +66,45 @@ export function Photo({
 
   const effectiveSrcSet = React.useMemo(() => {
     if (srcSet) return srcSet;
+    /*
+      Stored variants first.
+
+      buildHeroSrcSet and buildThumbnailSrcSet work by pattern-matching the url
+      against unsplash.com and picsum.photos and rewriting their query strings.
+      For a real photographer upload on Supabase Storage neither matches, both
+      return '', and the browser is left with the bare `src` - which until
+      010_image_variants was the untouched original. A variants map is a list of
+      files we know exist at widths we chose, so it beats any amount of guessing.
+    */
+    const fromVariants = buildVariantSrcSet(variants);
+    if (fromVariants) return fromVariants;
     if (hero) return buildHeroSrcSet(src);
     if (thumbnail) return buildThumbnailSrcSet(src);
     return undefined;
-  }, [src, hero, thumbnail, srcSet]);
+  }, [src, hero, thumbnail, srcSet, variants]);
 
   const effectiveSizes = React.useMemo(() => {
+    // A variants srcset still needs a sizes hint, or the browser assumes 100vw
+    // and picks the largest candidate for every tile.
+    if (variants && !hero && !sizes) {
+      return '(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw';
+    }
     if (hero) return sizes || '100vw';
-    if (thumbnail) return sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw';
+    /*
+      This must match ArtworkMasonry's breakpoints or the browser fetches the
+      wrong size. It claimed 100vw on a phone, which was true of the old
+      one-column grid and is a 2x overfetch of every tile in a two-column one;
+      and it claimed 33vw above 1024px while the grid goes to four columns at
+      xl, so every tile on a wide screen was fetched a third larger than it is
+      drawn.
+    */
+    if (thumbnail)
+      return (
+        sizes ||
+        '(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw'
+      );
     return sizes;
-  }, [hero, thumbnail, sizes]);
+  }, [hero, thumbnail, sizes, variants]);
 
   const effectiveBlurPlaceholder = React.useMemo(() => {
     return blurPlaceholder || getBlurPlaceholderSync(src);
@@ -88,7 +129,9 @@ export function Photo({
             onLoad={() => setState('loaded')}
             onError={() => setState('error')}
             className={cn(
-              'absolute inset-0 size-full object-cover transition-opacity duration-700 ease-[var(--ease-out-soft)]',
+              // 300ms, not 700. Forty tiles each taking most of a second to
+              // become visible is most of a second where the gallery is empty.
+              'absolute inset-0 size-full object-cover transition-opacity duration-300 ease-[var(--ease-out-soft)]',
               state === 'loaded' ? 'opacity-100' : 'opacity-0',
               imgClassName,
             )}
@@ -103,7 +146,7 @@ export function Photo({
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 bg-sand text-subtle">
           <ImageOff className="size-5" aria-hidden />
-          <span className="px-4 text-center font-mono text-[0.625rem] uppercase tracking-[0.14em]">
+          <span className="px-4 text-center font-label text-[0.625rem] uppercase tracking-[0.14em]">
             {alt || 'Photograph'}
           </span>
         </div>

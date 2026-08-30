@@ -3,7 +3,7 @@ import { Check, Circle, Upload, X } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Photo } from '@/components/ui/photo';
-import { fileToBase64, formatBytes } from '@/lib/utils';
+import { fileToImageDataUrl, formatBytes } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 /**
@@ -142,10 +142,10 @@ export function AvatarDropzone({
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error(`That image is ${formatBytes(file.size)} — the limit is 5 MB.`);
+      toast.error(`That image is ${formatBytes(file.size)} - the limit is 5 MB.`);
       return;
     }
-    onChange(await fileToBase64(file));
+    onChange(await fileToImageDataUrl(file));
   };
 
   return (
@@ -203,7 +203,7 @@ export function AvatarDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         className="sr-only"
         onChange={(event) => {
           void accept(event.target.files?.[0]);

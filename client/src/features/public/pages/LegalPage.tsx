@@ -35,9 +35,9 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         id: 'what-we-collect',
         title: '1. What we collect',
         paragraphs: [
-          'When you create an account we collect your name, email address and password. Passwords are stored only as a bcrypt hash — we cannot read them, and neither can anyone who obtains a copy of our database.',
+          'When you create an account we collect your name, email address and password. Passwords are stored only as a bcrypt hash - we cannot read them, and neither can anyone who obtains a copy of our database.',
           'If you register a space, we collect its name, type, address, contact details and the interior notes you give us (wall colour, lighting, theme). We use those notes solely to curate photographs that suit the room.',
-          'If you join as an artist, we collect your profile, the photographs you upload and the metadata attached to them — title, description, tags, capture location and date. Uploaded photographs are stored in our object storage and are visible to our curation team before they are published.',
+          'If you join as an artist, we collect your profile, the photographs you upload and the metadata attached to them - title, description, tags, capture location and date. Uploaded photographs are stored in our object storage and are visible to our curation team before they are published.',
           'When you place an order we record the order, the frames configured, the amounts charged and the payment reference returned by the payment provider. We never see or store your card number, UPI PIN or bank credentials.',
         ],
       },
@@ -47,7 +47,7 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         paragraphs: [
           'To operate the service: signing you in, curating and printing your collection, scheduling installation, issuing invoices and paying artists.',
           'To tell you things you need to know: order and payment confirmations, installation dates, rotation reminders and moderation decisions. Every one of these also appears inside the product, so email is never the only place an important event exists.',
-          'To improve the service in aggregate — for example, understanding which categories of photograph suit which kind of space. This analysis is done on aggregate counts, not on individual browsing histories.',
+          'To improve the service in aggregate - for example, understanding which categories of photograph suit which kind of space. This analysis is done on aggregate counts, not on individual browsing histories.',
         ],
       },
       {
@@ -104,13 +104,13 @@ const DOCUMENTS: Record<string, LegalDocument> = {
     title: 'Terms & Conditions',
     updated: UPDATED,
     intro:
-      'These terms govern your use of ARTINU — the website, the artist workspace and the rental of framed photographic works.',
+      'These terms govern your use of ARTINU - the website, the artist workspace and the rental of framed photographic works.',
     sections: [
       {
         id: 'model',
         title: '1. What ARTINU provides',
         paragraphs: [
-          'ARTINU ARTINUs, prints, frames, installs and periodically rotates photographic works in your space. This is a rental and service arrangement, not a sale of artwork.',
+          'ARTINU curates, prints, frames, installs and periodically rotates photographic works in your space. This is a rental and service arrangement, not a sale of artwork.',
           'Unless a separate written agreement says otherwise, the framed works remain the property of ARTINU at all times. You are renting their presence in your space, together with the curation, installation and rotation service around them.',
         ],
       },
@@ -118,8 +118,8 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         id: 'orders',
         title: '2. Orders and minimums',
         paragraphs: [
-          `A collection order is for a minimum of ${MIN_ORDER_QUANTITY} frames. Prices shown at checkout are inclusive of the frame, the print and the artwork licence, and exclusive of GST, delivery and installation, which are itemised separately before you pay.`,
-          `GST is charged at 18% on goods and services. The refundable security deposit, where applicable, is not a taxable supply and is shown separately.`,
+          `A collection order is for a minimum of ${MIN_ORDER_QUANTITY} photographs. The price shown at checkout covers the print, the frame and delivery to your space. Installation is included - the crew hangs the collection when it is delivered, and there is no separate charge for the visit.`,
+          `ARTINU is not registered for GST, so no tax is added to your order. If that changes, tax will appear as its own line at checkout before you pay, and will never be applied to an order already placed. The refundable security deposit, where applicable, is not a payment for goods and is shown separately from the price.`,
           'An order is confirmed when payment is verified. Production begins shortly after confirmation.',
         ],
       },
@@ -137,15 +137,15 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         title: '4. Damage and the security deposit',
         paragraphs: [
           `Where a security deposit applies, it is fully refundable at the end of the arrangement, less the cost of repairing or replacing any work damaged beyond normal wear.`,
-          'Normal wear — slight fading, small scuffs to the frame — is expected and is not charged for. Deliberate damage, water damage, theft and loss are chargeable at the replacement cost of the affected work.',
+          'Normal wear - slight fading, small scuffs to the frame - is expected and is not charged for. Deliberate damage, water damage, theft and loss are chargeable at the replacement cost of the affected work.',
         ],
       },
       {
         id: 'rotation',
         title: '5. Rotation',
         paragraphs: [
-          'Rotation happens at the cadence you choose, every one to three months. We propose a new collection, you approve it, and we schedule the swap.',
-          'If you ask for changes to a proposed collection we will re-ARTINU it. If you do not respond to a rotation proposal, the current collection simply stays up — nothing is changed on your walls without your approval.',
+          'Rotation happens every month. We propose a new collection, you approve it, and we schedule the swap.',
+          'If you ask for changes to a proposed collection we will re-curate it. If you do not respond to a rotation proposal, the current collection simply stays up - nothing is changed on your walls without your approval.',
         ],
       },
       {
@@ -192,16 +192,16 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         title: '1. Failed and incomplete payments',
         paragraphs: [
           'If a payment cannot be verified, no order is confirmed and no money is captured. Your order stays open and you can retry payment with a fresh QR code at any time from your order page.',
-          'If money has left your account but the order still shows as unpaid — which can happen if a bank confirmation is delayed — contact us with the UTR reference. We will reconcile it within two working days and either confirm the order or return the amount.',
+          'If money has left your account but the order still shows as unpaid - which can happen if a bank confirmation is delayed - contact us with the UTR reference. We will reconcile it within two working days and either confirm the order or return the amount.',
         ],
       },
       {
         id: 'cancellation',
         title: '2. Cancelling an order',
         paragraphs: [
-          'You can cancel free of charge at any time before printing begins. The full amount, including GST, delivery and any deposit, is returned to the original payment method.',
-          'Once printing has begun the photographs are produced specifically for your space and the print and frame cost is no longer refundable. You can still cancel, and we will refund the delivery, installation and deposit portions in full.',
-          'To cancel after production has started, contact support — an internal team member has to review it, because there is a printed photograph and a cut frame on the other side of the request.',
+          'You can cancel free of charge at any time before printing begins. The full amount you paid, including any security deposit, is returned to the original payment method.',
+          'Once printing has begun the photographs are produced specifically for your space and the print and frame cost is no longer refundable. You can still cancel, and any security deposit is returned in full.',
+          'To cancel after production has started, contact support - an internal team member has to review it, because there is a printed photograph and a cut frame on the other side of the request.',
         ],
       },
       {
@@ -241,9 +241,8 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         id: 'what',
         title: '1. What we store',
         paragraphs: [
-          '`ARTINU.token` — your signed session token, held in localStorage. It is what keeps you signed in between visits. Removing it signs you out.',
-          '`ARTINU.cart.v1` — the contents of your cart before checkout, held in localStorage so a refresh does not lose your selections. It never leaves your browser until you place the order.',
-          '`ARTINU.cookie-consent` — your answer to the cookie banner, so we stop asking.',
+          '`artinu.token` - your signed session token, held in localStorage. It is what keeps you signed in between visits. Removing it signs you out.',
+          '`artinu.cart.v1` - the contents of your cart before checkout, held in localStorage so a refresh does not lose your selections. It never leaves your browser until you place the order.',
         ],
       },
       {
@@ -259,7 +258,7 @@ const DOCUMENTS: Record<string, LegalDocument> = {
         title: '3. Staying in control',
         paragraphs: [
           'You can clear these keys at any time from your browser settings. Clearing them signs you out and empties your cart; nothing else is affected.',
-          'Because all three keys are strictly functional, declining the banner does not disable them — without the session key you could not sign in at all. It records that we should not add anything beyond the essentials later.',
+          'Because all three keys are strictly functional, declining the banner does not disable them - without the session key you could not sign in at all. It records that we should not add anything beyond the essentials later.',
         ],
       },
     ],
@@ -331,7 +330,7 @@ export default function LegalPage() {
         <div className="grid gap-12 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-16">
           <aside className="hidden lg:block">
             <nav className="sticky top-24" aria-label="On this page">
-              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                 On this page
               </p>
               <ul className="mt-4 space-y-2">
@@ -359,7 +358,7 @@ export default function LegalPage() {
             <h1 className="mt-4 font-display text-[2.25rem] leading-tight text-ink sm:text-[2.75rem]">
               {doc.title}
             </h1>
-            <p className="mt-3 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
+            <p className="mt-3 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
               Last updated {doc.updated}
             </p>
             <p className="prose-quiet mt-6 border-b border-line pb-8">{doc.intro}</p>

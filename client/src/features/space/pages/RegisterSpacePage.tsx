@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { qk } from '@/lib/query';
 import { spaceService } from '@/services/space.service';
-import { fileToBase64 } from '@/lib/utils';
+import { fileToImageDataUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 const NEEDS_CUISINE = ['cafe', 'restaurant', 'hotel'];
@@ -171,7 +171,7 @@ export default function RegisterSpacePage() {
         toast.error(`${file.name} is larger than 8 MB.`);
         continue;
       }
-      next.push(await fileToBase64(file));
+      next.push(await fileToImageDataUrl(file));
     }
     setImages(next);
     setValue('imageUrls', next, { shouldDirty: true });
@@ -181,7 +181,7 @@ export default function RegisterSpacePage() {
     <div>
       <PanelHeader
         title="My spaces"
-        description="The details here are what our curators work from — the more you tell us, the better the fit."
+        description="The details here are what our curators work from - the more you tell us, the better the fit."
         actions={
           editing ? (
             <Button
@@ -273,7 +273,7 @@ export default function RegisterSpacePage() {
               <Field label="Space name" htmlFor="name" required error={errors.name?.message}>
                 <Input
                   id="name"
-                  placeholder="e.g. Blue Tokai — Koramangala"
+                  placeholder="e.g. Blue Tokai - Koramangala"
                   invalid={!!errors.name}
                   {...register('name')}
                 />
@@ -298,7 +298,7 @@ export default function RegisterSpacePage() {
             </div>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Where it is
               </legend>
 
@@ -335,7 +335,7 @@ export default function RegisterSpacePage() {
             </fieldset>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Who we speak to
               </legend>
 
@@ -378,8 +378,8 @@ export default function RegisterSpacePage() {
             </fieldset>
 
             <fieldset className="space-y-4 rounded-md border border-line p-5">
-              <legend className="px-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
-                Help us ARTINU
+              <legend className="px-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+                Help us curate
               </legend>
               <p className="text-xs text-muted">
                 These notes drive the recommendations you see. Write them the way you&rsquo;d
@@ -418,7 +418,14 @@ export default function RegisterSpacePage() {
 
             <div>
               <p className="text-[0.8125rem] font-medium text-ink-soft">Rotation cadence</p>
-              <div className="mt-2.5 grid gap-3 sm:grid-cols-3">
+              {/*
+                ROTATION_INTERVALS is [1] now - monthly is the only cadence
+                ARTINU sells. The grid stays a grid rather than being hard-coded
+                to a single card, so restoring a cadence in constants.ts is still
+                the only change needed; `sm:grid-cols-3` became a width cap so
+                one option does not stretch across the whole form.
+              */}
+              <div className="mt-2.5 grid max-w-md gap-3 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
                 {ROTATION_INTERVALS.map((months) => (
                   <button
                     key={months}
@@ -436,11 +443,7 @@ export default function RegisterSpacePage() {
                       Every {months} {months === 1 ? 'month' : 'months'}
                     </span>
                     <span className="mt-0.5 block text-xs text-muted">
-                      {months === 1
-                        ? 'Always something new'
-                        : months === 2
-                          ? 'A steady refresh'
-                          : 'Our most popular'}
+                      {months === 1 ? 'A new collection every month' : `A refresh every ${months} months`}
                     </span>
                   </button>
                 ))}

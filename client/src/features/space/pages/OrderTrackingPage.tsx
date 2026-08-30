@@ -12,10 +12,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Block, PanelHeader } from '@/components/layout/DashboardShell';
 import { Status } from '@/components/layout/panel';
 import { Button } from '@/components/ui/button';
-import { EmptyState, Skeleton } from '@/components/ui/display';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
 import { DataRow } from '@/components/ui/stat';
-import { describeFrame } from '@/features/space/pages/CartPage';
+import { describeFrame } from '@/features/public/components/FrameConfigurator';
 import { ORDER_TONE } from '@/features/space/pages/SpaceDashboardPage';
 import { qk } from '@/lib/query';
 import { invoiceService, orderService, spaceService } from '@/services/space.service';
@@ -24,7 +24,13 @@ import { cn } from '@/lib/utils';
 export default function OrderTrackingPage() {
   const { orderId = '' } = useParams();
 
-  const { data: order, isLoading } = useQuery({
+  const {
+    data: order,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: qk.order(orderId),
     queryFn: () => orderService.get(orderId),
     enabled: Boolean(orderId),
@@ -42,6 +48,19 @@ export default function OrderTrackingPage() {
   });
 
   if (isLoading) return <Skeleton className="h-96 w-full rounded-lg" />;
+
+  /*
+    A FAILED REQUEST IS NOT A MISSING ORDER.
+
+    `isError` was not read, so any failure - a timeout, a sleeping dyno, a
+    dropped connection - left `order` undefined and fell into the branch below,
+    which tells a customer "We couldn't find that order." That sentence is
+    alarming in general and considerably worse here, because the most common
+    time to open this page is immediately after paying.
+
+    An error now says so, and offers a retry rather than sending them away.
+  */
+  if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
 
   if (!order) {
     return (
@@ -196,15 +215,25 @@ export default function OrderTrackingPage() {
               {order.pricing.discount > 0 && (
                 <DataRow label="Discount" value={`− ${formatCurrency(order.pricing.discount)}`} />
               )}
+              {/*
+                "Included", not "Free" - the cart and checkout both say included,
+                and free implies it could have been charged. Installation and GST
+                rows only appear when they carry a number; on every order placed
+                today they are zero, and a zero row is noise.
+              */}
               <DataRow
                 label="Delivery"
-                value={order.pricing.delivery === 0 ? 'Free' : formatCurrency(order.pricing.delivery)}
+                value={order.pricing.delivery === 0 ? 'Included' : formatCurrency(order.pricing.delivery)}
               />
-              <DataRow label="Installation" value={formatCurrency(order.pricing.installation)} />
-              <DataRow
-                label={`GST @ ${PRICING.GST_RATE * 100}%`}
-                value={formatCurrency(order.pricing.gst)}
-              />
+              {order.pricing.installation > 0 && (
+                <DataRow label="Installation" value={formatCurrency(order.pricing.installation)} />
+              )}
+              {order.pricing.gst > 0 && (
+                <DataRow
+                  label={`GST @ ${PRICING.GST_RATE * 100}%`}
+                  value={formatCurrency(order.pricing.gst)}
+                />
+              )}
               {order.pricing.securityDeposit > 0 && (
                 <DataRow
                   label="Security deposit"

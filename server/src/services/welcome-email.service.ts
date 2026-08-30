@@ -69,7 +69,7 @@ export async function sendWelcomeEmailOnce(
 ): Promise<void> {
   try {
     if (await alreadySent(user.id)) {
-      logger.info(`Welcome email already sent to ${user.email} — not sending another`);
+      logger.info(`Welcome email already sent to ${user.email} - not sending another`);
       return;
     }
 
@@ -92,7 +92,7 @@ export async function sendWelcomeEmailOnce(
       // in. This is an operational signal, not a user-facing failure.
       logger.error(
         `Welcome email to ${user.email} was not delivered` +
-          (result.skippedReason ? ` — ${result.skippedReason}` : ' — see the mail log above for the provider error'),
+          (result.skippedReason ? ` - ${result.skippedReason}` : ' - see the mail log above for the provider error'),
       );
       await recordAudit({
         actor: { id: user.id, email: user.email },

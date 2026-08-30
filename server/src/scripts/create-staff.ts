@@ -80,7 +80,7 @@ async function run() {
     return;
   }
 
-  console.log(`\nARTINU staff accounts — driver: ${env.DATA_DRIVER}\n`);
+  console.log(`\nARTINU staff accounts - driver: ${env.DATA_DRIVER}\n`);
 
   const created: { email: string; role: string; password: string }[] = [];
   let skipped = 0;
@@ -89,7 +89,7 @@ async function run() {
     const existing = await findByEmail(person.email);
 
     if (existing && !RESET) {
-      console.log(`  exists   ${person.email.padEnd(24)} (${existing.role}) — left untouched`);
+      console.log(`  exists   ${person.email.padEnd(24)} (${existing.role}) - left untouched`);
       skipped += 1;
       continue;
     }
@@ -126,7 +126,7 @@ async function run() {
 
   if (created.length && !DEMO) {
     console.log(`
-  ┌─ Passwords — shown once, not stored anywhere in readable form ─────────────
+  ┌─ Passwords - shown once, not stored anywhere in readable form ─────────────
 `);
     for (const account of created) {
       console.log(`  │  ${account.email.padEnd(24)}  ${account.password}`);

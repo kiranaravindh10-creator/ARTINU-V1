@@ -7,7 +7,7 @@ import {
   Images,
   RefreshCw,
   ShieldCheck,
-  ShoppingBag,
+  Frame,
   TrendingUp,
   Truck,
   Users,
@@ -62,7 +62,7 @@ export default function ConsoleOverviewPage() {
       label: 'Orders awaiting payment',
       count: unpaid?.total ?? 0,
       to: '/console/orders?status=pending_payment',
-      icon: ShoppingBag,
+      icon: Frame,
     },
     modules.has('moderation') && {
       label: 'Photographs to review',
@@ -82,7 +82,7 @@ export default function ConsoleOverviewPage() {
       to: '/console/spaces/consultations',
       icon: CalendarCheck,
     },
-  ].filter(Boolean) as { label: string; count: number; to: string; icon: typeof ShoppingBag }[];
+  ].filter(Boolean) as { label: string; count: number; to: string; icon: typeof Frame }[];
 
   return (
     <div className="space-y-8">
@@ -111,7 +111,7 @@ export default function ConsoleOverviewPage() {
               hint={`${formatCurrency(data?.revenueThisMonth ?? 0, { compact: true })} this month`}
             />
           )}
-          <StatTile label="Orders" value={data?.orders ?? 0} icon={ShoppingBag} />
+          <StatTile label="Orders" value={data?.orders ?? 0} icon={Frame} />
           <StatTile
             label="Pending orders"
             value={data?.pendingOrders ?? 0}

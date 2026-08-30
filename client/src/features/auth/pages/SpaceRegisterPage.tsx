@@ -16,7 +16,9 @@ import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { DateInput, Input, PasswordInput, PhoneInput } from '@/components/ui/input';
+import { PasswordRules } from '@/features/auth/components/AuthBits';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,8 +48,11 @@ export default function SpaceRegisterPage() {
       fullName: '',
       email: '',
       phone: '',
+      dateOfBirth: '',
       spaceName: '',
       city: '',
+      password: '',
+      confirmPassword: '',
       acceptTerms: undefined as never,
     },
   });
@@ -56,16 +61,23 @@ export default function SpaceRegisterPage() {
     mutationFn: (input: SpaceOwnerRegistrationInput) => authService.registerSpaceOwner(input),
     onSuccess: (session) => {
       setSession(session);
-      setIssued(session.credentials ?? { spaceCode: null, email: '', password: '' });
+      setIssued(session.credentials ?? { spaceCode: null, email: '', password: null });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
   /**
-   * The hand-over screen. Requirements §1: ARTINU generates the ID and the
-   * password, so this is the one moment the owner ever sees the password —
-   * it is not emailed, and the server did not keep the plaintext. Hence the
-   * copy button and the blunt warning rather than a cheerful "you're all set".
+   * The confirmation screen.
+   *
+   * This used to be a credential hand-over: it printed a server-generated
+   * password, told the owner to write it down because it would never be shown
+   * again, and offered a copy button. It was the only copy in existence — not
+   * emailed, not stored — so closing the tab locked people out of an account
+   * they had just made. That is what happened in testing.
+   *
+   * The owner now chooses their own password during sign-up, so there is nothing
+   * secret left to hand over. What remains is worth showing: the space ID, which
+   * is an identifier rather than a credential, and where to go next.
    */
   if (issued) {
     return (
@@ -80,69 +92,51 @@ export default function SpaceRegisterPage() {
             Welcome to ARTINU.
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-sm text-canvas/60">
-            These are your sign-in details. Write them down now — we don&rsquo;t email passwords,
-            and this is the only time this one is shown.
+            Your account is ready, and you are already signed in. Sign in with the email and
+            password you just chose.
           </p>
 
           <dl className="mt-7 space-y-px overflow-hidden rounded-md border border-canvas/15 text-left">
             {issued.spaceCode && (
               <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-                <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
+                <dt className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
                   Space ID
                 </dt>
                 <dd className="font-mono text-sm text-bronze-light">{issued.spaceCode}</dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
+              <dt className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
                 Sign in with
               </dt>
               <dd className="min-w-0 truncate text-sm text-canvas">{issued.email}</dd>
             </div>
-            <div className="flex items-baseline justify-between gap-4 bg-canvas/[0.06] px-4 py-3">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-canvas/50">
-                Password
-              </dt>
-              <dd className="font-mono text-base tracking-wider text-bronze-light">
-                {issued.password}
-              </dd>
-            </div>
           </dl>
 
-          <Button
-            variant="outline"
-            shape="pill"
-            className="mt-4 w-full border-canvas/25 text-canvas hover:bg-canvas/10"
-            onClick={() => {
-              void navigator.clipboard
-                ?.writeText(
-                  [
-                    issued.spaceCode && `ARTINU Space ID: ${issued.spaceCode}`,
-                    `Email: ${issued.email}`,
-                    `Password: ${issued.password}`,
-                  ]
-                    .filter(Boolean)
-                    .join('\n'),
-                )
-                .then(
-                  () => {
-                    setCopied(true);
-                    toast.success('Copied. Keep it somewhere safe.');
-                  },
-                  () => toast.error('Could not copy — please write the details down.'),
-                );
-            }}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied ? 'Copied' : 'Copy my details'}
-          </Button>
-
-          <p className="mt-5 text-xs leading-relaxed text-canvas/45">
-            You&rsquo;ll be asked to choose your own password the first time you sign in.
-          </p>
+          {issued.spaceCode && (
+            <Button
+              variant="outline"
+              shape="pill"
+              className="mt-4 w-full border-canvas/25 text-canvas hover:bg-canvas/10"
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText(`ARTINU Space ID: ${issued.spaceCode}\nEmail: ${issued.email}`)
+                  .then(
+                    () => {
+                      setCopied(true);
+                      toast.success('Copied.');
+                    },
+                    () => toast.error('Could not copy - please note the details down.'),
+                  );
+              }}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+              {copied ? 'Copied' : 'Copy my space ID'}
+            </Button>
+          )}
 
           <Button variant="light" shape="pill" size="lg" asChild className="mt-6">
-            <Link to="/space/register-space">Go to dashboard →</Link>
+            <Link to="/space">Go to dashboard &rarr;</Link>
           </Button>
         </div>
       </div>
@@ -150,7 +144,14 @@ export default function SpaceRegisterPage() {
   }
 
   const goToStepTwo = async () => {
-    const valid = await trigger(['fullName', 'email', 'phone']);
+    const valid = await trigger([
+      'fullName',
+      'email',
+      'phone',
+      'dateOfBirth',
+      'password',
+      'confirmPassword',
+    ]);
     if (valid) setStep(2);
   };
 
@@ -197,20 +198,59 @@ export default function SpaceRegisterPage() {
                 />
               </Field>
 
-              <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  invalid={!!errors.phone}
-                  {...register('phone')}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
+                  <PhoneInput id="phone" invalid={!!errors.phone} {...register('phone')} />
+                </Field>
+
+                <Field
+                  label="Date of birth"
+                  htmlFor="dateOfBirth"
+                  error={errors.dateOfBirth?.message}
+                >
+                  <DateInput
+                    id="dateOfBirth"
+                    autoComplete="bday"
+                    invalid={!!errors.dateOfBirth}
+                    {...register('dateOfBirth')}
+                  />
+                </Field>
+              </div>
+
+              {/*
+                The owner chooses their own password.
+
+                This block used to read "No password to think up — ARTINU issues
+                your space ID and a password when you finish, and shows them to
+                you once." That was accurate and it was the problem: the password
+                existed in exactly one place, on a screen you could close, and
+                was never emailed or stored.
+              */}
+              <Field label="Password" htmlFor="password" error={errors.password?.message}>
+                <PasswordInput
+                  id="password"
+                  autoComplete="new-password"
+                  placeholder="Create a password"
+                  invalid={!!errors.password}
+                  {...register('password')}
                 />
               </Field>
 
-              <p className="rounded-md border border-line bg-sand-soft px-3.5 py-3 text-xs leading-relaxed text-muted">
-                No password to think up — ARTINU issues your space ID and a password when you
-                finish, and shows them to you once.
-              </p>
+              <PasswordRules password={watch('password')} />
+
+              <Field
+                label="Confirm password"
+                htmlFor="confirmPassword"
+                error={errors.confirmPassword?.message}
+              >
+                <PasswordInput
+                  id="confirmPassword"
+                  autoComplete="new-password"
+                  placeholder="Repeat your password"
+                  invalid={!!errors.confirmPassword}
+                  {...register('confirmPassword')}
+                />
+              </Field>
 
               <Button type="button" className="w-full" onClick={() => void goToStepTwo()}>
                 Continue
@@ -228,7 +268,7 @@ export default function SpaceRegisterPage() {
               <Field label="Space name" htmlFor="spaceName" error={errors.spaceName?.message}>
                 <Input
                   id="spaceName"
-                  placeholder="e.g. Blue Tokai — Koramangala"
+                  placeholder="e.g. Blue Tokai - Koramangala"
                   invalid={!!errors.spaceName}
                   {...register('spaceName')}
                 />
@@ -254,12 +294,21 @@ export default function SpaceRegisterPage() {
               </Field>
 
               <Field label="City" htmlFor="city" error={errors.city?.message}>
-                <Input
+            <Controller
+              name="city"
+              control={control}
+              render={({ field }) => (
+                <LocationInput
                   id="city"
-                  placeholder="Bengaluru"
+                  name={field.name}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Start typing the city"
                   invalid={!!errors.city}
-                  {...register('city')}
                 />
+              )}
+            />
               </Field>
 
               <label className="flex cursor-pointer items-start gap-3 pt-1 text-sm text-muted">

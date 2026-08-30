@@ -175,7 +175,7 @@ export default function ArtistProfilePage() {
   return (
     <>
       <EntityMeta
-        title={`${artist.name} — Photographer on ARTINU`}
+        title={`${artist.name} - Photographer on ARTINU`}
         description={artistMetaDescription}
         path={artistPath}
         image={artist.coverUrl || artist.avatarUrl}
@@ -333,7 +333,7 @@ export default function ArtistProfilePage() {
 
                 {artist.genres.length > 0 && (
                   <>
-                    <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                    <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                       Works in
                     </h3>
                     <ul className="mt-3 flex flex-wrap gap-2">
@@ -351,7 +351,7 @@ export default function ArtistProfilePage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                   Elsewhere
                 </h3>
                 {artist.website && (
@@ -379,7 +379,7 @@ export default function ArtistProfilePage() {
                     artist's profile does not read as unfinished. */}
                 {artist.achievements && artist.achievements.length > 0 && (
                   <div className="pt-6">
-                    <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+                    <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                       Recognition
                     </h3>
                     <ul className="mt-3 space-y-3">

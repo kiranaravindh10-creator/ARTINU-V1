@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
  * No percentages. The checks are heuristics, not calibrated classifiers, and a
  * number like "92%" invites exactly the wrong reading — next to "AI-Generated
  * Detection" it looks like "92% AI" when it meant the opposite. The outcome and
- * a plain sentence say more, and say it acARTINUly.
+ * a plain sentence say more, and say it accurately.
  */
 
 const STYLES = {

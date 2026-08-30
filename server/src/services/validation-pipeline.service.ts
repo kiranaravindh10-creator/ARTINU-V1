@@ -106,7 +106,7 @@ export async function runValidationPipeline(
       'ai_generated',
       !suspiciousSize,
       suspiciousSize
-        ? 'Exact power-of-two square dimensions with no capture metadata — this needs a human look before publishing.'
+        ? 'Exact power-of-two square dimensions with no capture metadata - this needs a human look before publishing.'
         : 'Dimensions and aspect ratio are consistent with a physical camera.',
     ),
   );

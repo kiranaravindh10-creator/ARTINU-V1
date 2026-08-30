@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type {
+  Coupon,
   ArtistApplication,
   Artwork,
   AuditLogEntry,
@@ -73,6 +74,7 @@ export interface Database {
   orders: Table<Order>;
   payments: Table<Payment>;
   invoices: Table<Invoice>;
+  coupons: Table<Coupon>;
   installations: Table<Installation>;
   rotations: Table<RotationCycle>;
   notifications: Table<Notification>;
@@ -94,6 +96,16 @@ export interface Database {
   employees: Table<{ id: string } & Record<string, any>>;
   frames: Table<{ id: string } & Record<string, any>>;
   frameMovements: Table<{ id: string } & Record<string, any>>;
+  /**
+   * Every email the app has tried to send.
+   *
+   * In the database rather than on disk because the disk does not survive: the
+   * mailbox used to live in server/.data/mail, and Render replaces the
+   * filesystem on every deploy and every restart. So the one screen that could
+   * answer "did the password reset actually go out?" was permanently empty in
+   * production, which is precisely where the question gets asked.
+   */
+  mailLog: Table<{ id: string } & Record<string, any>>;
 }
 
 const TABLE_NAMES = [
@@ -104,6 +116,7 @@ const TABLE_NAMES = [
   'orders',
   'payments',
   'invoices',
+  'coupons',
   'installations',
   'rotations',
   'notifications',
@@ -125,6 +138,7 @@ const TABLE_NAMES = [
   'employees',
   'frames',
   'frameMovements',
+  'mailLog',
 ] as const;
 
 type TableName = (typeof TABLE_NAMES)[number];
@@ -171,7 +185,7 @@ function restore(): boolean {
     // An empty file is the same as no file — let the seeder run.
     return restored > 0;
   } catch (error) {
-    logger.warn('Could not read the persisted store — starting fresh', error);
+    logger.warn('Could not read the persisted store - starting fresh', error);
     return false;
   }
 }

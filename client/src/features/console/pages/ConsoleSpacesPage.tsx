@@ -1,6 +1,6 @@
 import { formatDate, SPACE_TYPE_LABELS, type Space } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BadgeCheck, Building2, Search } from 'lucide-react';
+import { BadgeCheck, Building2, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -22,12 +22,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { errorMessage } from '@/lib/api';
+import { CreateSpaceDialog } from '@/features/console/components/CreateSpaceDialog';
 import { qk } from '@/lib/query';
 import { adminService } from '@/services/admin.service';
 
 type AdminSpace = Space & { ownerName?: string; orderCount?: number };
 
 export default function ConsoleSpacesPage() {
+  const [creating, setCreating] = React.useState(false);
   const queryClient = useQueryClient();
   const [q, setQ] = React.useState('');
   const [search, setSearch] = React.useState('');
@@ -56,7 +58,20 @@ export default function ConsoleSpacesPage() {
 
   return (
     <div>
-      <PageHeader title="Spaces" description="Every registered space and its curation notes." />
+      <PageHeader
+        title="Spaces"
+        description="Every registered space and its curation notes."
+        actions={
+          /* For the owners who will never register themselves - see
+             CreateSpaceDialog. */
+          <Button onClick={() => setCreating(true)}>
+            <Plus />
+            Add space
+          </Button>
+        }
+      />
+
+      <CreateSpaceDialog open={creating} onOpenChange={setCreating} />
 
       <SubNav
         items={[
@@ -119,15 +134,15 @@ export default function ConsoleSpacesPage() {
                         first column because it is what support and paperwork
                         quote. Em dash for rows that predate migration 006. */}
                     <TableCell className="whitespace-nowrap font-mono text-xs text-bronze">
-                      {space.code ?? '—'}
+                      {space.code ?? '-'}
                     </TableCell>
                     <TableCell className="max-w-[14rem] truncate text-ink">{space.name}</TableCell>
                     <TableCell className="text-xs text-muted">
                       {SPACE_TYPE_LABELS[space.type]}
                     </TableCell>
                     <TableCell className="text-xs text-muted">{space.city}</TableCell>
-                    <TableCell className="text-xs text-muted">{space.ownerName ?? '—'}</TableCell>
-                    <TableCell className="text-right tabular-nums">{space.wallCount ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-muted">{space.ownerName ?? '-'}</TableCell>
+                    <TableCell className="text-right tabular-nums">{space.wallCount ?? '-'}</TableCell>
                     <TableCell className="text-right tabular-nums">{space.orderCount ?? 0}</TableCell>
                     <TableCell>
                       {space.verified ? (
@@ -202,14 +217,14 @@ export default function ConsoleSpacesPage() {
                 <Row label="Registered">{formatDate(selected.createdAt, 'long')}</Row>
               </dl>
 
-              <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Curation notes
               </h3>
               <dl className="mt-3 space-y-3 text-sm">
-                <Row label="Theme">{selected.theme ?? '—'}</Row>
+                <Row label="Theme">{selected.theme ?? '-'}</Row>
                 {selected.cuisine && <Row label="Cuisine">{selected.cuisine}</Row>}
-                <Row label="Wall colour">{selected.wallColor ?? '—'}</Row>
-                <Row label="Lighting">{selected.lighting ?? '—'}</Row>
+                <Row label="Wall colour">{selected.wallColor ?? '-'}</Row>
+                <Row label="Lighting">{selected.lighting ?? '-'}</Row>
               </dl>
             </div>
           )}

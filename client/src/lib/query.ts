@@ -46,7 +46,7 @@ function describe(error: unknown): string | null {
     if (status === 403) return 'You do not have access to that.';
     if (status === 404) return 'We could not find that.';
     if (status >= 500) return 'The server had a problem. Please try again.';
-    if (!error.response) return 'No response from the server — check your connection.';
+    if (!error.response) return 'No response from the server - check your connection.';
   }
   return error instanceof Error ? error.message : 'Something went wrong.';
 }

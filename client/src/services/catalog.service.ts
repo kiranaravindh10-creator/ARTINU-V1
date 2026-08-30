@@ -31,6 +31,17 @@ export function toQueryParams(query: Partial<GalleryQuery>): Record<string, stri
 }
 
 export const catalogService = {
+  /** Ask the server whether a code applies to this basket. */
+  async validateCoupon(code: string, subtotal: number, spaceId?: string | null) {
+    const { data } = await api.post<{
+      ok: boolean;
+      message: string;
+      discount: number;
+      code: string | null;
+    }>('/orders/validate-coupon', { code, subtotal, spaceId: spaceId ?? undefined });
+    return data;
+  },
+
   async gallery(query: Partial<GalleryQuery>) {
     const { data } = await api.get<Paginated<ArtworkWithArtist>>('/artworks', {
       params: toQueryParams(query),

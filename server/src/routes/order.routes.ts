@@ -2,12 +2,19 @@ import { createOrderSchema, type CartItem } from '@artinu/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@/database/db';
+import { validateCoupon } from '@/services/coupon.service';
 import { paginate } from '@/database/table';
 import { asyncHandler, requireAuth, requireRole, validate } from '@/middleware/index';
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { recordAudit } from '@/services/audit.service';
 import { notifyRole } from '@/services/notification.service';
-import { advanceOrder, buildOrderItems, createOrder, priceDraft } from '@/services/order.service';
+import {
+  advanceOrder,
+  assertOwnsSpace,
+  buildOrderItems,
+  createOrder,
+  priceDraft,
+} from '@/services/order.service';
 
 export const orderRouter = Router();
 
@@ -28,7 +35,55 @@ orderRouter.post(
     };
 
     const items = await buildOrderItems(draft.items);
-    res.json(priceDraft(items, draft));
+    // The space TYPE picks the tariff book - a home is billed from the cheaper
+    // table, so quoting without it would show a business price to a household.
+    // assertOwnsSpace also closes a gap: this endpoint priced against any
+    // spaceId without checking who owned it.
+    const space = await assertOwnsSpace(draft.spaceId, req.user!);
+    res.json(await priceDraft(items, draft, space.type));
+  }),
+);
+
+/**
+ * Is this code usable on this basket?
+ *
+ * The cart cannot answer this on its own any more, and should not try:
+ * coupons are rows now, and a client deciding for itself what a discount is
+ * worth is a client deciding what to charge. It asks, and the same
+ * `validateCoupon` that prices the order answers - so a code that previews
+ * as valid cannot be refused a screen later.
+ */
+orderRouter.post(
+  '/validate-coupon',
+  validate(
+    z.object({
+      code: z.string().trim().min(1).max(40),
+      subtotal: z.coerce.number().nonnegative(),
+      spaceId: z.string().min(1).optional(),
+    }),
+  ),
+  asyncHandler(async (req, res) => {
+    const { code, subtotal, spaceId } = req.valid as {
+      code: string;
+      subtotal: number;
+      spaceId?: string;
+    };
+
+    // The category only narrows which coupons apply, so a missing space is
+    // not an error - it just means no category rule can be checked.
+    let category: string | null = null;
+    if (spaceId) {
+      const space = await db.spaces.byId(spaceId);
+      if (space && space.ownerId === req.user!.id) category = space.type;
+    }
+
+    const verdict = await validateCoupon(code, subtotal, category);
+    res.json({
+      ok: verdict.ok,
+      message: verdict.message,
+      discount: verdict.discount ?? 0,
+      code: verdict.coupon?.code ?? null,
+    });
   }),
 );
 

@@ -234,7 +234,7 @@ export const errorHandler = (
   }
 
   if (status >= 500) {
-    logger.error(`${req.method} ${req.originalUrl} — ${String(error)}`);
+    logger.error(`${req.method} ${req.originalUrl} - ${String(error)}`);
 
     // Durably record anything that is our fault so the IT console can see it.
     // 4xx is the caller being told no and is not worth an incident. Imported

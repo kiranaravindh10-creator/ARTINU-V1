@@ -1,17 +1,41 @@
 import { CONTACT } from '@artinu/shared';
-import { Check, FileSearch, Instagram, Linkedin, Mail, Sparkles, Users } from 'lucide-react';
+import { Check, Instagram, Linkedin, Mail } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLink, Container, Section, StepIcon } from '@/components/layout/primitives';
+import { ArrowLink, Container, Section } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
 import { Photo } from '@/components/ui/photo';
 import { IMAGES } from '@/lib/images';
 
+/*
+  Four steps, no icons.
+
+  This was four lucide glyphs in discs, joined by a dashed connector - the exact
+  four-up-with-arrows shape the founder keeps identifying as "looks so AI", and
+  it was rendered twice: here and on the application form itself. The form's
+  copy is gone; this one is set as what it actually is, a numbered sequence.
+
+  "Grow Together / Connect, collaborate, and create meaningful impact" went with
+  the discs. It is four verbs that describe nothing and promise nothing, and it
+  was the last step of a list whose other three are concrete events.
+*/
 const STEPS = [
-  { icon: FileSearch, title: 'Application Review', body: 'Our team will carefully review your application and portfolio.' },
-  { icon: Mail, title: "We'll Be in Touch", body: 'If selected, we’ll reach out within 7–10 business days.' },
-  { icon: Sparkles, title: 'Welcome Onboard', body: 'Get access to ARTINU and start sharing your stories.' },
-  { icon: Users, title: 'Grow Together', body: 'Connect, collaborate, and create meaningful impact.' },
+  {
+    title: 'We read it',
+    body: 'A person goes through your application and your photographs. Not a filter.',
+  },
+  {
+    title: 'We reply either way',
+    body: 'Within seven to ten days, whether the answer is yes or no.',
+  },
+  {
+    title: 'You upload',
+    body: 'Your account opens and your photographs go straight into the gallery - no second review.',
+  },
+  {
+    title: 'A wall',
+    body: 'When a space picks your work we print it, frame it, hang it, and put your name beside it.',
+  },
 ];
 
 const GRID = [
@@ -52,9 +76,6 @@ export default function ApplicationSubmittedPage() {
           </p>
 
           <div className="mx-auto mt-8 flex w-fit max-w-full items-center gap-3.5 rounded-lg border border-line bg-surface px-5 py-4 text-left">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-bronze-soft text-bronze">
-              <Mail className="size-4" aria-hidden />
-            </span>
             <p className="text-sm text-muted">
               A confirmation email has been sent to
               <br />
@@ -83,23 +104,24 @@ export default function ApplicationSubmittedPage() {
         <div className="mt-14 text-center">
           <h2 className="font-display text-[1.5rem] text-ink">What happens next?</h2>
 
-          <div className="relative mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <div
-              className="absolute left-[12.5%] right-[12.5%] top-7 hidden border-t border-dashed border-line-strong lg:block"
-              aria-hidden
-            />
+          {/* A real ordered list. The order is the whole content, so it is
+              carried by the markup rather than by a dashed line and arrows. */}
+          <ol className="mx-auto mt-10 max-w-xl space-y-6 text-left">
             {STEPS.map((step, index) => (
-              <div key={step.title} className="relative flex flex-col items-center">
-                <StepIcon className="bg-canvas ring-4 ring-canvas-soft">
-                  <step.icon aria-hidden />
-                </StepIcon>
-                <h3 className="mt-4 text-sm font-medium text-ink">
-                  {index + 1}. {step.title}
-                </h3>
-                <p className="mt-1.5 max-w-[14rem] text-xs leading-relaxed text-muted">{step.body}</p>
-              </div>
+              <li key={step.title} className="flex gap-5">
+                <span
+                  className="mt-0.5 shrink-0 font-display text-2xl leading-none text-bronze/60 tabular-nums"
+                  aria-hidden
+                >
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[0.9375rem] font-medium text-ink">{step.title}</span>
+                  <span className="mt-1 block text-sm leading-relaxed text-muted">{step.body}</span>
+                </span>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         {/* ── Closing panel ────────────────────────────────────────────── */}
@@ -114,7 +136,7 @@ export default function ApplicationSubmittedPage() {
             </p>
             <Link
               to="/gallery"
-              className="mt-6 inline-flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-canvas transition-opacity hover:opacity-70"
+              className="mt-6 inline-flex items-center gap-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-canvas transition-opacity hover:opacity-70"
             >
               Explore gallery →
             </Link>

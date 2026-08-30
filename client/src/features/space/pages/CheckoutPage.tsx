@@ -1,6 +1,6 @@
 import { formatCurrency, PRICING, type PriceBreakdown } from '@artinu/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Building2, ShieldCheck, ShoppingBag } from 'lucide-react';
+import { Building2, ShieldCheck, Frame } from 'lucide-react';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { DataRow } from '@/components/ui/stat';
-import { describeFrame } from '@/features/space/pages/CartPage';
+import { describeFrame } from '@/features/public/components/FrameConfigurator';
 import { useCart } from '@/contexts/CartContext';
 import { errorMessage } from '@/lib/api';
 import { qk } from '@/lib/query';
@@ -26,6 +26,18 @@ export default function CheckoutPage() {
   const [notes, setNotes] = React.useState('');
   const [deposit, setDeposit] = React.useState(false);
   const [quote, setQuote] = React.useState<PriceBreakdown | null>(null);
+  /*
+    A quote that failed is not a quote of zero.
+
+    Tracked separately because the total shown to the customer must never be
+    computed locally on this screen: `cart.pricing` is priced WITHOUT
+    `includeSecurityDeposit`, which only exists in the server payload. Falling
+    back to it silently removed the deposit from the displayed total while the
+    server still charged it.
+  */
+  const [quoteFailed, setQuoteFailed] = React.useState(false);
+  /** Bumped by "Try again" so the quote effect re-runs on an unchanged basket. */
+  const [quoteAttempt, setQuoteAttempt] = React.useState(0);
   const [quoting, setQuoting] = React.useState(false);
 
   const { data: spaces, isLoading, isError, error, refetch } = useQuery({
@@ -34,7 +46,22 @@ export default function CheckoutPage() {
   });
 
   React.useEffect(() => {
-    if (!spaceId && spaces?.length) setSpaceId(spaces[0]!.id);
+    /*
+      Point at a space this account actually owns.
+
+      This only filled an EMPTY selection, so a spaceId left in localStorage
+      that is no longer valid - a different database, a space that was removed,
+      an account switch - was kept and sent to the server forever. The quote
+      then 404s, `quote` stays null, and "Place order" is disabled with the
+      panel stuck on "Confirming prices…": a dead button and no explanation.
+
+      Checking membership rather than emptiness fixes the stale case too.
+    */
+    if (!spaces?.length) return;
+    if (!spaceId || !spaces.some((space) => space.id === spaceId)) {
+      setSpaceId(spaces[0]!.id);
+      cart.setSpaceId(spaces[0]!.id);
+    }
   }, [spaces, spaceId]);
 
   const payload = React.useMemo(
@@ -59,6 +86,7 @@ export default function CheckoutPage() {
 
     let cancelled = false;
     setQuoting(true);
+    setQuoteFailed(false);
     const timer = setTimeout(() => {
       orderService
         .quote(payload)
@@ -66,7 +94,13 @@ export default function CheckoutPage() {
           if (!cancelled) setQuote(result);
         })
         .catch(() => {
-          if (!cancelled) setQuote(null);
+          // Drop the stale quote AND record the failure. The order cannot be
+          // placed without a price the server has confirmed for this exact
+          // basket, so both matter.
+          if (!cancelled) {
+            setQuote(null);
+            setQuoteFailed(true);
+          }
         })
         .finally(() => {
           if (!cancelled) setQuoting(false);
@@ -77,7 +111,7 @@ export default function CheckoutPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [payload, spaceId, cart.lines.length]);
+  }, [payload, spaceId, cart.lines.length, quoteAttempt]);
 
   const place = useMutation({
     mutationFn: async () => {
@@ -97,7 +131,7 @@ export default function CheckoutPage() {
       <div>
         <PanelHeader title="Checkout" />
         <EmptyState
-          icon={<ShoppingBag />}
+          icon={<Frame />}
           title="There's nothing to check out."
           action={
             <Button asChild>
@@ -127,7 +161,13 @@ export default function CheckoutPage() {
     );
   }
 
+  /*
+    The local basket total is a placeholder for the first render only, before any
+    quote has come back. Once one has failed, showing it again would show a
+    number the server does not agree with.
+  */
   const pricing = quote ?? cart.pricing;
+  const priceConfirmed = quote !== null;
   const selected = spaces?.find((space) => space.id === spaceId);
   // With one space there is nothing to choose. Say where it's going and move on.
   const oneSpace = (spaces?.length ?? 0) === 1;
@@ -263,37 +303,80 @@ export default function CheckoutPage() {
           <div className="border-t-2 border-ink pt-5">
             <h2 className="eyebrow eyebrow-muted">Order total</h2>
 
+            {/*
+              The same three rows the cart shows, and for the same reasons.
+
+              This was the eight-row internal cost breakdown - licensing, frames,
+              printing, subtotal, delivery, installation, GST - which the cart
+              stopped showing. Leaving it here meant the price a café owner
+              approved in the cart was itemised completely differently one click
+              later, including a "GST @ 18%" line reading zero and an
+              "Installation" line reading zero. Both are zero because neither is
+              charged; a row that exists only to say "nothing" invites the
+              question it was meant to answer.
+
+              GST comes back on its own when PRICING.GST_REGISTERED flips - the
+              row below is conditional, not deleted.
+            */}
             <div className={cn('mt-4 transition-opacity', quoting && 'opacity-60')}>
-              <DataRow label="Artwork licensing" value={formatCurrency(pricing.artworkTotal)} />
-              <DataRow label="Frames" value={formatCurrency(pricing.frameTotal)} />
-              <DataRow label="Printing" value={formatCurrency(pricing.printingTotal)} />
-              <DataRow label="Subtotal" value={formatCurrency(pricing.subtotal)} />
+              <DataRow label="Printing and framing" value={formatCurrency(pricing.subtotal)} />
               {pricing.discount > 0 && (
                 <DataRow
                   label={`Discount${pricing.couponCode ? ` (${pricing.couponCode})` : ''}`}
-                  value={`− ${formatCurrency(pricing.discount)}`}
+                  value={`- ${formatCurrency(pricing.discount)}`}
                 />
               )}
-              <DataRow
-                label="Delivery"
-                value={pricing.delivery === 0 ? 'Free' : formatCurrency(pricing.delivery)}
-              />
-              <DataRow label="Installation" value={formatCurrency(pricing.installation)} />
-              <DataRow label={`GST @ ${PRICING.GST_RATE * 100}%`} value={formatCurrency(pricing.gst)} />
+              <DataRow label="Delivery" value="Included" />
+              {PRICING.GST_REGISTERED && (
+                <DataRow label={`GST @ ${PRICING.GST_RATE * 100}%`} value={formatCurrency(pricing.gst)} />
+              )}
               {pricing.securityDeposit > 0 && (
                 <DataRow label="Security deposit" value={formatCurrency(pricing.securityDeposit)} />
               )}
               <DataRow label="Total" value={formatCurrency(pricing.total)} emphasis />
             </div>
 
-            <p className="mt-3 text-xs text-subtle">
-              {quote ? 'Prices confirmed by ARTINU.' : 'Confirming prices…'}
-            </p>
+            {/*
+              Three states, not two. "Confirming prices…" was shown for a failed
+              quote as well as an in-flight one, so a customer whose quote had
+              died sat looking at a reassuring message next to a total the server
+              would not honour.
+            */}
+            {quoteFailed ? (
+              <div className="mt-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2.5">
+                <p className="text-xs leading-relaxed text-ink-soft">
+                  We couldn&rsquo;t confirm the price for this order. Nothing has been charged.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setQuoteAttempt((n) => n + 1)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-subtle">
+                {priceConfirmed
+                  ? 'Prices confirmed by ARTINU.'
+                  : quoteFailed
+                    ? 'We could not confirm the price for this basket. Check the space above, then try again.'
+                    : 'Confirming prices…'}
+              </p>
+            )}
 
             <Button
               className="mt-5 w-full"
               loading={place.isPending}
-              disabled={!spaceId || !cart.meetsMinimum}
+              /*
+                An order cannot be placed against a price the server has not
+                confirmed for this exact basket. Previously only the space and
+                the minimum were checked, so "Place order" stayed live while the
+                panel displayed a locally-computed total that omitted the
+                security deposit — and the customer was charged the difference.
+              */
+              disabled={!spaceId || !cart.meetsMinimum || !priceConfirmed || quoting}
               onClick={() => place.mutate()}
             >
               Place order

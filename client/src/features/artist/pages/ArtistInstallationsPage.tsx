@@ -89,7 +89,7 @@ export default function ArtistInstallationsPage() {
         <EmptyState
           icon={<CalendarCheck />}
           title="No installations yet."
-          description="When a space selects your photographs, the installation is scheduled and appears here — with the date and who is fitting it."
+          description="When a space selects your photographs, the installation is scheduled and appears here - with the date and who is fitting it."
         />
       )}
 
@@ -100,7 +100,7 @@ export default function ArtistInstallationsPage() {
             <h2 className="font-display text-lg text-ink">Our collaborated cafés</h2>
           </div>
           <p className="mt-1 text-sm text-muted">
-            The cafés ARTINU currently curates — your work may hang in these spaces next.
+            The cafés ARTINU currently curates - your work may hang in these spaces next.
           </p>
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {cafes.map((cafe) => (

@@ -40,7 +40,7 @@ async function main() {
   }
 
   console.log(
-    `Photo ID backfill complete — ${codesAssigned} photographer code(s) assigned, ${idsAssigned} Photo ID(s) assigned.`,
+    `Photo ID backfill complete - ${codesAssigned} photographer code(s) assigned, ${idsAssigned} Photo ID(s) assigned.`,
   );
 }
 

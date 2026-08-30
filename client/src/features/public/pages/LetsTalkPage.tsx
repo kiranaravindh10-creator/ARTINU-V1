@@ -8,17 +8,13 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
-  Headphones,
-  Lightbulb,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Sparkles,
   User,
   Video,
 } from 'lucide-react';
@@ -31,6 +27,7 @@ import { Reveal } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { errorMessage } from '@/lib/api';
@@ -47,11 +44,37 @@ const MONTHS = [
 const toKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
+/*
+  Four things that actually happen, rather than four qualities.
+
+  This read "Personalized Guidance · Expert Insights · Tailored Recommendations
+  · Seamless Experience", with bodies to match ("From concept to execution,
+  we've got you"). Every line could have sat on any company's website, which is
+  the tell — a space owner deciding whether to give up forty minutes learns
+  nothing from it. These say what the visit is.
+*/
+/*
+  Four reasons, no glyphs.
+
+  A lightbulb for "A proposal, not a catalogue" and a sparkle for "One team,
+  start to finish" were decoration standing in for meaning, and a row of four
+  outlined discs is the single most recognisable tell of a generated feature
+  grid. The headings say it; the discs only said it again, less clearly.
+*/
 const WHY = [
-  { icon: CalendarDays, title: 'Personalized Guidance', body: 'We understand your space, vision and goals.' },
-  { icon: Lightbulb, title: 'Expert Insights', body: 'Get ideas that blend aesthetics with functionality.' },
-  { icon: Sparkles, title: 'Tailored Recommendations', body: 'From concept to execution, we’ve got you.' },
-  { icon: Check, title: 'Seamless Experience', body: 'A smooth, collaborative journey from start to finish.' },
+  {
+    title: 'Forty minutes, in the room',
+    body: 'We look at your light through the day, your wall colours, how people move through the space.',
+  },
+  {
+    title: 'A proposal, not a catalogue',
+    body: 'You get photographs chosen for your walls, not a gallery to scroll through.',
+  },
+  {
+    title: 'One team, start to finish',
+    body: 'The people who read the room are the ones who print, frame and hang the work.',
+  },
+  { title: 'Nothing to sign', body: 'The visit is free, and it can end there.' },
 ];
 
 /**
@@ -72,7 +95,7 @@ interface SpaceHero {
 const DEFAULT_HERO: SpaceHero = {
   headline: ['Let’s bring', 'your space', 'to life.'],
   blurb:
-    'Tell us about your space and your vision. We’ll schedule a personalized consultation to understand your needs better.',
+    'Tell us about your space. We’ll come and look at the walls, and bring a few photographs to hold up against them.',
   image: IMAGES.cafeWindow,
   alt: 'A framed photograph beside a sunlit café window',
 };
@@ -95,7 +118,7 @@ const SPACE_HEROES: Partial<Record<(typeof SPACE_TYPES)[number], SpaceHero>> = {
   home_decor: {
     headline: ['Let’s bring', 'ARTINU into', 'your home.'],
     blurb:
-      'Photography chosen for the room you actually live in — your light, your wall colours, your ceiling heights. Printed, framed and hung by us, and changed for new work whenever the room starts to feel settled.',
+      'Photography chosen for the room you actually live in - your light, your wall colours, your ceiling heights. Printed, framed and hung by us, and changed for new work whenever the room starts to feel settled.',
     image: IMAGES.home_decor,
     alt: 'A bright living room with seating and soft daylight',
   },
@@ -222,7 +245,7 @@ export default function LetsTalkPage() {
       <section className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
-            <p className="eyebrow">Book a consultation</p>
+            <p className="eyebrow">Book a wall visit</p>
             <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               {hero.headline.map((line, index) => (
                 <React.Fragment key={line}>
@@ -311,12 +334,21 @@ export default function LetsTalkPage() {
               </Field>
 
               <Field label="Location" htmlFor="location" required error={errors.location?.message}>
-                <Input
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <LocationInput
                   id="location"
-                  placeholder="City / Area"
+                  name={field.name}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Start typing your city or area"
                   invalid={!!errors.location}
-                  {...register('location')}
                 />
+              )}
+            />
               </Field>
 
               <Field label="Tell us more about your space" htmlFor="message" error={errors.message?.message}>
@@ -328,7 +360,7 @@ export default function LetsTalkPage() {
                 />
               </Field>
 
-              <Field label="Preferred Consultation Mode" error={errors.mode?.message}>
+              <Field label="How would you like to meet?" error={errors.mode?.message}>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { value: 'video', label: 'Video Call', icon: Video },
@@ -360,7 +392,7 @@ export default function LetsTalkPage() {
                 loading={isSubmitting || book.isPending}
                 className="mt-2 w-full sm:w-auto"
               >
-                Book my consultation
+                Book my wall visit
               </Button>
             </div>
 
@@ -399,7 +431,7 @@ export default function LetsTalkPage() {
                   {WEEKDAYS.map((day) => (
                     <span
                       key={day}
-                      className="pb-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-subtle"
+                      className="pb-2 font-label text-[0.625rem] uppercase tracking-[0.12em] text-subtle"
                     >
                       {day}
                     </span>
@@ -489,22 +521,16 @@ export default function LetsTalkPage() {
         <Container>
           <div className="grid gap-8 rounded-lg bg-sand px-6 py-8 sm:grid-cols-2 sm:px-10">
             <div className="flex items-start gap-4">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line-strong text-bronze">
-                <CalendarDays className="size-5" aria-hidden />
-              </span>
               <div>
                 <h3 className="font-display text-lg text-ink">What happens next?</h3>
                 <p className="mt-1 text-sm text-muted">
-                  Once you book, we&rsquo;ll confirm your consultation and send you all the details
+                  Once you book, we&rsquo;ll confirm your visit and send you all the details
                   via email.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-4 sm:border-l sm:border-line-strong sm:pl-10">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line-strong text-bronze">
-                <Headphones className="size-5" aria-hidden />
-              </span>
               <div>
                 <h3 className="font-display text-lg text-ink">Need help?</h3>
                 <p className="mt-1 text-sm text-muted">
@@ -522,29 +548,28 @@ export default function LetsTalkPage() {
       {/* ── Why consult ────────────────────────────────────────────────── */}
       <Section size="compact" className="pt-0">
         <Container>
-          <div className="relative overflow-hidden rounded-xl bg-ink px-6 py-10 text-canvas sm:px-10">
-            <Photo
-              src={IMAGES.gallerywall}
-              alt=""
-              className="absolute inset-0 opacity-15"
-              imgClassName="object-cover"
-            />
-            <div className="relative">
-              <h2 className="font-display text-2xl text-canvas">Why consult with ARTINU?</h2>
-              <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                {WHY.map((item, index) => (
-                  <div
-                    key={item.title}
-                    className={cn('lg:pl-8', index > 0 && 'lg:border-l lg:border-canvas/15')}
-                  >
-                    <span className="flex size-10 items-center justify-center rounded-full border border-canvas/25 text-bronze-light">
-                      <item.icon className="size-4" aria-hidden />
-                    </span>
-                    <h3 className="mt-4 text-sm font-medium text-canvas">{item.title}</h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-canvas/55">{item.body}</p>
-                  </div>
-                ))}
-              </div>
+          {/*
+            The photograph behind this panel is gone too. It sat at 15% opacity
+            under four columns of text — enough for a cup of coffee to be clearly
+            readable through the words without ever being looked at, which cost
+            the copy contrast and bought atmosphere nobody asked for. Ink on its
+            own is the quieter closing note, and the text now has the panel to
+            itself.
+
+            The dividers moved from `lg:border-l` to a rule above each column for
+            the same reason as the other four-column rows: a left border only
+            separates them at the large breakpoint, so on a tablet the four ran
+            together as one block.
+          */}
+          <div className="rounded-xl bg-ink px-6 py-10 text-canvas sm:px-10">
+            <h2 className="font-display text-2xl text-canvas">Why consult with ARTINU?</h2>
+            <div className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+              {WHY.map((item) => (
+                <div key={item.title} className="border-t border-canvas/20 pt-5">
+                  <h3 className="font-display text-lg text-canvas">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-canvas/60">{item.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </Container>
@@ -557,7 +582,7 @@ export default function LetsTalkPage() {
 
 function ContactBlock() {
   const whatsapp = `https://wa.me/${CONTACT.phoneRaw}?text=${encodeURIComponent(
-    "Hi ARTINU — I'd like to book a consultation for my space.",
+    "Hi ARTINU - I'd like to book a wall visit for my space.",
   )}`;
 
   return (
@@ -565,7 +590,7 @@ function ContactBlock() {
       <Container>
         <div className="grid gap-8 rounded-xl border border-line bg-surface p-8 sm:grid-cols-3 sm:p-10">
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Talk to us
             </h3>
             <a
@@ -584,14 +609,14 @@ function ContactBlock() {
               href={whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
             >
               <MessageCircle className="size-3.5 text-bronze" aria-hidden /> Chat on WhatsApp
             </a>
           </div>
 
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">Studio</h3>
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">Studio</h3>
             <p className="mt-4 flex items-start gap-2.5 text-sm leading-relaxed text-muted">
               <MapPin className="mt-0.5 size-4 shrink-0 text-bronze" aria-hidden />
               <span>
@@ -606,7 +631,7 @@ function ContactBlock() {
           </div>
 
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Working hours
             </h3>
             <dl className="mt-4 space-y-2 text-sm">
@@ -633,12 +658,12 @@ function BookingConfirmation({ booking }: { booking: ConsultationInput }) {
             <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-bronze-soft text-bronze">
               <Check className="size-7" strokeWidth={1.6} aria-hidden />
             </span>
-            <p className="eyebrow mt-6">Consultation booked</p>
+            <p className="eyebrow mt-6">Wall visit booked</p>
             <h1 className="mt-4 font-display text-[2rem] leading-tight text-ink sm:text-[2.5rem]">
               We&rsquo;ll see you then.
             </h1>
             <p className="prose-quiet mx-auto mt-4">
-              Thanks, {booking.name.split(' ')[0]}. Your consultation is booked for{' '}
+              Thanks, {booking.name.split(' ')[0]}. Your visit is booked for{' '}
               <strong className="text-ink">{booking.preferredDate}</strong> at{' '}
               <strong className="text-ink">{booking.preferredSlot}</strong>,{' '}
               {booking.mode === 'video' ? 'over a video call' : 'at your space'}.
@@ -647,7 +672,7 @@ function BookingConfirmation({ booking }: { booking: ConsultationInput }) {
             <div className="mx-auto mt-8 max-w-md rounded-lg border border-line bg-canvas-soft p-5 text-left">
               <h2 className="text-sm font-medium text-ink">What happens next</h2>
               <ol className="mt-3 space-y-2 text-sm text-muted">
-                <li>1. We confirm the slot by email — check {booking.email}.</li>
+                <li>1. We confirm the slot by email - check {booking.email}.</li>
                 <li>2. A curator reviews your space details before the call.</li>
                 <li>3. We bring a first collection idea to the conversation.</li>
               </ol>

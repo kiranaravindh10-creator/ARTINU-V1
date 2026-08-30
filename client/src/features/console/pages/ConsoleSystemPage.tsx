@@ -17,7 +17,7 @@ const DRIVER_NOTES: Record<string, string> = {
   memory: 'Seeded in-process store. No external database is configured.',
   supabase: 'Supabase PostgreSQL.',
   local: 'Files are written to disk and served from /uploads.',
-  console: 'No mail provider configured — emails are printed to the server log.',
+  console: 'No mail provider configured - emails are printed to the server log.',
   smtp: 'Delivering through the configured SMTP relay.',
   sendgrid: 'Delivering through SendGrid.',
   mock_qr: 'Dynamic UPI QR codes. No gateway is connected.',
@@ -57,7 +57,7 @@ export default function ConsoleSystemPage() {
         actions={
           <div className="flex items-center gap-3">
             <span className="text-xs text-subtle">
-              Updated {dataUpdatedAt ? formatDateTime(new Date(dataUpdatedAt)) : '—'}
+              Updated {dataUpdatedAt ? formatDateTime(new Date(dataUpdatedAt)) : '-'}
             </span>
             <Button variant="outline" size="sm" loading={isFetching} onClick={() => void refetch()}>
               <RefreshCw /> Refresh
@@ -78,7 +78,7 @@ export default function ConsoleSystemPage() {
         <div>
           <p className="text-sm font-medium text-success">API is up</p>
           <p className="text-xs text-success/80">
-            Uptime {formatUptime(data?.uptime ?? 0)} · Node {data?.node ?? '—'}
+            Uptime {formatUptime(data?.uptime ?? 0)} · Node {data?.node ?? '-'}
           </p>
         </div>
       </div>
@@ -105,8 +105,8 @@ export default function ConsoleSystemPage() {
           </CardHeader>
           <CardContent>
             <p className="mb-4 text-xs text-muted">
-              A driver whose credentials are missing falls back automatically — memory store, local
-              disk, console email — so the environment is never a mystery.
+              A driver whose credentials are missing falls back automatically - memory store, local
+              disk, console email - so the environment is never a mystery.
             </p>
             <dl className="space-y-3">
               {Object.entries(data?.drivers ?? {}).map(([name, value]) => (
@@ -122,34 +122,64 @@ export default function ConsoleSystemPage() {
           </CardContent>
         </Card>
 
+        {/*
+          THIS CARD IS THE ONE SOMEBODY ASKED ABOUT.
+
+          It read: "Memory / Heap 84 MB / 128 MB", "Resident set size", "Process
+          started", "Mounted API modules". Every one of those is a correct
+          engineering term and none of them tells the person looking at the
+          screen whether anything is wrong, which is the only question they have.
+          The founder's exact words in review were "what is this, I seriously
+          don't know what is this".
+
+          Same numbers, said in words, with the consequence attached. Nobody
+          should have to ask what a panel means twice.
+        */}
         <Card>
           <CardHeader>
-            <CardTitle>Memory</CardTitle>
+            <CardTitle>Server health</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="mb-4 text-xs leading-relaxed text-muted">
+              How hard the API is working right now. If the bar below fills up, the server runs out
+              of room and restarts itself - which is what "the site went down for a minute" usually
+              turns out to be.
+            </p>
+
             <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted">Heap</span>
+              <span className="text-muted">Memory in use</span>
               <span className="tabular-nums text-ink">
                 {formatBytes(data?.memory.heapUsed ?? 0)} / {formatBytes(data?.memory.heapTotal ?? 0)}
               </span>
             </div>
             <Progress value={heapPercent} className="mt-2" />
+            <p className="mt-2 text-xs text-subtle">
+              {heapPercent >= 90
+                ? 'Nearly full. The API is likely to restart soon.'
+                : heapPercent >= 70
+                  ? 'Getting full. Worth watching.'
+                  : 'Plenty of room.'}
+            </p>
 
             <dl className="mt-5 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted">Resident set size</dt>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Total memory held</dt>
                 <dd className="tabular-nums text-ink">{formatBytes(data?.memory.rss ?? 0)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-muted">Process started</dt>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">API last restarted</dt>
                 <dd className="text-ink">
-                  {data?.startedAt ? formatDateTime(data.startedAt) : '—'}
+                  {data?.startedAt ? formatDateTime(data.startedAt) : '-'}
                 </dd>
               </div>
             </dl>
+            <p className="mt-2 text-xs text-subtle">
+              On the free hosting plan the API sleeps when nobody uses it and restarts on the next
+              visit, so a recent restart time is normal rather than a fault.
+            </p>
 
-            <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
-              Mounted API modules
+            <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              Parts of the API that are running
             </h3>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {(data?.routes ?? []).map((route) => (
@@ -347,7 +377,7 @@ function OperationalHealth() {
   if (isError) {
     return (
       <div className="mb-6 rounded-lg border border-warning/40 bg-warning-soft px-5 py-4 text-sm text-warning">
-        Operational metrics are unavailable — the operations tables may not be migrated yet
+        Operational metrics are unavailable - the operations tables may not be migrated yet
         (database/migrations/004_operations.sql).
       </div>
     );
@@ -386,7 +416,7 @@ function OperationalHealth() {
               </p>
               {mail.reservedForCriticalOnly && (
                 <p className="mt-2 text-xs text-warning">
-                  Only sign-in codes and password resets are being sent — the rest is held back.
+                  Only sign-in codes and password resets are being sent - the rest is held back.
                 </p>
               )}
             </>

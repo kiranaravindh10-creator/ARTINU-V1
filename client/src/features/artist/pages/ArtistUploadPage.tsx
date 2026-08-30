@@ -8,13 +8,67 @@ import { PanelHeader } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/button';
 import { CharCount, Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { errorMessage } from '@/lib/api';
 import { catalogService } from '@/services/catalog.service';
-import { fileToBase64, formatBytes, readImageSize } from '@/lib/utils';
+import { fileToImageDataUrl, formatBytes, isHeicFile, readImageSizeOrZero } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-const MAX_PHOTOS = 4;
+/**
+ * How many photographs can go up in one batch.
+ *
+ * Raised from 4 to 50. Nothing else about an upload changed - same formats,
+ * same 25 MB per file, same quality, same pipeline. Only how many may be
+ * queued at once.
+ */
+const MAX_PHOTOS = 50;
+
+/**
+ * How many of those upload at the SAME TIME.
+ *
+ * The batch used to be handed straight to `Promise.allSettled(photos.map(…))`,
+ * which starts every request at once. At four files that is harmless. At fifty,
+ * each up to 25 MB, it is well over a gigabyte in flight: the browser caps
+ * itself at around six connections per host so the rest queue anyway, but they
+ * queue holding their full base64 payload in memory, and on a phone connection
+ * the early requests time out before the late ones ever start.
+ *
+ * Four at a time keeps the pipe busy without any of that. A fifty-photograph
+ * batch simply takes longer, which is honest, rather than failing halfway.
+ */
+const UPLOAD_CONCURRENCY = 4;
+
+/**
+ * Run `task` over `items`, at most `limit` at once, settling every one.
+ *
+ * Mirrors `Promise.allSettled` - same result shape, same order, one entry per
+ * input, never rejects - so the reporting below it did not have to change.
+ */
+async function settleWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = { status: 'fulfilled', value: await task(items[index]) };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
 const MAX_TAGS = 10;
 
 interface Picked {
@@ -65,12 +119,11 @@ export default function ArtistUploadPage() {
      * `allSettled` reports what actually happened to each file.
      */
     mutationFn: async (photos: Picked[]): Promise<UploadOutcome[]> => {
-      const settled = await Promise.allSettled(
-        photos.map(async (photo) => {
+      const settled = await settleWithLimit(photos, UPLOAD_CONCURRENCY, async (photo) => {
           const input: ArtworkUploadInput = {
             title: photo.title.trim(),
             description: null,
-            story: photo.story.trim() || null,
+            story: photo.story.trim(),
             category: 'street',
             mood: [],
             colors: [],
@@ -79,13 +132,12 @@ export default function ArtistUploadPage() {
             capturedAt: photo.capturedAt || null,
             imageBase64: photo.dataUrl,
           };
-          return catalogService.upload({
-            ...input,
-            width: photo.width,
-            height: photo.height,
-          });
-        }),
-      );
+        return catalogService.upload({
+          ...input,
+          width: photo.width,
+          height: photo.height,
+        });
+      });
 
       return settled.map((outcome, index) =>
         outcome.status === 'fulfilled'
@@ -107,7 +159,7 @@ export default function ArtistUploadPage() {
         toast.error(
           failed === outcomes.length
             ? 'None of your photographs could be published.'
-            : `${failed} of ${outcomes.length} photographs could not be published — the rest are live.`,
+            : `${failed} of ${outcomes.length} photographs could not be published - the rest are live.`,
         );
       }
     },
@@ -123,7 +175,7 @@ export default function ArtistUploadPage() {
     const room = MAX_PHOTOS - picked.length;
     const accepted = incoming.slice(0, room);
     if (incoming.length > room) {
-      toast.warning(`You can upload up to ${MAX_PHOTOS} photographs at a time — the extra ones were skipped.`);
+      toast.warning(`You can upload up to ${MAX_PHOTOS} photographs at a time - the extra ones were skipped.`);
     }
 
     for (const file of accepted) {
@@ -132,16 +184,41 @@ export default function ArtistUploadPage() {
       // five — AVIF is included now, and was previously rejected by the browser
       // before the server ever got a say. There is no dimension floor: a phone
       // screenshot uploads the same as a 50-megapixel export.
-      if (!/^image\/(jpeg|jpg|png|webp|avif)$/.test(file.type)) {
-        toast.error(`${file.name} is not a JPG, PNG, WebP or AVIF image — skipped.`);
+      /*
+        HEIC IS ACCEPTED NOW.
+
+        It is what an iPhone shoots by default, and it used to be turned away
+        here with "export it as a JPG and add that instead" - a chore standing
+        between a photographer and uploading, on a product whose biggest problem
+        is that people sign up and never upload. The server converts it to a
+        full-resolution JPEG on arrival.
+
+        `isHeicFile` checks the extension as well as the type because the OS
+        picker frequently hands over a .heic with an empty `file.type`, which no
+        MIME pattern would ever match.
+      */
+      const acceptable =
+        /^image\/(jpeg|jpg|png|webp|avif|gif|heic|heif)$/i.test(file.type) || isHeicFile(file);
+
+      if (!acceptable) {
+        const probe = `${file.type} ${file.name}`;
+        const guidance = /\.(tiff?|psd|cr2|cr3|nef|arw|dng|raf|orf|rw2)$/i.test(probe)
+          ? 'That is a camera raw or layered file, which browsers cannot display. Export it as a JPG and add that instead.'
+          : 'Add a JPG, PNG, HEIC, WebP, AVIF or GIF.';
+        toast.error(`${file.name} was skipped. ${guidance}`);
         continue;
       }
       if (file.size > 25 * 1024 * 1024) {
-        toast.error(`${file.name} is ${formatBytes(file.size)} — the limit is 25 MB.`);
+        toast.error(`${file.name} is ${formatBytes(file.size)} - the limit is 25 MB.`);
         continue;
       }
-      const dataUrl = await fileToBase64(file);
-      const { width, height } = await readImageSize(dataUrl);
+      const dataUrl = await fileToImageDataUrl(file);
+      /*
+        Zeroes are fine for a HEIC: no browser but Safari can decode one, so the
+        preview below shows a placeholder and these numbers stay empty until the
+        server reads the real ones out of the converted JPEG.
+      */
+      const { width, height } = await readImageSizeOrZero(dataUrl);
       setPicked((current) => [
         ...current,
         {
@@ -187,16 +264,28 @@ export default function ArtistUploadPage() {
   };
 
   const validate = (): boolean => {
-    const next: Record<string, { title?: string; location?: string }> = {};
+    const next: Record<string, { title?: string; location?: string; story?: string }> = {};
     let valid = true;
     for (const photo of picked) {
-      const entry: { title?: string; location?: string } = {};
+      const entry: { title?: string; location?: string; story?: string } = {};
       if (photo.title.trim().length < 2) {
         entry.title = 'Give this photograph a title';
         valid = false;
       }
       if (photo.location.trim().length < 2) {
         entry.location = 'Enter the location where this was photographed';
+        valid = false;
+      }
+      /*
+        The story is required, and it is checked here as well as on the server.
+
+        Not belt-and-braces: the server rejects the whole batch, so without this
+        an artist who left one story blank in a batch of fifty would upload
+        forty-nine, get a single failure back, and have to work out which one.
+        Catching it before anything is sent points at the photograph.
+      */
+      if (photo.story.trim().length < 20) {
+        entry.story = 'Tell us what this photograph is about';
         valid = false;
       }
       if (entry.title || entry.location) next[photo.id] = entry;
@@ -226,7 +315,7 @@ export default function ArtistUploadPage() {
           title={allFailed ? 'Nothing was published' : failed.length > 0 ? 'Partly published' : 'Published'}
           description={
             allFailed
-              ? 'None of your photographs could be published. Nothing was lost — you can try again below.'
+              ? 'None of your photographs could be published. Nothing was lost - you can try again below.'
               : failed.length > 0
                 ? `${published.length} of ${results.length} photographs are live. The rest are listed below with what went wrong.`
                 : published.length === 1
@@ -278,7 +367,7 @@ export default function ArtistUploadPage() {
               {failed.map((outcome, index) => (
                 <li key={`${outcome.name}-${index}`} className="text-sm">
                   <span className="font-medium text-ink">{outcome.name}</span>
-                  <span className="text-muted"> — {outcome.reason}</span>
+                  <span className="text-muted"> - {outcome.reason}</span>
                 </li>
               ))}
             </ul>
@@ -303,7 +392,7 @@ export default function ArtistUploadPage() {
     <div>
       <PanelHeader
         title="Upload work"
-        description={`Add up to ${MAX_PHOTOS} photographs at a time — one at a time or all together.`}
+        description={`Add up to ${MAX_PHOTOS} photographs at a time - one at a time or all together.`}
       />
 
       <div className="mb-6 flex gap-3 rounded-lg border border-line bg-surface p-5">
@@ -312,7 +401,7 @@ export default function ArtistUploadPage() {
           <p className="font-medium text-ink">What we look for</p>
           <p className="mt-1 leading-relaxed">
             Work you shot yourself, with honest metadata. We don&rsquo;t publish
-            AI-generated imagery. You keep your copyright — ARTINU only licenses the right to print,
+            AI-generated imagery. You keep your copyright - ARTINU only licenses the right to print,
             frame and display your photograph in subscribing spaces. Every photograph needs a title
             and a location.
           </p>
@@ -383,9 +472,9 @@ export default function ArtistUploadPage() {
                 </button>
               </p>
               <p className="mt-3 text-xs text-subtle">
-                JPG, PNG or WebP · up to 25 MB each · up to {MAX_PHOTOS} at a time
+                JPG, PNG, WebP, AVIF or GIF · up to 25 MB each · up to {MAX_PHOTOS} at a time
                 <br />
-                Any size and resolution — we accept whatever you shoot
+                Any size and resolution - we accept whatever you shoot
               </p>
             </div>
           )}
@@ -393,7 +482,20 @@ export default function ArtistUploadPage() {
           <input
             ref={fileInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            /*
+              This was "image/jpeg,image/png,image/webp" while addFiles below
+              accepted AVIF and the server accepted AVIF and GIF too. The comment
+              in addFiles says AVIF "was previously rejected by the browser
+              before the server ever got a say" — that fix was applied there and
+              never here, so the OS file dialog went on greying AVIF out.
+
+              That is the "upload button does nothing sometimes": with an AVIF or
+              GIF selected the dialog would not let it be picked, so nothing was
+              chosen, no handler ran and no message appeared. Dragging the same
+              file onto the drop zone worked, because a drop never consults
+              `accept` — which is exactly why it failed only sometimes.
+            */
+            accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/heic,image/heif,.heic,.heif"
             multiple
             className="sr-only"
             onChange={(event) => {
@@ -416,7 +518,7 @@ export default function ArtistUploadPage() {
           disabled={picked.length === 0}
           onClick={() => {
             if (!validate()) {
-              toast.error('Every photograph needs a title and a location.');
+              toast.error('Every photograph needs a title, a location and its story.');
               return;
             }
             uploadAll.mutate(picked);
@@ -437,7 +539,7 @@ function PhotoCard({
   onAddTag,
 }: {
   photo: Picked;
-  errors?: { title?: string; location?: string };
+  errors?: { title?: string; location?: string; story?: string };
   onChange: (patch: Partial<Picked>) => void;
   onRemove: () => void;
   onAddTag: (raw: string) => void;
@@ -500,11 +602,11 @@ function PhotoCard({
             required
             error={errors?.location}
           >
-            <Input
+            <LocationInput
               id={`location-${photo.id}`}
               value={photo.location}
-              onChange={(event) => onChange({ location: event.target.value })}
-              placeholder="City or area where this was photographed"
+              onChange={(location) => onChange({ location })}
+              placeholder="Where this was photographed"
               invalid={!!errors?.location}
             />
           </Field>
@@ -520,16 +622,18 @@ function PhotoCard({
             </Field>
 
             <Field
-              label="The story behind it"
+              label="What is this photograph about?"
               htmlFor={`story-${photo.id}`}
+              required
+              error={errors?.story}
               aside={<CharCount value={photo.story} max={1500} />}
             >
               <Textarea
                 id={`story-${photo.id}`}
-                rows={2}
+                rows={3}
                 value={photo.story}
                 onChange={(event) => onChange({ story: event.target.value })}
-                placeholder="Optional — where you were, why it matters."
+                placeholder="Where you were, what was happening, why you took it."
               />
             </Field>
           </div>
@@ -543,7 +647,7 @@ function PhotoCard({
                 Tags / hashtags
                 <span className="ml-1 text-subtle">(up to {MAX_TAGS})</span>
               </label>
-              <span className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
+              <span className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
                 {photo.tags.length}/{MAX_TAGS}
               </span>
             </div>
@@ -598,7 +702,7 @@ function PhotoCard({
                     key={suggestion}
                     type="button"
                     onClick={() => onAddTag(suggestion)}
-                    className="rounded-full border border-line px-2.5 py-1 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-subtle transition-colors hover:border-bronze hover:text-bronze-deep"
+                    className="rounded-full border border-line px-2.5 py-1 font-label text-[0.625rem] uppercase tracking-[0.08em] text-subtle transition-colors hover:border-bronze hover:text-bronze-deep"
                   >
                     #{suggestion}
                   </button>
@@ -625,7 +729,7 @@ function UploadingProgress({ count, done }: { count: number; done: number }) {
 
   return (
     <div className="mt-5 rounded-md border border-line bg-canvas-soft p-4">
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+      <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
         Publishing your photographs
       </p>
       <p className="mt-2 flex items-center gap-2 text-sm text-ink">

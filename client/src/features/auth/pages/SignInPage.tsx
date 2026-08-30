@@ -122,6 +122,11 @@ export default function SignInPage() {
                     Register as ArtPhiles
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/register/space" className="cursor-pointer">
+                    Register a Space
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

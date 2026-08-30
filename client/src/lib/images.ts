@@ -56,6 +56,34 @@ export const IMAGES = {
   cameraLenses: unsplash('1516035069371-29a1b244cc32', 1400),
   lensCloseUp: unsplash('1512790182412-b19e6d62bc39', 1400),
   cameraOnTable: unsplash('1495707902641-75cac588d2e9', 1400),
+  /*
+    ── ARTINU's own photographs, not stock ───────────────────────────────────
+
+    The three below replace Unsplash stock in the two page heroes. They are
+    deliberately NOT swapped in over `cafeInterior` and friends, because those
+    keys feed SPACE_TYPE_IMAGES, which the homepage renders - and the homepage
+    is not to be touched. New keys, pointed at from the two pages that needed
+    them, leaves it exactly as it was.
+
+    photographersHero  A photographer shooting a Bengaluru street ON A PHONE.
+                       The stock shot it replaces was a vintage film camera and
+                       polaroids arranged on a map, which says "photography is
+                       an expensive hobby for people with old cameras" - the
+                       opposite of the point, which is that anyone with a phone
+                       can upload.
+
+    spacesHero         A café with a real ARTINU print on the wall: frame,
+                       credit plate, photographer's name, QR. The stock café
+                       interior it replaces showed a café with no ARTINU in it
+                       at all, on the page selling ARTINU to cafés.
+
+    spacesLifestyle    Four people reading that plate and pointing at the QR.
+                       This is the entire proposition in one frame - the work
+                       gets seen, and the photographer gets found.
+  */
+  photographersHero: '/image/photographers-bg.jpg',
+  spacesHero: '/image/spaces-bg.jpg',
+  spacesLifestyle: '/image/spaces-lifestyle.jpg',
   camerasAndPrints: unsplash('1452587925148-ce544e77e70d', 1400),
   forest: unsplash('1441974231531-c6227db76b6e', 1600),
   portrait: unsplash('1507003211169-0a1dd7228f2d', 1400),

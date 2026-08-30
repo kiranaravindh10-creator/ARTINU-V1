@@ -79,7 +79,7 @@ export async function ensureRotationStarted(
       userId: space.ownerId,
       type: 'system',
       title: 'Your rotation has started',
-      body: `Your collection is up at ${space.name}. We will curate a fresh selection every ${months} ${months === 1 ? 'month' : 'months'} — you approve it before anything changes.`,
+      body: `Your collection is up at ${space.name}. We will curate a fresh selection every ${months} ${months === 1 ? 'month' : 'months'} - you approve it before anything changes.`,
       link: '/space/rotation',
     });
   }

@@ -1,0 +1,36 @@
+-- ============================================================================
+-- ARTINU — let a space owner move a rotation by a day or two
+--
+-- One additive, nullable column.
+--
+--   rotations.rescheduled_from — where due_at sat before the owner first moved
+--                                it. Null on every rotation that has never been
+--                                moved, which is all of them today.
+--
+-- ── Why the column is needed at all ────────────────────────────────────────
+--
+-- The rule is "at most two days either side". The obvious implementation checks
+-- the requested date against the CURRENT due_at, and it is wrong: five taps of
+-- "+2 days" walks a rotation a fortnight down the calendar, two days at a time,
+-- with every single request passing validation.
+--
+-- So the bound is measured from the date the cycle was originally due.
+-- `rescheduled_from` is stamped on the first move and never overwritten, and
+-- every later move is checked against it.
+--
+-- It is also the only record of what the date was supposed to be, which is what
+-- operations needs when a print run and a route have already been planned
+-- around the original.
+--
+-- ── Running it ─────────────────────────────────────────────────────────────
+--
+--   Supabase Dashboard → SQL Editor → paste → Run
+--   (or: psql "$SUPABASE_DB_URL" -f database/migrations/011_rotation_reschedule.sql)
+--
+-- No backfill. A null means "never moved", which is exactly true of every
+-- existing row, and the application reads it that way.
+--
+-- Safe to re-run.
+-- ============================================================================
+
+alter table rotations add column if not exists rescheduled_from timestamptz;

@@ -14,7 +14,7 @@ export default function NotFoundPage() {
             </h1>
             <p className="prose-quiet mt-5">
               Like the work on our walls, some things rotate. The page you were looking for
-              isn&rsquo;t here any more — but there is plenty else worth seeing.
+              isn&rsquo;t here any more - but there is plenty else worth seeing.
             </p>
 
             <div className="mt-9 flex flex-col gap-4 sm:flex-row sm:gap-8">

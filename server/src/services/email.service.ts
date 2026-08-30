@@ -153,7 +153,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
   // send rather than reconciled afterwards.
   const allowance = await canSend(message.priority ?? 'normal');
   if (!allowance.allowed) {
-    logger.warn(`Held back "${message.subject}" to ${message.to} — ${allowance.reason}`);
+    logger.warn(`Held back "${message.subject}" to ${message.to} - ${allowance.reason}`);
     recordMail(message, html, false);
     return { delivered: false, skippedReason: allowance.reason };
   }
@@ -171,7 +171,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
     // an unverified sender or a revoked key has to be diagnosable from the log,
     // and must never surface to the visitor who merely signed up.
     logger.error(
-      `Could not send "${message.subject}" to ${message.to} via ${env.MAIL_PROVIDER} — ` +
+      `Could not send "${message.subject}" to ${message.to} via ${env.MAIL_PROVIDER} - ` +
         describeSendgridError(error),
     );
     return finish(false);
@@ -204,7 +204,7 @@ export function sendWelcomeEmail(
     role === 'artist'
       ? 'Next, upload your photographs from your studio. Our curation team reviews new work by hand, and we will let you know either way.'
       : role === 'space_owner'
-        ? 'Next, complete your space details — the walls, the light, the room — so we can curate a collection that actually fits it.'
+        ? 'Next, complete your space details - the walls, the light, the room - so we can curate a collection that actually fits it.'
         : "We'll keep you updated on the next steps.";
 
   return sendMail({
@@ -244,6 +244,51 @@ export function sendVerificationEmail(to: string, name: string, token: string): 
   });
 }
 
+/**
+ * "You asked to reset a password, but there is no account on this address."
+ *
+ * ── Why this exists ────────────────────────────────────────────────────────
+ *
+ * /auth/forgot-password answers `{ sent: true }` whether or not the address is
+ * registered. That is correct and it is not negotiable: replying differently
+ * turns the endpoint into a tool for discovering who has an ARTINU account.
+ *
+ * But it produced a genuinely broken experience. Type an address you never
+ * registered with - a typo, a work address instead of a personal one, the
+ * gmail you have three of - and the page says "check your inbox" and NOTHING
+ * EVER ARRIVES. No error, no explanation, no way to work out what went wrong.
+ * The founder hit exactly this and lost an afternoon to it; a customer would
+ * simply leave.
+ *
+ * So every request now produces an email. A registered address gets a reset
+ * link; an unregistered one gets this. The HTTP response is byte-identical in
+ * both cases, so nothing is leaked to someone probing the endpoint - the
+ * information goes only to whoever actually controls the mailbox, which is the
+ * one person entitled to it.
+ *
+ * This is what mature products do, and it is the difference between "the email
+ * system is broken" and "you used the wrong address".
+ */
+export function sendNoAccountEmail(to: string): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: 'Reset your ARTINU password',
+    heading: 'There is no ARTINU account on this address',
+    body:
+      `Someone - probably you - asked to reset the password for an ARTINU account on this email address, ` +
+      `but there is no account registered to it.\n\n` +
+      `If you have an ARTINU account, it is most likely on a different address. People usually find it on ` +
+      `the address they were emailed from when they first signed up.\n\n` +
+      `If you do not have one yet, you can create one - photographers and space owners both start here.`,
+    cta: { label: 'Create an account', url: appUrl('/signin') },
+    footnote:
+      'If you did not ask for this, you can ignore this email - nobody has access to anything, and no account exists here.',
+    // Same priority as the reset itself: this IS the answer to an authentication
+    // request, and it is the only thing that stops the silence.
+    priority: 'critical',
+  });
+}
+
 export function sendPasswordResetEmail(
   to: string,
   name: string,
@@ -258,7 +303,7 @@ export function sendPasswordResetEmail(
       label: 'Set a new password',
       url: appUrl(`/reset-password?token=${encodeURIComponent(token)}`),
     },
-    footnote: 'If you did not ask for this, nothing has changed — you can ignore this email.',
+    footnote: 'If you did not ask for this, nothing has changed - you can ignore this email.',
     priority: 'critical',
   });
 }
@@ -280,7 +325,7 @@ export function sendOrderConfirmation(to: string, name: string, order: Order): P
     to,
     subject: `Order ${order.reference} received`,
     heading: 'Your collection is reserved',
-    body: `Hello ${firstName(name)},\n\nWe have your order ${order.reference} — ${frameCount(order)} for ${formatCurrency(order.pricing.total)}. It is held for you until payment is confirmed.`,
+    body: `Hello ${firstName(name)},\n\nWe have your order ${order.reference} - ${frameCount(order)} for ${formatCurrency(order.pricing.total)}. It is held for you until payment is confirmed.`,
     cta: { label: 'Complete payment', url: appUrl(`/space/orders/${order.id}`) },
     footnote: `Placed ${formatDateTime(order.placedAt)}.`,
   });
@@ -289,9 +334,9 @@ export function sendOrderConfirmation(to: string, name: string, order: Order): P
 export function sendPaymentConfirmation(to: string, name: string, order: Order): Promise<MailResult> {
   return sendMail({
     to,
-    subject: `Payment received — ${order.reference}`,
+    subject: `Payment received - ${order.reference}`,
     heading: 'Payment confirmed',
-    body: `Hello ${firstName(name)},\n\nWe have received ${formatCurrency(order.pricing.total)} for order ${order.reference}. Printing begins now, and your GST invoice is available in your account.`,
+    body: `Hello ${firstName(name)},\n\nWe have received ${formatCurrency(order.pricing.total)} for order ${order.reference}. Printing begins now, and your invoice is available in your account.`,
     cta: { label: 'Track this order', url: appUrl(`/space/orders/${order.id}`) },
     footnote: `Current status: ${ORDER_STATUS_LABELS[order.status] ?? order.status}.`,
   });
@@ -305,7 +350,7 @@ export function sendInstallationUpdate(
 ): Promise<MailResult> {
   return sendMail({
     to,
-    subject: `Installation scheduled — ${order.reference}`,
+    subject: `Installation scheduled - ${order.reference}`,
     heading: 'Your installation is booked',
     body: `Hello ${firstName(name)},\n\nOur crew will hang the ${frameCount(order)} from order ${order.reference} on ${formatDateTime(scheduledFor)}. Allow about ninety minutes on site, and let us know if the walls need clearing first.`,
     cta: { label: 'View the schedule', url: appUrl(`/space/orders/${order.id}`) },
@@ -313,27 +358,114 @@ export function sendInstallationUpdate(
   });
 }
 
+/**
+ * One photograph of an artist's, and where it went.
+ *
+ * The Photo ID travels with it because that is the only identifier that ties
+ * an email in a photographer's inbox to a specific print on a specific wall.
+ * A title is not unique and a filename is not shown to anyone.
+ */
+export interface ArtistPlacement {
+  title: string;
+  photoId?: string | null;
+}
+
+/** "“Kabini Dusk” (KRV021)" — the ID only when the artwork actually has one. */
+function describePlacement(placement: ArtistPlacement): string {
+  return placement.photoId
+    ? `“${placement.title}” (${placement.photoId})`
+    : `“${placement.title}”`;
+}
+
+/**
+ * Where the work went, written for the photographer.
+ *
+ * A business is named, because going to see your photograph on the wall of a
+ * café is the entire point. A HOME is not: the address of somebody's living
+ * room is not ours to hand out, so a home placement says the city and nothing
+ * that could identify the household.
+ */
+function describeVenue(spaceName: string, spaceCity: string, isHome: boolean): string {
+  if (isHome) return spaceCity ? `a home in ${spaceCity}` : 'a home';
+  return spaceCity ? `${spaceName} in ${spaceCity}` : spaceName;
+}
+
+/**
+ * The photographer is told their work has been chosen.
+ *
+ * ── What this email must not say ────────────────────────────────────────────
+ *
+ * It used to end "your licence fee is added to your next payout". ARTINU does
+ * not pay photographers - there is no fee, no share and no payout - so that
+ * sentence was a promise of money to a real person who was never going to
+ * receive any. What they get is the thing they actually signed up for: their
+ * photograph on a real wall, the ID to identify the print, and somewhere to go
+ * and see it.
+ */
 export function sendArtistSelectedEmail(
   to: string,
   name: string,
-  artworkTitle: string,
+  placements: ArtistPlacement[],
   spaceName: string,
+  spaceCity: string,
+  isHome = false,
+): Promise<MailResult> {
+  const listed = placements.map(describePlacement).join(', ');
+  const venue = describeVenue(spaceName, spaceCity, isHome);
+  const one = placements.length === 1;
+
+  return sendMail({
+    to,
+    subject: one
+      ? `${describePlacement(placements[0])} is going up at ${isHome ? 'a home' : spaceName}`
+      : `${placements.length} of your photographs are going up`,
+    heading: 'Your work has been chosen.',
+    body: `Hello ${firstName(name)},
+
+${listed} ${one ? 'has' : 'have'} been chosen for ${venue}. We print ${one ? 'it' : 'them'}, frame ${one ? 'it' : 'them'} and put ${one ? 'it' : 'them'} on the wall - there is nothing you need to do.
+
+Keep the Photo ID above: it is printed on the plate beside your work, so you can identify your own print if you visit.`,
+    cta: { label: 'See where your work is hanging', url: appUrl('/studio/installations') },
+  });
+}
+
+/**
+ * A photograph has been taken down by ARTINU, and why.
+ *
+ * The reason is REQUIRED by the endpoint that sends this, and it is the whole
+ * point of the email. A photographer whose work disappears without explanation
+ * has no idea whether they broke a rule, whether it was a mistake, or whether
+ * to bother uploading again - and this is the only message they get about it.
+ *
+ * The Photo ID is included because a photographer with thirty uploads cannot
+ * otherwise tell which one went.
+ */
+export function sendArtworkRemoved(
+  to: string,
+  name: string,
+  title: string,
+  reason: string,
+  photoId?: string | null,
 ): Promise<MailResult> {
   return sendMail({
     to,
-    subject: `“${artworkTitle}” is going up at ${spaceName}`,
-    heading: 'Your work has been selected',
-    body: `Hello ${firstName(name)},\n\n“${artworkTitle}” has been chosen for ${spaceName}. We will print, frame and install it, and your licence fee is added to your next payout.`,
-    cta: { label: 'Open your studio', url: appUrl('/studio/installations') },
+    subject: photoId ? `“${title}” (${photoId}) has been removed` : `“${title}” has been removed`,
+    heading: 'A photograph has been taken down.',
+    body: `${firstName(name)}, we have removed ${photoId ? `“${title}” (${photoId})` : `“${title}”`} from the ARTINU gallery.
+
+Reason given: ${reason}
+
+It is no longer shown to spaces and cannot be selected for a wall. Any print already hanging is unaffected. If you think this was a mistake, reply to this email and a person will look at it.`,
+    cta: { label: 'Your portfolio', url: appUrl('/studio/portfolio') },
   });
 }
 
 export function sendUploadReceived(to: string, name: string, title: string): Promise<MailResult> {
   return sendMail({
     to,
-    subject: `We have your photograph — ${title}`,
+    subject: `We have your photograph - ${title}`,
     heading: 'Your upload is in review.',
-    body: `Thanks ${name} — “${title}” passed our automated checks and is now with the curation team. We review new work within a few days and you will hear either way.`,
+    body: `Thanks ${name} - “${title}” passed our automated checks and is now with the curation team. We review new work within a few days and you will hear either way.`,
     cta: { label: 'View your submissions', url: `${env.CLIENT_URL}/studio/submissions` },
   });
 }
@@ -350,7 +482,7 @@ export function sendModerationDecision(
         to,
         subject: `“${title}” is live on ARTINU`,
         heading: 'Your photograph is published.',
-        body: `Good news ${name} — “${title}” has been approved and is now in the gallery, where space owners can select it for their walls.${note ? `
+        body: `Good news ${name} - “${title}” has been approved and is now in the gallery, where space owners can select it for their walls.${note ? `
 ${note}` : ''}`,
         cta: { label: 'See it in the gallery', url: `${env.CLIENT_URL}/studio/portfolio` },
       })
@@ -362,7 +494,7 @@ ${note}` : ''}`,
 
 ${note ?? 'It is not a fit for the collection right now.'}
 
-This is not a judgement on your work as a whole — please do upload something else.`,
+This is not a judgement on your work as a whole - please do upload something else.`,
         cta: { label: 'Upload another photograph', url: `${env.CLIENT_URL}/studio/upload` },
       });
 }
@@ -371,39 +503,33 @@ This is not a judgement on your work as a whole — please do upload something e
 export function sendArtistInstallationUpdate(
   to: string,
   name: string,
-  artworkTitles: string,
+  placements: ArtistPlacement[],
   spaceName: string,
   spaceCity: string,
   scheduledFor: string,
+  isHome = false,
 ): Promise<MailResult> {
+  const listed = placements.map(describePlacement).join(', ');
+  const venue = describeVenue(spaceName, spaceCity, isHome);
+
   return sendMail({
     to,
-    subject: `Your work is going up at ${spaceName}`,
+    subject: `Your work is going up at ${isHome ? 'a home' : spaceName}`,
     heading: 'Installation is booked.',
-    body: `${name}, ${artworkTitles} will be installed at ${spaceName} in ${spaceCity} on ${formatDateTime(scheduledFor)}.
+    body: `${firstName(name)}, ${listed} will be installed at ${venue} on ${formatDateTime(scheduledFor)}.
 
-Our team handles the framing and the hanging — there is nothing you need to do. We will let you know once it is on the wall.`,
+Our team handles the framing and the hanging - there is nothing you need to do. We will let you know once it is on the wall.`,
     cta: { label: 'See your installations', url: `${env.CLIENT_URL}/studio/installations` },
   });
 }
 
-/** Requirements §11: commission details when a payout is released. */
-export function sendPayoutProcessed(
-  to: string,
-  name: string,
-  amount: number,
-  periodLabel: string,
-): Promise<MailResult> {
-  return sendMail({
-    to,
-    subject: `Your ${periodLabel} payout is on its way`,
-    heading: `${formatCurrency(amount)} has been sent.`,
-    body: `${name}, your earnings for ${periodLabel} have been released. This is your share of the licensing fee on every frame of your work that was ordered in that period.
+/*
+  sendPayoutProcessed is gone.
 
-Bank transfers usually settle within two to three working days.`,
-    cta: { label: 'See the breakdown', url: `${env.CLIENT_URL}/studio/payouts` },
-  });
-}
+  It told a photographer an amount had been released to them. No amount is ever
+  released - ARTINU does not pay photographers - so the only thing this could
+  ever have sent was a false statement about money.
+*/
 
 /** Sent to internal staff so a new order or a failure is not only in-app. */
 export function sendStaffAlert(
@@ -435,16 +561,16 @@ export function sendConsultationReceived(
 ): Promise<MailResult> {
   return sendMail({
     to,
-    subject: 'We have your consultation request — ARTINU',
+    subject: 'We have your consultation request - ARTINU',
     heading: "We'll get back to you within 24 hours.",
     body:
       `Hello ${firstName(name)},\n\n` +
       `Thank you for telling us about your space. One of our curators will confirm your ` +
       `consultation within 24 hours.\n\n` +
       `Here is what we have:\n` +
-      `Space — ${details.spaceType} in ${details.location}\n` +
-      `Preferred time — ${details.preferredDate} at ${details.preferredSlot}\n` +
-      `Format — ${details.mode === 'video' ? 'Video call' : 'Visit to your space'}\n\n` +
+      `Space - ${details.spaceType} in ${details.location}\n` +
+      `Preferred time - ${details.preferredDate} at ${details.preferredSlot}\n` +
+      `Format - ${details.mode === 'video' ? 'Video call' : 'Visit to your space'}\n\n` +
       `The consultation takes about forty minutes. We look at your walls, your light through ` +
       `the day and how people move through the room, then come back with a proposal. ` +
       `There is nothing to sign.`,
@@ -458,7 +584,7 @@ export function sendApplicationReceived(to: string, name: string): Promise<MailR
     to,
     subject: 'We have your application',
     heading: 'Thank you for applying',
-    body: `Hello ${firstName(name)},\n\nYour portfolio is with our curation team. We review every application by hand, which takes about five working days — you will hear from us either way.`,
+    body: `Hello ${firstName(name)},\n\nYour portfolio is with our curation team. We review every application by hand, which takes about five working days - you will hear from us either way.`,
     cta: { label: 'See the galleries', url: appUrl('/gallery') },
   });
 }
@@ -553,12 +679,45 @@ function logToConsole(message: MailMessage): void {
   if (message.cta) parts.push('', `→ ${message.cta.label}: ${message.cta.url}`);
   if (message.footnote) parts.push('', message.footnote);
   parts.push(rule);
-  logger.channel('mail', `no SMTP configured — printing instead\n${parts.join('\n')}`);
+  logger.channel('mail', `no SMTP configured - printing instead\n${parts.join('\n')}`);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const appUrl = (path: string) => `${env.CLIENT_URL.replace(/\/+$/, '')}${path}`;
+/*
+  Every link that goes out in an email is built from CLIENT_URL.
+
+  Which means that if CLIENT_URL points at localhost while a real mail provider
+  is configured, ARTINU cheerfully emails people links that only work on the
+  machine that sent them. That is not hypothetical: the repo-root .env is shared
+  by the client and the server and carries CLIENT_URL=http://localhost:5173 for
+  local work, so any password reset triggered from a dev machine against the
+  live database sends the customer a dead link - and the endpoint still answers
+  "sent: true", because from its point of view it was.
+
+  The warning fires once per process rather than per message, and it names the
+  consequence rather than the setting.
+*/
+let warnedAboutLocalLinks = false;
+
+const LOCAL_HOST = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?/i;
+
+const appUrl = (path: string) => {
+  const base = env.CLIENT_URL.replace(/\/+$/, '');
+
+  if (!warnedAboutLocalLinks && env.mailConfigured && LOCAL_HOST.test(base)) {
+    warnedAboutLocalLinks = true;
+    logger.error(
+      `CLIENT_URL is ${base} but MAIL_PROVIDER is "${env.MAIL_PROVIDER}". ` +
+        'Every link in every email being sent right now - password resets, email ' +
+        'confirmations, invoices - points at localhost and will be dead for the ' +
+        'person who receives it. Set CLIENT_URL to the public site, or set ' +
+        'MAIL_PROVIDER=console while working locally.',
+    );
+  }
+
+  return `${base}${path}`;
+};
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'there';
 

@@ -1,4 +1,7 @@
 import type {
+  AdminCreateOrderInput,
+  AdminProvisionSpaceInput,
+  AdminProvisionSpaceResult,
   ArtistApplication,
   Artwork,
   AuditLogEntry,
@@ -84,6 +87,16 @@ export const adminService = {
     return data;
   },
 
+  /**
+   * Place an order on a space's behalf, for a customer who will not do it
+   * themselves. See the note on POST /api/admin/orders - staff decide what is
+   * bought, the server decides what it costs.
+   */
+  async createOrder(input: AdminCreateOrderInput) {
+    const { data } = await api.post<Order>('/admin/orders', input);
+    return data;
+  },
+
   async updateOrderStatus(id: string, status: string, note?: string) {
     const { data } = await api.patch<Order>(`/admin/orders/${id}/status`, { status, note });
     return data;
@@ -140,6 +153,16 @@ export const adminService = {
     return data;
   },
 
+  /**
+   * Register a space on an owner's behalf. Returns the space, its code, and -
+   * for a brand-new owner only - a password to read out once. See
+   * POST /api/admin/spaces/provision.
+   */
+  async provisionSpace(input: AdminProvisionSpaceInput) {
+    const { data } = await api.post<AdminProvisionSpaceResult>('/admin/spaces/provision', input);
+    return data;
+  },
+
   async verifySpace(id: string, verified: boolean) {
     const { data } = await api.post<Space>(`/admin/spaces/${id}/verify`, { verified });
     return data;
@@ -160,6 +183,23 @@ export const adminService = {
     return data;
   },
 
+  /** Release a payment a member of staff has matched against the account. */
+  async verifyPayment(id: string) {
+    const { data } = await api.post<{ payment: Payment; order: unknown }>(
+      `/admin/payments/${id}/verify`,
+    );
+    return data;
+  },
+
+  /** The money did not arrive. The reason is sent on to the customer. */
+  async rejectPayment(id: string, reason: string) {
+    const { data } = await api.post<{ payment: Payment; order: unknown }>(
+      `/admin/payments/${id}/reject`,
+      { reason },
+    );
+    return data;
+  },
+
   async payments(params: Query = {}) {
     const { data } = await api.get<Paginated<Payment>>('/admin/payments', { params });
     return data;
@@ -167,11 +207,6 @@ export const adminService = {
 
   async payouts(params: Query = {}) {
     const { data } = await api.get<Paginated<Payout>>('/admin/payouts', { params });
-    return data;
-  },
-
-  async payPayout(id: string) {
-    const { data } = await api.post<Payout>(`/admin/payouts/${id}/pay`);
     return data;
   },
 

@@ -115,7 +115,7 @@ export default function ConsoleMailPage() {
           <div className="text-sm text-warning">
             <p className="font-medium">No mail provider is configured.</p>
             <p className="mt-0.5 leading-relaxed">
-              Nothing is actually being delivered — messages are captured here instead so every flow
+              Nothing is actually being delivered - messages are captured here instead so every flow
               stays verifiable. Set <code className="font-mono text-xs">SMTP_HOST</code> and{' '}
               <code className="font-mono text-xs">SMTP_USER</code> in <code className="font-mono text-xs">.env</code>{' '}
               to send for real.
@@ -133,7 +133,7 @@ export default function ConsoleMailPage() {
         />
         <StatTile
           label="Last sent"
-          value={data?.lastSentAt ? formatRelative(data.lastSentAt) : '—'}
+          value={data?.lastSentAt ? formatRelative(data.lastSentAt) : '-'}
           format="raw"
         />
       </StatGrid>
@@ -202,7 +202,7 @@ export default function ConsoleMailPage() {
           description={
             search
               ? 'Try a different recipient.'
-              : 'Book a consultation, upload a photograph or approve one — the message will appear here.'
+              : 'Book a wall visit, upload a photograph or approve one - the message will appear here.'
           }
         />
       )}
@@ -219,7 +219,7 @@ export default function ConsoleMailPage() {
                   <br />
                   {openMail.triggeredBy
                     ? `Triggered by ${openMail.triggeredBy.email} (${openMail.triggeredBy.role.replace('_', ' ')})`
-                    : 'Triggered by a public action — no signed-in account'}
+                    : 'Triggered by a public action - no signed-in account'}
                   {openMail.trigger ? ` · ${openMail.trigger}` : ''}
                 </>
               ) : null}
@@ -248,7 +248,7 @@ export default function ConsoleMailPage() {
             <DialogTitle>Send a test email</DialogTitle>
             <DialogDescription>
               {data?.smtpConfigured
-                ? 'This goes through your configured provider — check the inbox, and the spam folder.'
+                ? 'This goes through your configured provider - check the inbox, and the spam folder.'
                 : 'No provider is configured, so this will be captured here rather than delivered.'}
             </DialogDescription>
           </DialogHeader>

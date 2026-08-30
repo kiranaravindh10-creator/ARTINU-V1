@@ -37,20 +37,18 @@ export default function InvoicesPage() {
       <PanelHeader
         icon={FileText}
         title="Invoices"
-        description="View and download your invoices — GST included, ready for your accountant."
+        description="View and download your invoices, ready for your accountant."
       />
 
-      <div className="border-b border-line pb-10">
-        <FigureRow className="lg:gap-x-16">
-          <Figure value={thisYear.length} label="Invoices this FY" hint="Since 1 April" />
-          <Figure value={formatCurrency(totalGst)} label="GST paid this FY" hint="Claimable input" />
-          <Figure
-            value={formatCurrency(totalSpend, { compact: true })}
-            label="Total spend"
-            hint="All time"
-          />
-        </FigureRow>
-      </div>
+      {/*
+        The three figures that sat here are gone.
+
+        "GST paid this FY - claimable input" was the worst of them: ARTINU is
+        not registered for GST and charges none, so it always read ₹0 and
+        invited an accountant to ask why. The other two restated what the list
+        below already shows, and three zeroes is a poor first thing to see in
+        an account that simply has not ordered yet.
+      */}
 
       <div className="mt-10">
         {isError ? (
@@ -64,7 +62,7 @@ export default function InvoicesPage() {
         ) : invoices && invoices.length > 0 ? (
           <>
             <div
-              className={`${COLS} hidden border-b border-line pb-2.5 font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:grid`}
+              className={`${COLS} hidden border-b border-line pb-2.5 font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:grid`}
             >
               <span>Invoice ID</span>
               <span>Date</span>
@@ -83,7 +81,7 @@ export default function InvoicesPage() {
                     to={`/space/orders/${invoice.orderId}`}
                     className="hidden truncate font-mono text-xs text-subtle transition-colors hover:text-bronze sm:block"
                   >
-                    {referenceFor.get(invoice.orderId) ?? '—'}
+                    {referenceFor.get(invoice.orderId) ?? '-'}
                   </Link>
                   <span className="hidden text-right tabular-nums text-ink sm:block">
                     {formatCurrency(invoice.amount)}

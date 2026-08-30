@@ -12,7 +12,7 @@ export const isFirebaseConfigured = false;
 
 /** No-op replacement for initializeFirebase. */
 export function initializeFirebase(): void {
-  logger.info('Firebase initialization skipped — using Supabase instead.');
+  logger.info('Firebase initialization skipped - using Supabase instead.');
 }
 
 /** No-op replacement for getFirebaseFirestore. */

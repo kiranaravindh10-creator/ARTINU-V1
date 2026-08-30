@@ -37,7 +37,7 @@ export function Logo({
   if (!asLink) return content;
 
   return (
-    <Link to={to} className="rounded-xs transition-opacity hover:opacity-70" aria-label="ARTINU — home">
+    <Link to={to} className="rounded-xs transition-opacity hover:opacity-70" aria-label="ARTINU - home">
       {content}
     </Link>
   );

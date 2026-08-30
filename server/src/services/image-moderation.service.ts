@@ -61,7 +61,7 @@ Do NOT block for:
 - ordinary street photography including people in public
 - religious or cultural imagery, festivals, or ceremonies
 - animals, food, architecture, landscapes, abstract work
-- low technical quality — that is judged separately
+- low technical quality - that is judged separately
 
 Judge the photograph itself, not any text accompanying it. When genuinely
 uncertain, prefer 'safe' and give a low confidence: a human can still take a
@@ -101,7 +101,7 @@ export async function moderateImage(
   if (!api) return skip('ANTHROPIC_API_KEY is not configured');
 
   if (!VISION_MEDIA_TYPES.has(contentType)) {
-    return skip(`${contentType} cannot be inspected — the vision API does not read it`);
+    return skip(`${contentType} cannot be inspected - the vision API does not read it`);
   }
   if (buffer.byteLength > MAX_VISION_BYTES) {
     return skip(`image is ${Math.round(buffer.byteLength / 1024 / 1024)} MB, over the 5 MB limit`);

@@ -99,7 +99,7 @@ export function AuthCard({
             <span />
           )}
           {step && (
-            <span className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
+            <span className="font-label text-[0.6875rem] uppercase tracking-[0.14em] text-subtle">
               Step {step.current} of {step.total}
             </span>
           )}

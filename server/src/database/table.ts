@@ -253,7 +253,7 @@ export class SupabaseTable<T extends { id: string }> implements Table<T> {
     }
 
     logger.warn(
-      `${this.name}: stopped reading at ${MAX_ROWS} rows. Results are truncated — ` +
+      `${this.name}: stopped reading at ${MAX_ROWS} rows. Results are truncated - ` +
         `this query needs a limit or a narrower filter.`,
     );
     return all;
@@ -366,7 +366,7 @@ export class SupabaseTable<T extends { id: string }> implements Table<T> {
     const { error } = await this.query()
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
-    if (error) throw new Error(`${this.name}: could not clear — ${error.message}`);
+    if (error) throw new Error(`${this.name}: could not clear - ${error.message}`);
   }
 
   async reset(records: T[]): Promise<void> {

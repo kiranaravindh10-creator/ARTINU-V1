@@ -5,6 +5,7 @@ import { Mail } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
+import { CONTACT } from '@artinu/shared';
 import { toast } from 'sonner';
 import { AuthCard, AuthFootnote, AuthSplit } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
@@ -43,16 +44,55 @@ export default function ForgotPasswordPage() {
       {sentTo ? (
         <AuthCard
           title="Check your inbox"
-          description="If that address has an account, a reset link is on its way."
+          /*
+            "IF that address has an account" was the old description, and it was
+            the whole problem in five words: it told people the email might
+            never come and then left them with nothing to do about it. An email
+            now goes out either way - a reset link if the account exists, and a
+            plain "there is no account on this address" if it does not - so this
+            can promise something concrete.
+          */
+          description="Whatever happens, we have emailed you."
           onBack={() => setSentTo(null)}
         >
           <div className="flex items-start gap-3 rounded-md border border-line bg-canvas-soft p-4">
             <Mail className="mt-0.5 size-4 shrink-0 text-bronze" aria-hidden />
-            <p className="text-sm text-muted">
-              We sent it to <span className="font-medium text-ink">{sentTo}</span>. The link is good
-              for one hour.
-            </p>
+            <div className="text-sm text-muted">
+              <p>
+                We sent it to <span className="font-medium text-ink">{sentTo}</span>. The link is
+                good for one hour.
+              </p>
+              <p className="mt-2">
+                If there is no ARTINU account on that address, we have emailed to say so - so an
+                empty inbox means the message is still in flight, or it landed in spam.
+              </p>
+            </div>
           </div>
+
+          {/*
+            The way out, for the case where none of the above helps. Somebody
+            locked out of their account cannot be left with a dead end and a
+            "send it again" button.
+          */}
+          <p className="mt-4 text-xs leading-relaxed text-subtle">
+            Still nothing after a few minutes? Check your spam folder, then write to{' '}
+            <a
+              href={`mailto:${CONTACT.supportEmail}?subject=${encodeURIComponent('I cannot reset my ARTINU password')}`}
+              className="text-ink underline underline-offset-4"
+            >
+              {CONTACT.supportEmail}
+            </a>{' '}
+            or message us on{' '}
+            <a
+              href={`https://wa.me/${CONTACT.phoneRaw}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink underline underline-offset-4"
+            >
+              WhatsApp
+            </a>{' '}
+            and a person will sort it out.
+          </p>
 
           {devToken && (
             <Button

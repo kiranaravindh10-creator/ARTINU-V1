@@ -77,7 +77,7 @@ export function Field({
 export function CharCount({ value, max }: { value: string | null | undefined; max: number }) {
   const length = value?.length ?? 0;
   return (
-    <span className={cn('font-mono text-[0.6875rem]', length > max ? 'text-danger' : 'text-subtle')}>
+    <span className={cn('font-label tabular-nums text-[0.6875rem]', length > max ? 'text-danger' : 'text-subtle')}>
       {length}/{max}
     </span>
   );

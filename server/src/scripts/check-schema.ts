@@ -40,16 +40,19 @@ const TABLES = [
 ] as const;
 
 /** Columns added after the initial schema, which older projects will lack. */
-const COLUMNS: { table: 'profiles' | 'artworks'; column: string }[] = [
+const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes'; column: string }[] = [
   { table: 'profiles', column: 'coverUrl' },
   { table: 'profiles', column: 'photographerCode' },
   { table: 'profiles', column: 'nextPhotoNumber' },
+  // Added by 009_registration_and_collaborations.sql
+  { table: 'profiles', column: 'dateOfBirth' },
+  { table: 'cafes', column: 'websiteUrl' },
   { table: 'artworks', column: 'photoId' },
   { table: 'artworks', column: 'photoNumber' },
 ];
 
 async function run() {
-  console.log(`\nARTINU schema check — driver: ${env.DATA_DRIVER}\n`);
+  console.log(`\nARTINU schema check - driver: ${env.DATA_DRIVER}\n`);
 
   for (const name of TABLES) {
     try {
@@ -67,7 +70,7 @@ async function run() {
       const [row] = await tables[table]!.find({ limit: 1 });
 
       if (!row) {
-        record(`${table}.${column}`, true, 'no rows to verify against — skipped');
+        record(`${table}.${column}`, true, 'no rows to verify against - skipped');
         continue;
       }
       record(`${table}.${column}`, column in row, column in row ? undefined : 'absent from returned row');
@@ -91,7 +94,7 @@ async function run() {
 
   const failed = results.filter((r) => !r.ok);
   for (const r of results) {
-    console.log(`  ${r.ok ? 'ok     ' : 'MISSING'} ${r.label}${r.detail ? `  — ${r.detail}` : ''}`);
+    console.log(`  ${r.ok ? 'ok     ' : 'MISSING'} ${r.label}${r.detail ? `  - ${r.detail}` : ''}`);
   }
 
   if (failed.length) {

@@ -248,7 +248,7 @@ function AddStockDialog({
               onChange={(event) => setQuantity(event.target.value)}
             />
           </Field>
-          <Field label="Unit cost" htmlFor="frame-cost" hint="Optional — used for reuse savings">
+          <Field label="Unit cost" htmlFor="frame-cost" hint="Optional - used for reuse savings">
             <Input
               id="frame-cost"
               type="number"
@@ -372,7 +372,7 @@ function ReusePlanDialog({
                 </div>
               ) : (
                 <p className="mt-4 border-t border-line pt-4 text-sm text-muted">
-                  Nothing matching in stock — this specification has to be ordered.
+                  Nothing matching in stock - this specification has to be ordered.
                 </p>
               )}
             </div>

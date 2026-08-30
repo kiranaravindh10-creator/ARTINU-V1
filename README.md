@@ -51,22 +51,22 @@ root and fill in what you have — see [Configuration](#configuration).
 > `--demo` to replace them with random ones, or change each from
 > Account → Password.
 
-| Email                         | Password           | Lands on                            |
-| ----------------------------- | ------------------ | ----------------------------------- |
-| `restaurant.demo@artinu.in`   | _(see below)_  | Space Experience (`/space`)         |
+| Email                         | Password      | Lands on                            |
+| ----------------------------- | ------------- | ----------------------------------- |
+| `restaurant.demo@artinu.in`   | _(see below)_ | Space Experience (`/space`)         |
 | `photographer.demo@artinu.in` | _(see below)_ | Artist Experience (`/studio`)       |
-| `ceo@artinu.in`               | _(see below)_   | ARTINU Console — everything         |
-| `manager@artinu.in`           | _(see below)_   | Console — operations & curation     |
-| `accounts@artinu.in`          | _(see below)_   | Console — finance only              |
-| `fieldops@artinu.in`          | _(see below)_   | Console — orders & production       |
-| `it@artinu.in`                | _(see below)_    | Console — users, system & email log |
+| `ceo@artinu.in`               | _(see below)_ | ARTINU Console — everything         |
+| `manager@artinu.in`           | _(see below)_ | Console — operations & curation     |
+| `accounts@artinu.in`          | _(see below)_ | Console — finance only              |
+| `fieldops@artinu.in`          | _(see below)_ | Console — orders & production       |
+| `it@artinu.in`                | _(see below)_ | Console — users, system & email log |
 
 For live SMTP testing there are two accounts on real inboxes:
 
-| Email                             | Password            | Role                  |
-| --------------------------------- | ------------------- | --------------------- |
+| Email                      | Password      | Role                  |
+| -------------------------- | ------------- | --------------------- |
 | `<your-test-inbox>`        | _(see below)_ | Artist — uploads work |
-| `<your-second-test-inbox>` | _(see below)_  | Space — buys it       |
+| `<your-second-test-inbox>` | _(see below)_ | Space — buys it       |
 
 Signing in as each internal role is the quickest way to see role-based access
 working: the sidebar, the pages and the API all narrow to the same set.
@@ -94,6 +94,26 @@ Console.
 | `npm start`                                               | Run the API alone                                          |
 | `npm run seed`                                            | Reseed demo data (`npm run seed -- --fresh` to wipe first) |
 | `npx tsx server/src/scripts/migrate-drive-to-firebase.ts` | One-time Drive→Firebase migration                          |
+
+---
+
+## Before the next deploy: run migration 009
+
+Registration now collects a date of birth alongside the phone number, and a
+homepage collaboration can carry the partner's website address. Both need two
+nullable columns that a live Supabase project will not have yet:
+
+```
+database/migrations/009_registration_and_collaborations.sql
+```
+
+Paste it into Supabase → SQL Editor → Run. It is additive and safe to re-run.
+
+Until it runs, nothing breaks: registration still succeeds and the date of birth
+is dropped with an error logged (see `createProfile` in
+`server/src/services/auth.service.ts`), and saving a website address against a
+collaboration fails with a message in the console. `npm run check:schema`
+reports which columns are present.
 
 ---
 
@@ -227,23 +247,23 @@ business software. Photography carries the colour; the UI stays quiet.
 
 Everything in `.env.example` is optional. Set only what you have.
 
-| Variable                                                                                                                                                                           | Default   | Effect                                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------- |
-| `DATA_DRIVER`                                                                                                                                                                      | `memory`  | `supabase` uses PostgreSQL — run `database/schema.sql` first                      |
-| `AUTH_DRIVER`                                                                                                                                                                      | `local`   | Local bcrypt + JWT, or Supabase Auth                                              |
-| `STORAGE_DRIVER`                                                                                                                                                                   | `local`   | Disk under `server/uploads`, or Supabase Storage / Cloudinary / S3 / **firebase** |
-| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` / `FIREBASE_STORAGE_BUCKET`                                                                               | unset     | Required for `STORAGE_DRIVER=firebase`                                            |
-| `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_STORAGE_BUCKET` / `VITE_FIREBASE_MESSAGING_SENDER_ID` / `VITE_FIREBASE_APP_ID` | unset     | Client-side Firestore realtime listeners                                          |
-| `MAIL_PROVIDER`                                                                                                                                                                    | `auto`    | `auto` picks SendGrid, then SMTP, then console. Force with `sendgrid`/`smtp`/`console` |
-| `SENDGRID_API_KEY`                                                                                                                                                                 | unset     | **Server-only secret.** Enables SendGrid delivery. Never expose to the browser    |
-| `MAIL_FROM`                                                                                                                                                                        | `SMTP_FROM` | The From header. Must be a SendGrid-authenticated sender or domain               |
-| `MAIL_REPLY_TO`                                                                                                                                                                    | unset     | Reply-To, when it differs from the sender                                         |
-| `SMTP_*`                                                                                                                                                                           | unset     | The alternative transport. All unset prints emails to the console instead         |
-| `JWT_SECRET`                                                                                                                                                                       | dev value | **Required in production.** Boot fails on a placeholder or under 32 chars         |
-| `PAYMENT_PROVIDER`                                                                                                                                                                 | `mock_qr` | `razorpay` / `stripe` once keys exist                                             |
-| `MEMORY_PERSIST`                                                                                                                                                                   | `true`    | Persists the dev store to `server/.data/db.json` across restarts                  |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                                                                                                                                        | unset     | Google OAuth for photographer sign-in                                             |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` / `GOOGLE_DRIVE_ROOT_FOLDER_ID`                                                                                                                       | unset     | Google Drive mirror sync (deprecated, kept for migration)                         |
+| Variable                                                                                                                                                                           | Default     | Effect                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------- |
+| `DATA_DRIVER`                                                                                                                                                                      | `memory`    | `supabase` uses PostgreSQL — run `database/schema.sql` first                           |
+| `AUTH_DRIVER`                                                                                                                                                                      | `local`     | Local bcrypt + JWT, or Supabase Auth                                                   |
+| `STORAGE_DRIVER`                                                                                                                                                                   | `local`     | Disk under `server/uploads`, or Supabase Storage / Cloudinary / S3 / **firebase**      |
+| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` / `FIREBASE_STORAGE_BUCKET`                                                                               | unset       | Required for `STORAGE_DRIVER=firebase`                                                 |
+| `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_STORAGE_BUCKET` / `VITE_FIREBASE_MESSAGING_SENDER_ID` / `VITE_FIREBASE_APP_ID` | unset       | Client-side Firestore realtime listeners                                               |
+| `MAIL_PROVIDER`                                                                                                                                                                    | `auto`      | `auto` picks SendGrid, then SMTP, then console. Force with `sendgrid`/`smtp`/`console` |
+| `SENDGRID_API_KEY`                                                                                                                                                                 | unset       | **Server-only secret.** Enables SendGrid delivery. Never expose to the browser         |
+| `MAIL_FROM`                                                                                                                                                                        | `SMTP_FROM` | The From header. Must be a SendGrid-authenticated sender or domain                     |
+| `MAIL_REPLY_TO`                                                                                                                                                                    | unset       | Reply-To, when it differs from the sender                                              |
+| `SMTP_*`                                                                                                                                                                           | unset       | The alternative transport. All unset prints emails to the console instead              |
+| `JWT_SECRET`                                                                                                                                                                       | dev value   | **Required in production.** Boot fails on a placeholder or under 32 chars              |
+| `PAYMENT_PROVIDER`                                                                                                                                                                 | `mock_qr`   | `razorpay` / `stripe` once keys exist                                                  |
+| `MEMORY_PERSIST`                                                                                                                                                                   | `true`      | Persists the dev store to `server/.data/db.json` across restarts                       |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                                                                                                                                        | unset       | Google OAuth for photographer sign-in                                                  |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` / `GOOGLE_DRIVE_ROOT_FOLDER_ID`                                                                                                                       | unset       | Google Drive mirror sync (deprecated, kept for migration)                              |
 
 Requesting a driver without its credentials logs a warning and falls back, so
 the app always starts. The Console's System Health page shows which drivers are
@@ -344,5 +364,7 @@ Being explicit is more useful than a feature list that overstates itself.
 | Firebase Storage         | `server/src/services/firebase.ts`, `server/src/services/storage.service.ts`, `firebase.storage.rules`, `FIREBASE_LIFECYCLE_RULES.md`, `FIREBASE_BUDGET_ALERTS.md`, `FIREBASE_PRICING_CONFIRMATION.md` |
 | Firestore Realtime       | `server/src/services/firebase.ts` (Admin), `client/src/hooks/useContentSync.ts` (Client)                                                                                                              |
 | Drive→Firebase Migration | `server/src/scripts/migrate-drive-to-firebase.ts`                                                                                                                                                     |
-#   A R T I N U - V 1  
+
+#   A R T I N U - V 1 
+ 
  

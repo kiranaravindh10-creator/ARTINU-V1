@@ -102,7 +102,7 @@ export default function ConsoleUsersPage() {
       setNewEmail('');
       setNewFullName('');
       setNewRole('guest');
-      toast.success('Employee account created — they will receive a sign-in link');
+      toast.success('Employee account created - they will receive a sign-in link');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -128,7 +128,7 @@ export default function ConsoleUsersPage() {
         .filter(Boolean)
         .join(', ');
       toast.success(
-        `${summary.email} deleted${removed ? ` — along with ${removed}` : ''}`,
+        `${summary.email} deleted${removed ? ` - along with ${removed}` : ''}`,
       );
       if (summary.filesFailed > 0) {
         toast.warning(`${summary.filesFailed} stored file(s) could not be removed. See the server log.`);
@@ -236,7 +236,7 @@ export default function ConsoleUsersPage() {
                         />
                         <span className="min-w-0">
                           <span className="block truncate text-ink">
-                            {entry.profile?.fullName ?? '—'}
+                            {entry.profile?.fullName ?? '-'}
                           </span>
                           <span className="block truncate text-xs text-subtle">{entry.email}</span>
                         </span>
@@ -259,7 +259,7 @@ export default function ConsoleUsersPage() {
                       {formatDate(entry.createdAt)}
                     </TableCell>
                     <TableCell className="text-xs text-subtle">
-                      {entry.lastLoginAt ? formatRelative(entry.lastLoginAt) : '—'}
+                      {entry.lastLoginAt ? formatRelative(entry.lastLoginAt) : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => openEditor(entry)}>
@@ -305,7 +305,7 @@ export default function ConsoleUsersPage() {
             {/* Show exactly what the chosen role can reach. */}
             {(ROLE_MODULES[nextRole] ?? []).length > 0 && (
               <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                   This role can reach
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -348,7 +348,7 @@ export default function ConsoleUsersPage() {
                   Delete this account
                 </p>
                 <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-                  Permanently removes the account and everything belonging to it — profile,
+                  Permanently removes the account and everything belonging to it - profile,
                   photographs and their files, spaces, orders and invoices. This cannot be
                   undone. To suspend access instead, set the status to{' '}
                   <span className="font-medium">suspended</span> above.
@@ -443,7 +443,7 @@ export default function ConsoleUsersPage() {
 
             {(ROLE_MODULES[newRole] ?? []).length > 0 && (
               <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                   This role can reach
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">

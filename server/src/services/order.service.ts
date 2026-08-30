@@ -1,7 +1,7 @@
 import {
   calculatePricing,
+  tariffBookFor,
   priceLine,
-  resolveCoupon,
   type Artwork,
   type CartItem,
   type Order,
@@ -11,6 +11,7 @@ import {
   type Space,
 } from '@artinu/shared';
 import { db, type StoredUser } from '@/database/db';
+import { validateCoupon } from '@/services/coupon.service';
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { now, orderReference } from '@/utils/ids';
 
@@ -75,16 +76,56 @@ export async function buildOrderItems(items: CartItem[]): Promise<OrderItem[]> {
   });
 }
 
-export function priceDraft(items: OrderItem[], draft: OrderDraft): PriceBreakdown {
-  const coupon = resolveCoupon(draft.couponCode);
-  return calculatePricing(
-    items.map((item) => ({ frame: item.frame, quantity: item.quantity })),
-    {
-      discountPercent: coupon?.percent ?? 0,
-      couponCode: coupon ? draft.couponCode!.trim().toUpperCase() : null,
-      includeSecurityDeposit: draft.includeSecurityDeposit ?? false,
-    },
-  );
+/**
+ * Price a draft order.
+ *
+ * `spaceType` decides which tariff book applies - a home is billed from the
+ * cheaper home-decor table, everything else from the standard one. It is
+ * passed in rather than looked up here so this stays synchronous and the cart
+ * preview and the server total keep coming from the same function.
+ */
+export async function priceDraft(
+  items: OrderItem[],
+  draft: OrderDraft,
+  spaceType?: string | null,
+): Promise<PriceBreakdown> {
+  const base = items.map((item) => ({ frame: item.frame, quantity: item.quantity }));
+  const options = {
+    includeSecurityDeposit: draft.includeSecurityDeposit ?? false,
+    book: tariffBookFor(spaceType),
+  };
+
+  if (!draft.couponCode?.trim()) return calculatePricing(base, options);
+
+  /*
+    The coupon is validated against THIS basket, not just looked up.
+
+    It has to be priced once without the discount first, because half the rules
+    that can refuse a code - a minimum order value, a percentage cap - are
+    judged against the subtotal. Resolving it any earlier would be guessing at
+    a number that does not exist yet.
+
+    An invalid code is silently ignored rather than throwing: the customer sees
+    the undiscounted total, which is the correct price, and the cart tells them
+    separately why the code did not take. Failing the whole quote would leave
+    them unable to check out at all because of a typo.
+  */
+  const undiscounted = calculatePricing(base, options);
+  const verdict = await validateCoupon(draft.couponCode, undiscounted.subtotal, spaceType);
+  if (!verdict.ok || !verdict.coupon) return calculatePricing(base, options);
+
+  return calculatePricing(base, {
+    ...options,
+    couponCode: verdict.coupon.code,
+    ...(verdict.coupon.type === 'flat'
+      ? { discountAmount: verdict.discount ?? 0 }
+      : { discountPercent: verdict.coupon.value }),
+    // A percentage coupon with a cap cannot be expressed as a percentage, so
+    // the already-capped rupee figure is passed instead.
+    ...(verdict.coupon.type === 'percent' && verdict.coupon.maxDiscount != null
+      ? { discountPercent: 0, discountAmount: verdict.discount ?? 0 }
+      : {}),
+  });
 }
 
 export async function assertOwnsSpace(spaceId: string, user: StoredUser): Promise<Space> {
@@ -94,18 +135,64 @@ export async function assertOwnsSpace(spaceId: string, user: StoredUser): Promis
   return space;
 }
 
-export async function createOrder(draft: OrderDraft, user: StoredUser): Promise<Order> {
-  const space = await assertOwnsSpace(draft.spaceId, user);
+/**
+ * Place an order on a space, attributed to whoever owns that space.
+ *
+ * `createOrder` below is the space owner placing their own order and is the
+ * only path a browser session can take. This one exists for the case the
+ * founder described: a cafe owner who will never log in and says "you do it".
+ * Staff build the order in the console and it belongs to the owner's account,
+ * so from that moment it behaves like any other order - it appears on their
+ * dashboard, it invoices to them, and it rotates on their schedule.
+ *
+ * The caller is responsible for deciding whether the actor is allowed to do
+ * this. There is deliberately no session check inside here, which is exactly
+ * why it is not exported to any route that a customer can reach.
+ */
+export async function createOrderForSpace(draft: OrderDraft, space: Space): Promise<Order> {
   const items = await buildOrderItems(draft.items);
-  const pricing = priceDraft(items, draft);
+  const pricing = await priceDraft(items, draft, space.type);
 
-  const sequence = (await db.orders.count()) + 1;
+  /*
+    ── An order reference must be unique, and count()+1 is not ───────────────
+
+    This read the row count and added one. Two problems, and both are live:
+
+    1. It is read-then-write with nothing in between, so two orders placed in
+       the same moment take the same number.
+
+    2. Worse, and what actually broke checkout: the count goes DOWN when an
+       order is deleted. Remove three test orders and the next three real
+       customers are handed references that already exist. Postgres rejects
+       them on `orders_reference_key` and the customer sees "duplicate key
+       value violates unique constraint" after pressing Place order.
+
+    Counting rows was never a sequence. This takes the highest reference
+    actually issued and goes past it, so deleting rows cannot walk the number
+    backwards, and it retries on collision to close the concurrent case.
+  */
+  const existing = await db.orders.find({});
+  let sequence = existing.reduce((highest, order) => {
+    const digits = /(\d+)$/.exec(order.reference ?? '');
+    const value = digits ? Number(digits[1]) : 0;
+    return value > highest ? value : highest;
+  }, 1000);
+
+  let reference = orderReference(sequence + 1);
+  const taken = new Set(existing.map((order) => order.reference));
+  for (let attempt = 0; attempt < 1000 && taken.has(reference); attempt += 1) {
+    sequence += 1;
+    reference = orderReference(sequence + 1);
+  }
+
   const placedAt = now();
 
   return db.orders.insert({
-    reference: orderReference(1000 + sequence),
+    reference,
     spaceId: space.id,
-    ownerId: user.id,
+    // The SPACE's owner, never the actor. A staff member creating this on
+    // someone's behalf must not end up owning their order.
+    ownerId: space.ownerId,
     items,
     pricing,
     status: 'pending_payment',
@@ -120,6 +207,12 @@ export async function createOrder(draft: OrderDraft, user: StoredUser): Promise<
     updatedAt: placedAt,
     completedAt: null,
   });
+}
+
+/** The space owner placing their own order. */
+export async function createOrder(draft: OrderDraft, user: StoredUser): Promise<Order> {
+  const space = await assertOwnsSpace(draft.spaceId, user);
+  return createOrderForSpace(draft, space);
 }
 
 /** Order progression. Anything can be cancelled; nothing else moves backwards. */

@@ -43,13 +43,13 @@ interface TeamMember {
 
 const TEAM: TeamMember[] = [
   {
-    name: 'Kiran Aravindh',
+    name: 'SR Kiran Aravindh',
     role: 'Founder',
     photo: '/image/founder-kiran-aravindh.jpg',
     // Deliberately about the work rather than the person: it claims no dates,
     // no history and no credentials, because none were given. Replace it with
     // Kiran's own words whenever he wants to.
-    bio: 'Kiran started ARTINU on a simple frustration — photographs live and die on screens while the walls around us stay blank. He works on every part of it, from reading a room to turning up on installation day.',
+    bio: 'Kiran started ARTINU on a simple frustration - photographs live and die on screens while the walls around us stay blank. He works on every part of it, from reading a room to turning up on installation day.',
   },
 ];
 
@@ -111,8 +111,7 @@ function AboutBeginningHero() {
                 <p className="eyebrow">The beginning</p>
                 <h1
                   id="about-beginning-title"
-                  className="mt-7 font-display text-[2.6rem] leading-[1.05] text-ink sm:text-6xl lg:text-[4.5rem]"
-                >
+                  className="mt-7 font-display text-[2.6rem] leading-[1.05] text-ink sm:text-6xl lg:text-[4.5rem]">
                   Somewhere between a photograph
                   <br className="hidden sm:block" /> and a wall,{' '}
                   <em className="editorial-italic">Artinu</em> began.
@@ -269,15 +268,15 @@ function AboutBeginningHero() {
                   className="absolute left-[4%] top-[10%] bottom-[12%] w-px border-l border-line-strong"
                   aria-hidden
                 />
-                <p className="absolute left-[4%] top-[14%] z-30 flex items-center gap-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-subtle">
+                <p className="absolute left-[4%] top-[14%] z-30 flex items-center gap-2 font-label text-[0.625rem] uppercase tracking-[0.12em] text-subtle">
                   <span className="inline-block size-1.5 rotate-45 border border-bronze bg-canvas" aria-hidden />
                   01 · On a screen
                 </p>
-                <p className="absolute left-[4%] top-[45%] z-30 flex items-center gap-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-ink">
+                <p className="absolute left-[4%] top-[45%] z-30 flex items-center gap-2 font-label text-[0.625rem] uppercase tracking-[0.12em] text-ink">
                   <span className="inline-block size-1.5 rotate-45 border border-bronze bg-canvas" aria-hidden />
                   02 · On a wall
                 </p>
-                <p className="absolute left-[4%] top-[70%] z-30 flex items-center gap-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-subtle">
+                <p className="absolute left-[4%] top-[70%] z-30 flex items-center gap-2 font-label text-[0.625rem] uppercase tracking-[0.12em] text-subtle">
                   <span className="inline-block size-1.5 rotate-45 border border-bronze bg-canvas" aria-hidden />
                   03 · In a space
                 </p>
@@ -286,7 +285,7 @@ function AboutBeginningHero() {
 
                 {/* ARTINU brings it there */}
                 <div className="mt-5 flex items-center justify-end gap-2 pr-1 sm:mt-6 sm:pr-2">
-                  <span className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-ink">
+                  <span className="font-label text-[0.625rem] uppercase tracking-[0.18em] text-ink">
                     Artinu brings it there
                   </span>
                   <span className="font-display text-xl italic leading-none text-bronze">→</span>
@@ -490,7 +489,7 @@ function PhotographersSection() {
                     />
                     <span
                       className={cn(
-                        'mt-0.5 font-mono text-[0.625rem] tracking-[0.16em] transition-colors duration-300',
+                        'mt-0.5 font-label text-[0.625rem] tracking-[0.16em] transition-colors duration-300',
                         index === PHOTOGRAPHER_STEPS.length - 1
                           ? 'text-bronze'
                           : 'text-subtle group-hover:text-bronze',
@@ -527,7 +526,7 @@ function PhotographersSection() {
 
 export default function AboutPage() {
   const whatsapp = `https://wa.me/${CONTACT.phoneRaw}?text=${encodeURIComponent(
-    "Hi ARTINU — I'd like to know more about art for my space.",
+    "Hi ARTINU - I'd like to know more about art for my space.",
   )}`;
 
   return (
@@ -574,7 +573,7 @@ export default function AboutPage() {
                         imgClassName="object-cover object-top"
                       />
                       <h3 className="mt-3 text-base font-medium text-ink">{member.name}</h3>
-                      <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
+                      <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
                         {member.role}
                       </p>
                       {member.bio && (
@@ -625,7 +624,7 @@ export default function AboutPage() {
         <Container>
           <div className="grid gap-8 rounded-xl border border-line bg-surface p-8 sm:grid-cols-2 sm:p-10">
             <div>
-              <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Talk to us
               </h3>
               <a
@@ -651,7 +650,7 @@ export default function AboutPage() {
             </div>
 
             <div>
-              <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+              <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
                 Working hours
               </h3>
               <dl className="mt-4 space-y-2 text-sm">
@@ -670,7 +669,7 @@ export default function AboutPage() {
       <CtaBand
         title="Let's bring your space to life."
         description="Tell us about your walls. We'll take it from there."
-        primary={{ label: 'Book a consultation', to: '/lets-talk' }}
+        primary={{ label: 'Book a wall visit', to: '/lets-talk' }}
         secondary={{ label: 'Meet our artists', to: '/artists' }}
         image={IMAGES.cafeWindow}
       />

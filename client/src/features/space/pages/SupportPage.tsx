@@ -53,13 +53,13 @@ export default function SupportPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: qk.supportTickets });
       reset({ subject: '', category: 'order', message: '' });
-      toast.success('We have your request — someone will be in touch shortly.');
+      toast.success('We have your request - someone will be in touch shortly.');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
   const whatsapp = `https://wa.me/${CONTACT.phoneRaw}?text=${encodeURIComponent(
-    'Hi ARTINU — I need help with my space.',
+    'Hi ARTINU - I need help with my space.',
   )}`;
 
   return (
@@ -143,7 +143,7 @@ export default function SupportPage() {
               href={whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
+              className="inline-flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-sand-soft"
             >
               <MessageCircle className="size-3.5 text-bronze" aria-hidden /> Chat on WhatsApp
             </a>
@@ -192,7 +192,7 @@ export default function SupportPage() {
 
                     {ticket.reply && (
                       <div className="mt-4 rounded-md border-l-2 border-bronze bg-sand-soft p-3">
-                        <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
+                        <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
                           ARTINU
                         </p>
                         <p className="mt-1 text-sm text-ink-soft">{ticket.reply}</p>

@@ -1,6 +1,6 @@
 import { formatNumber, type Artwork } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Eye, Fingerprint, Heart, Images, MoreVertical, Sparkles, SquarePen, Upload } from 'lucide-react';
+import { Archive, Eye, Fingerprint, Heart, Images, MoreVertical, SquarePen, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -77,7 +77,7 @@ export default function ArtistPortfolioPage() {
     onSuccess: () => {
       invalidate();
       setArchiving(null);
-      toast.success('Archived — it will no longer appear in the gallery');
+      toast.success('Archived - it will no longer appear in the gallery');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -130,7 +130,7 @@ export default function ArtistPortfolioPage() {
             { label: 'Selected by a space', value: formatNumber(totals.selections) },
           ].map((entry) => (
             <div key={entry.label}>
-              <dt className="font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle">
+              <dt className="font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle">
                 {entry.label}
               </dt>
               <dd className="mt-1.5 font-display text-2xl leading-none text-ink">{entry.value}</dd>
@@ -175,7 +175,8 @@ export default function ArtistPortfolioPage() {
                       <Heart className="size-3" /> {formatNumber(artwork.likes)}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Sparkles className="size-3" /> {artwork.selections}
+                      {/* Selections are spaces choosing the work, not magic. */}
+                      <Heart className="size-3" /> {artwork.selections}
                     </span>
                     {artwork.photoId && (
                       <span className="ml-auto font-mono tracking-widest">{artwork.photoId}</span>

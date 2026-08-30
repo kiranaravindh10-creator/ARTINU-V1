@@ -57,7 +57,7 @@ export function StatTile({
     >
       <div className="flex items-center gap-2">
         {Icon && <Icon className="size-3.5 shrink-0 stroke-[1.6] text-bronze" aria-hidden />}
-        <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">{label}</p>
+        <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">{label}</p>
       </div>
 
       <p className="font-display text-[2.125rem] leading-none text-ink">{display}</p>

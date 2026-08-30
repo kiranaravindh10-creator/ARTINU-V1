@@ -26,6 +26,19 @@ export function Container({
 /**
  * Vertical rhythm for marketing sections. `tone` swaps the paper: canvas is the
  * default page, sand is the recessed band, ink is a full-bleed dark block.
+ *
+ * THE PADDING WAS CUT ~30% HERE, AND THAT IS WHY EVERY PAGE GOT TIGHTER.
+ *
+ * It used to be py-14/16 (compact), py-20/24/28 (default) and py-24/32/40
+ * (roomy). On a 1080p laptop — which is what this gets reviewed on — 112px of
+ * air above a heading and 112px below the paragraph meant a section headline
+ * and its own supporting copy could not be on screen together. The generous
+ * setting is right for a page with four sections; the homepage has eleven, so
+ * the reader paid that toll eleven times on the way down.
+ *
+ * Every marketing section in the app routes through this one component, so
+ * these three lines are the site's whitespace. Do not fight them with a local
+ * `py-` override — change them here, or the page stops agreeing with itself.
  */
 export function Section({
   className,
@@ -44,9 +57,9 @@ export function Section({
         tone === 'soft' && 'bg-canvas-soft',
         tone === 'sand' && 'bg-sand',
         tone === 'ink' && 'bg-ink text-canvas',
-        size === 'compact' && 'py-14 sm:py-16',
-        size === 'default' && 'py-20 sm:py-24 lg:py-28',
-        size === 'roomy' && 'py-24 sm:py-32 lg:py-40',
+        size === 'compact' && 'py-10 sm:py-12',
+        size === 'default' && 'py-14 sm:py-16 lg:py-20',
+        size === 'roomy' && 'py-16 sm:py-20 lg:py-24',
         className,
       )}
       {...props}
@@ -56,7 +69,14 @@ export function Section({
   );
 }
 
-/** Eyebrow + display heading + optional lead paragraph. */
+/**
+ * Eyebrow + display heading + optional lead paragraph.
+ *
+ * The heading renders plainly. It used to type itself out — removed on request:
+ * every section on a marketing page is one of these, so the effect fired several
+ * times per scroll and became a tic rather than an entrance. The hero h1 on each
+ * page still types, where it happens once and is the first thing you see.
+ */
 export function SectionHeading({
   eyebrow,
   title,
@@ -180,14 +200,29 @@ export function CircleArrowLink({
           )}
         />
       </span>
-      <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-ink">
+      <span className="font-label text-[0.6875rem] uppercase tracking-[0.16em] text-ink">
         {children}
       </span>
     </Link>
   );
 }
 
-/** A numbered/iconed step in a "How it works" row. */
+/**
+ * A lucide glyph in a filled disc.
+ *
+ * NOTHING USES THIS ANY MORE, AND NEW CODE SHOULD NOT.
+ *
+ * It rendered the four-up "How it works" rows on the application pages, and an
+ * icon-in-a-disc over a Title Case noun over a restating sentence is the single
+ * shape the founder has identified as "looks so AI" more often than any other.
+ * Both call sites are gone.
+ *
+ * Kept only because deleting an exported primitive mid-review is churn for no
+ * gain - it tree-shakes out of the bundle. If you are reaching for it, the
+ * pattern to copy instead is the definition list in SpacesPage (SPACE_VALUE) or
+ * the numbered <ol> on ApplicationSubmittedPage: the content carried by type
+ * and order rather than by decoration.
+ */
 export function StepIcon({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span

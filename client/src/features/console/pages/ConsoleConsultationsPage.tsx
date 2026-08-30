@@ -34,7 +34,7 @@ export default function ConsoleConsultationsPage() {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'consultations'] });
       toast.success(
         variables.status === 'scheduled'
-          ? 'Confirmed — we’ve emailed them the details'
+          ? 'Confirmed - we’ve emailed them the details'
           : 'Updated',
       );
     },
@@ -71,7 +71,7 @@ export default function ConsoleConsultationsPage() {
       {agenda.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-5">
-            <h2 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h2 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               This week
             </h2>
             <ul className="mt-3 divide-y divide-line-soft">
@@ -110,7 +110,7 @@ export default function ConsoleConsultationsPage() {
               <section key={column.status}>
                 <div className="mb-3 flex items-baseline justify-between gap-2">
                   <h2 className="font-display text-lg text-ink">{column.title}</h2>
-                  <span className="font-mono text-xs text-subtle">{items.length}</span>
+                  <span className="font-label tabular-nums text-xs text-subtle">{items.length}</span>
                 </div>
                 <p className="mb-3 text-xs text-subtle">{column.hint}</p>
 

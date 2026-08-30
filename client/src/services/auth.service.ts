@@ -21,10 +21,18 @@ import { api } from '@/lib/api';
  * reset link like anybody else.
  */
 export interface IssuedSession extends AuthSession {
+  /**
+   * What registration hands back beyond the session itself.
+   *
+   * `password` is null now and always: space owners choose their own during
+   * sign-up, so the server has no plaintext to return. Kept on the type rather
+   * than deleted because staff provisioning still issues passwords, and this is
+   * the shape that would carry one if that path ever came through here.
+   */
   credentials?: {
     spaceCode: string | null;
     email: string;
-    password: string;
+    password: string | null;
   };
 }
 

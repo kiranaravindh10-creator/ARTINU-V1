@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from 'lucide-react';
+import { CalendarDays, Eye, EyeOff, Phone } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -82,6 +82,67 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, Omit<InputProps,
   },
 );
 PasswordInput.displayName = 'PasswordInput';
+
+/**
+ * Telephone field.
+ *
+ * `type="tel"` brings up the phone keypad on a handset and lets a browser fill
+ * a saved number; the shape of what people type (+91 98765 43210, 080 4567
+ * 8901) is validated by `phoneSchema` in the shared package rather than being
+ * forced by the input, so nobody is fighting an input mask.
+ */
+export const PhoneInput = React.forwardRef<HTMLInputElement, Omit<InputProps, 'type'>>(
+  ({ placeholder = '+91 98765 43210', ...props }, ref) => (
+    <Input
+      ref={ref}
+      type="tel"
+      inputMode="tel"
+      autoComplete="tel"
+      icon={<Phone />}
+      placeholder={placeholder}
+      {...props}
+    />
+  ),
+);
+PhoneInput.displayName = 'PhoneInput';
+
+/** Today as YYYY-MM-DD, in the visitor's own timezone — the ceiling for a birth date. */
+const today = () => {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+};
+
+/**
+ * Date field, used for date of birth.
+ *
+ * The native picker rather than a bespoke calendar: it is the control people
+ * already know, it works with a keyboard and a screen reader without any help
+ * from us, and on a phone it opens the platform's own wheel. `max` stops a
+ * future date being picked at all, so the schema's "cannot be in the future"
+ * rule is a backstop rather than the first thing a visitor meets. The picker
+ * glyph is tinted to the bronze accent so the field does not read as a browser
+ * default dropped into an ARTINU form.
+ */
+export const DateInput = React.forwardRef<HTMLInputElement, Omit<InputProps, 'type'>>(
+  ({ className, max, ...props }, ref) => (
+    <Input
+      ref={ref}
+      type="date"
+      icon={<CalendarDays />}
+      max={max ?? today()}
+      className={cn(
+        'pr-3 [color-scheme:light]',
+        '[&::-webkit-calendar-picker-indicator]:cursor-pointer',
+        '[&::-webkit-calendar-picker-indicator]:opacity-60',
+        '[&::-webkit-calendar-picker-indicator]:transition-opacity',
+        'hover:[&::-webkit-calendar-picker-indicator]:opacity-100',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+DateInput.displayName = 'DateInput';
 
 export const Textarea = React.forwardRef<
   HTMLTextAreaElement,

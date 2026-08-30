@@ -84,7 +84,7 @@ async function main() {
     }
   }
 
-  console.log(`\nEngagement reconciliation — ${apply ? 'APPLYING' : 'dry run'}\n`);
+  console.log(`\nEngagement reconciliation - ${apply ? 'APPLYING' : 'dry run'}\n`);
   console.log(`  artworks                 ${artworks.length}`);
   console.log(`  likes currently shown    ${claimedLikes.toLocaleString()}`);
   console.log(`  likes actually earned    ${realLikes.toLocaleString()}   (wishlist rows)`);

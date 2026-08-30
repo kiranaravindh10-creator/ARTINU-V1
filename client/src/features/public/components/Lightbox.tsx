@@ -1,7 +1,8 @@
-import { type ArtworkWithArtist } from '@artinu/shared';
-import { ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
+import { buildVariantSrcSet, type ArtworkWithArtist } from '@artinu/shared';
+import { ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, X } from 'lucide-react';
 import * as React from 'react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { buildSupabaseSrcSet, supabaseResized } from '@/lib/imageOptimization';
 import { cn } from '@/lib/utils';
 
 /**
@@ -27,6 +28,9 @@ export function Lightbox({
   onToggleWishlist?: (artwork: ArtworkWithArtist) => void;
 }) {
   const artwork = artworks[index];
+
+  /** The opening of whatever the photographer wrote, not a generated summary. */
+  const blurb = (artwork?.description || artwork?.story || '').trim();
 
   const go = React.useCallback(
     (delta: number) => {
@@ -64,27 +68,53 @@ export function Lightbox({
       className="fixed inset-0 z-50 flex flex-col bg-ink/95 backdrop-blur-sm"
       onClick={onClose}
     >
-      {/* Top bar */}
+{/*
+        Top bar: the close button, and nothing else.
+
+        The "17 / 24" counter and a second Like button used to sit here. Both
+        are gone at every size, not just on phones.
+
+        The counter turned looking at photographs into working through a list -
+        you stop seeing the picture and start counting how many are left - and
+        it was meaningless on a one-photograph gallery. The arrows already say
+        more exist.
+
+        The Like button was a duplicate: the bottom bar carries the same
+        control, same handler, same state, beside the title and photographer,
+        which is where somebody actually decides they like a photograph. Two
+        hearts on one screen is a question about whether they do different
+        things.
+      */}
       <div
-        className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6"
+        className="flex items-center justify-end gap-4 px-4 py-3 sm:px-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <span className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-canvas/50">
-          {index + 1} / {artworks.length}
-        </span>
+        {/*
+          The "10 / 50" counter is hidden on phones.
+
+          On a small screen the photograph is the whole point, and a running
+          total sitting above it turns looking at pictures into working through
+          a list - you stop seeing the photograph and start counting how many
+          are left. Browsing is next, next, next; the arrows already say more
+          exist. It is kept from sm up, where there is room for it beside a
+          photograph rather than on top of one.
+        */}
 
         <div className="flex items-center gap-1">
-          {onToggleWishlist && (
-            <button
-              type="button"
-              onClick={() => onToggleWishlist(artwork)}
-              aria-label={artwork.wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
-              aria-pressed={artwork.wishlisted}
-              className="flex size-10 items-center justify-center rounded-full text-canvas/70 transition-colors hover:bg-canvas/10 hover:text-canvas"
-            >
-              <Heart className={cn('size-5', artwork.wishlisted && 'fill-bronze text-bronze')} />
-            </button>
-          )}
+          {/*
+            The SECOND like button, hidden on phones.
+
+            The same control appears in the bottom bar - same handler, same
+            `artwork.wishlisted`, same everything - so on a phone the viewer
+            offered two hearts a thumb's width apart that did the identical
+            thing. The bottom one is kept because it sits with the title and the
+            photographer, which is the moment you decide you like a photograph.
+
+            Hidden rather than deleted: on a wide screen the bottom bar can be
+            a long way from the top of the image, and the pair is useful there.
+            Both read the same state, so there is no second source of truth to
+            drift and nothing to keep in sync.
+          */}
           <button
             type="button"
             onClick={onClose}
@@ -112,9 +142,36 @@ export function Lightbox({
           </button>
         )}
 
+        {/*
+          The lightbox opens the largest STORED COPY, never the original.
+
+          `artwork.originalUrl` is the photographer's print file and can be
+          25 MB; opening a photograph should not download that. `imageUrl` is
+          the 1600px WebP after 010_image_variants, and on older rows it is
+          still the original - which is why the srcset below matters: where
+          variants exist the browser picks by viewport instead of always taking
+          the biggest thing available.
+        */}
         <img
-          src={artwork.imageUrl}
+          /*
+            Never the raw original here.
+
+            `imageUrl` on an artwork uploaded before variants existed IS the
+            photographer's file - measured at 2-3.5 MB each on the live gallery,
+            and up to the 25 MB ceiling. Opening a photograph should not download
+            a print file. Stored variants win where they exist; otherwise
+            Supabase resizes the same object on request.
+          */
+          src={buildVariantSrcSet(artwork.imageVariants) ? artwork.imageUrl : supabaseResized(artwork.imageUrl, 1600)}
+          srcSet={
+            buildVariantSrcSet(artwork.imageVariants) ||
+            buildSupabaseSrcSet(artwork.imageUrl, [800, 1600, 2048]) ||
+            undefined
+          }
+          sizes="100vw"
           alt={artwork.title}
+          loading="eager"
+          decoding="async"
           onClick={(event) => event.stopPropagation()}
           className="max-h-full max-w-full object-contain"
         />
@@ -134,17 +191,33 @@ export function Lightbox({
         )}
       </div>
 
-      {/* Caption — only artist name and title, no pricing */}
+      {/*
+        The caption.
+
+        Title, photographer, place, and the opening of the story — the four
+        things that make a photograph legible. It carried only a title and a
+        name before, so the answer to "where is this?" was a click away on a
+        page most people never opened. The full story stays on the artwork's own
+        page; this is the first paragraph and a way through to the rest.
+      */}
       <div
-        className="flex flex-wrap items-end justify-between gap-4 px-4 py-5 sm:px-8"
+        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 px-4 py-5 sm:px-8"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="min-w-0">
+        <div className="min-w-0 max-w-2xl">
           <h2 className="font-display text-xl text-canvas sm:text-2xl">{artwork.title}</h2>
-          <p className="mt-1 text-sm text-canvas/60">
-            {artwork.artist?.name}
-            {artwork.location ? ` · ${artwork.location}` : ''}
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-canvas/60">
+            {artwork.artist?.name && <span>{artwork.artist.name}</span>}
+            {artwork.location && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="size-3.5 text-bronze-light" aria-hidden />
+                {artwork.location}
+              </span>
+            )}
           </p>
+          {blurb && (
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-canvas/50">{blurb}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -159,6 +232,16 @@ export function Lightbox({
               <Heart className={cn('size-5', artwork.wishlisted && 'fill-bronze text-bronze')} />
             </button>
           )}
+          <Link
+            to={`/gallery/${artwork.id}`}
+            className="group inline-flex items-center gap-2 text-sm text-canvas/80 transition-colors hover:text-canvas"
+          >
+            <span className="relative">
+              Read the story
+              <span className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-current transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover:scale-x-100" />
+            </span>
+            <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </Link>
         </div>
       </div>
     </div>

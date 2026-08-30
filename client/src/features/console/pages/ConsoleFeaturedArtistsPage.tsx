@@ -1,6 +1,6 @@
 import type { PublicArtist } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Search, Sparkles, Star, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, Search, Star, X } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -67,7 +67,7 @@ export default function ConsoleFeaturedArtistsPage() {
       void queryClient.invalidateQueries({ queryKey: ['ops', 'featured-artists'] });
       toast.success(
         saved.length === 0
-          ? 'Carousel cleared — it falls back to the most-liked artists.'
+          ? 'Carousel cleared - it falls back to the most-liked artists.'
           : `${saved.length} artist${saved.length === 1 ? '' : 's'} featured.`,
       );
     },
@@ -145,7 +145,7 @@ export default function ConsoleFeaturedArtistsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── The carousel, in order ─────────────────────────────────────── */}
         <div className="min-w-0">
-          <h2 className="mb-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+          <h2 className="mb-3 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
             In the carousel ({list.length})
           </h2>
 
@@ -171,7 +171,7 @@ export default function ConsoleFeaturedArtistsPage() {
                   <li key={row.artistId}>
                     <Card>
                       <CardContent className="flex items-center gap-3 p-3">
-                        <span className="w-5 shrink-0 text-center font-mono text-xs text-subtle">
+                        <span className="w-5 shrink-0 text-center font-label tabular-nums text-xs text-subtle">
                           {index + 1}
                         </span>
                         <Avatar
@@ -184,7 +184,7 @@ export default function ConsoleFeaturedArtistsPage() {
                             {artist?.name ?? 'Unknown artist'}
                           </p>
                           <p className="truncate text-xs text-subtle">
-                            {artist?.city ?? '—'} · {artist?.artworkCount ?? 0} photographs
+                            {artist?.city ?? '-'} · {artist?.artworkCount ?? 0} photographs
                           </p>
                         </div>
 
@@ -239,7 +239,7 @@ export default function ConsoleFeaturedArtistsPage() {
 
         {/* ── Everyone else ──────────────────────────────────────────────── */}
         <div className="min-w-0">
-          <h2 className="mb-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+          <h2 className="mb-3 font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
             Add an artist
           </h2>
 
@@ -275,11 +275,14 @@ export default function ConsoleFeaturedArtistsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-ink">{artist.name}</p>
                       <p className="truncate text-xs text-subtle">
-                        {artist.city ?? '—'} · {artist.artworkCount} photographs
+                        {artist.city ?? '-'} · {artist.artworkCount} photographs
                       </p>
                     </div>
                     {artist.featured && <Badge variant="bronze">Auto</Badge>}
-                    <Sparkles className="size-4 shrink-0 text-bronze" aria-hidden />
+                    {/* A sparkle decorated every candidate row and meant
+                        nothing. This is an "add to featured" button, so the
+                        glyph says add. */}
+                    <Plus className="size-4 shrink-0 text-bronze" aria-hidden />
                   </button>
                 </li>
               ))}

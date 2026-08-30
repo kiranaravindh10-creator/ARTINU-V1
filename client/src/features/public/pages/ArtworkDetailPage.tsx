@@ -1,32 +1,19 @@
 import {
-  DEFAULT_FRAME,
-  formatCurrency,
   formatDate,
-  FRAME_COLORS,
-  FRAME_MATERIALS,
-  FRAME_SIZES,
   GALLERY_CATEGORY_LABELS,
-  GLASS_TYPES,
   ORIENTATION_LABELS,
-  PRINT_FINISHES,
   SPACE_TYPE_LABELS,
-  type FrameConfiguration,
 } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BadgeCheck,
   Calendar,
-  ChevronDown,
-  Globe,
   Heart,
   ImageOff,
   MapPin,
-  Package,
   RectangleHorizontal,
-  RefreshCw,
   Share2,
-  Sparkles,
   Tag,
   Fingerprint,
 } from 'lucide-react';
@@ -36,39 +23,21 @@ import { toast } from 'sonner';
 import { Container, Section } from '@/components/layout/primitives';
 import { Button } from '@/components/ui/button';
 import { Avatar, EmptyState, Skeleton } from '@/components/ui/display';
-import { FramedPhoto, Photo } from '@/components/ui/photo';
+import { Photo } from '@/components/ui/photo';
 import { ArtworkCard, ArtworkMasonry } from '@/features/public/components/ArtworkCard';
-import { FrameConfigurator, frameHex } from '@/features/public/components/FrameConfigurator';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/contexts/CartContext';
 import { errorMessage } from '@/lib/api';
-import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
 import { SITE_URL } from '@/lib/seo';
 import { EntityMeta } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
-const ASSURANCES = [
-  { icon: Sparkles, label: 'High quality giclée print' },
-  { icon: Package, label: 'Museum grade materials' },
-  { icon: Globe, label: 'Worldwide shipping' },
-  { icon: RefreshCw, label: '7-day replacement policy' },
-];
-
-const optionLabel = <T extends readonly { value: string; label: string }[]>(options: T, value: string) =>
-  options.find((option) => option.value === value)?.label ?? value;
-
 export default function ArtworkDetailPage() {
   const { artworkId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user } = useAuth();
-  const cart = useCart();
-
-  const [configuring, setConfiguring] = React.useState(false);
-  const [frame, setFrame] = React.useState<FrameConfiguration>(DEFAULT_FRAME);
-  const [storyOpen, setStoryOpen] = React.useState(false);
+  const { isAuthenticated } = useAuth();
 
   const {
     data: artwork,
@@ -96,10 +65,6 @@ export default function ArtworkDetailPage() {
     },
     onError: (mutationError) => toast.error(errorMessage(mutationError)),
   });
-
-  React.useEffect(() => {
-    setStoryOpen(false);
-  }, [artworkId]);
 
   const share = async () => {
     const url = window.location.href;
@@ -144,16 +109,6 @@ export default function ArtworkDetailPage() {
   const strip = [artwork, ...related].slice(0, 8);
   const index = related.findIndex((entry) => entry.id === artworkId);
 
-  const addToCart = (chosen: FrameConfiguration, quantity: number) => {
-    cart.add(artwork, chosen, quantity);
-    setFrame(chosen);
-    setConfiguring(false);
-    toast.success(`${artwork.title} added to your cart`, {
-      description: `${quantity} ${quantity === 1 ? 'frame' : 'frames'} · ${optionLabel(FRAME_SIZES, chosen.size)}`,
-      action: { label: 'View cart', onClick: () => navigate('/space/cart') },
-    });
-  };
-
   /*
     These pages carried `noindex` until now, so none of this existed. Each one
     is a distinct photograph with a title, a photographer and often a place —
@@ -165,7 +120,7 @@ export default function ArtworkDetailPage() {
     them as connected entities rather than two unrelated URLs.
   */
   const artworkPath = `/gallery/${artwork.id}`;
-  const artworkTitle = `${artwork.title} by ${artwork.artist.name} — ARTINU`;
+  const artworkTitle = `${artwork.title} by ${artwork.artist.name} - ARTINU`;
   const artworkDescription =
     artwork.description?.trim().slice(0, 155) ||
     `"${artwork.title}", a ${GALLERY_CATEGORY_LABELS[artwork.category] ?? artwork.category} ` +
@@ -290,13 +245,17 @@ export default function ArtworkDetailPage() {
               )}
             </p>
 
+            {/*
+              The specimen label under the work. Location moved out of here into
+              a section of its own below, so the place is read rather than
+              scanned — and so it is not printed twice on the same page.
+            */}
             <dl className="mt-8 grid grid-cols-2 gap-6 border-y border-line py-6 sm:grid-cols-4">
-              <Meta icon={Fingerprint} label="Photo ID" value={artwork.photoId ?? '—'} />
-              <Meta icon={MapPin} label="Location" value={artwork.location ?? '—'} />
+              <Meta icon={Fingerprint} label="Photo ID" value={artwork.photoId ?? '-'} />
               <Meta
                 icon={Calendar}
                 label="Captured"
-                value={artwork.capturedAt ? formatDate(artwork.capturedAt, 'long') : '—'}
+                value={artwork.capturedAt ? formatDate(artwork.capturedAt, 'long') : '-'}
               />
               <Meta icon={Tag} label="Category" value={GALLERY_CATEGORY_LABELS[artwork.category]} />
               <Meta
@@ -306,28 +265,57 @@ export default function ArtworkDetailPage() {
               />
             </dl>
 
-            <section className="mt-10">
-              <h2 className="font-display text-xl text-ink">About this photograph</h2>
-              <p className="prose-quiet mt-3">{artwork.description}</p>
-              {artwork.story && (
-                <>
-                  {storyOpen && <p className="prose-quiet mt-4">{artwork.story}</p>}
-                  <button
-                    type="button"
-                    onClick={() => setStoryOpen((value) => !value)}
-                    className="mt-3 inline-flex items-center gap-1.5 text-sm text-bronze transition-colors hover:text-bronze-deep"
-                    aria-expanded={storyOpen}
-                  >
-                    {storyOpen ? 'Read less' : 'Read more'}
-                    <ChevronDown className={cn('size-4 transition-transform', storyOpen && 'rotate-180')} />
-                  </button>
-                </>
-              )}
-            </section>
+            {/*
+              The story, told in full.
+
+              It used to be folded behind a "Read more" toggle underneath the
+              description, which put the one thing this page exists for — why
+              the photograph was taken — one click away and two paragraphs
+              down. A visitor who came to look at a photograph is exactly the
+              person who wants to read about it, so it opens as it is written,
+              in the reading measure the rest of the site uses for prose.
+            */}
+            {(artwork.story || artwork.description) && (
+              <section className="mt-12 border-t border-line pt-10">
+                <p className="eyebrow">The story</p>
+                {artwork.description && (
+                  <p className="mt-5 max-w-[62ch] font-display text-[1.375rem] leading-[1.45] text-ink sm:text-[1.5rem]">
+                    {artwork.description}
+                  </p>
+                )}
+                {artwork.story && (
+                  <div className="mt-6 max-w-[62ch] space-y-4">
+                    {artwork.story
+                      .split(/\n{2,}/)
+                      .map((paragraph) => paragraph.trim())
+                      .filter(Boolean)
+                      .map((paragraph, index) => (
+                        <p key={index} className="prose-quiet">
+                          {paragraph}
+                        </p>
+                      ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/*
+              Where it was taken. Shown only when the photographer recorded a
+              place — an empty "Location: —" says nothing worth a heading.
+            */}
+            {artwork.location && (
+              <section className="mt-10 border-t border-line pt-10">
+                <p className="eyebrow">Where it was made</p>
+                <p className="mt-4 flex items-start gap-3 font-display text-[1.5rem] leading-snug text-ink sm:text-[1.75rem]">
+                  <MapPin className="mt-1.5 size-5 shrink-0 text-bronze" aria-hidden />
+                  {artwork.location}
+                </p>
+              </section>
+            )}
 
             {artwork.suitableFor.length > 0 && (
-              <section className="mt-10">
-                <h2 className="font-display text-xl text-ink">Perfect for spaces like</h2>
+              <section className="mt-10 border-t border-line pt-10">
+                <p className="eyebrow">Suited to</p>
                 <ul className="mt-4 flex flex-wrap gap-2">
                   {artwork.suitableFor.map((type) => (
                     <li
@@ -341,118 +329,82 @@ export default function ArtworkDetailPage() {
               </section>
             )}
 
-            {/* ── Print & frame preview ─────────────────────────────────── */}
-            <section className="mt-12">
-              <h2 className="font-display text-xl text-ink">Print &amp; Frame Preview</h2>
-              <div className="mt-4 grid gap-0 overflow-hidden rounded-lg border border-line bg-surface sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-                <div className="relative">
-                  <Photo src={IMAGES.livingRoomArt} alt="" ratio="aspect-[4/3]" imgClassName="brightness-95" />
-                  <div className="absolute inset-0 flex items-center justify-center p-10">
-                    <FramedPhoto
-                      src={artwork.thumbnailUrl}
-                      alt={`${artwork.title} in a ${optionLabel(FRAME_MATERIALS, frame.material)} frame`}
-                      frameColor={frameHex(frame.color)}
-                      ratio={ratio}
-                      className="w-1/2 max-w-[13rem]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col justify-between gap-4 border-t border-line p-6 sm:border-l sm:border-t-0">
-                  <dl className="space-y-4">
-                    <Spec label="Frame" value={`${optionLabel(FRAME_MATERIALS, frame.material)} – ${optionLabel(FRAME_COLORS, frame.color)}`} />
-                    <Spec label="Size" value={optionLabel(FRAME_SIZES, frame.size)} />
-                    <Spec label="Glass" value={optionLabel(GLASS_TYPES, frame.glass)} />
-                    <Spec label="Finish" value={optionLabel(PRINT_FINISHES, frame.finish)} />
-                  </dl>
-                  <button
-                    type="button"
-                    onClick={() => setConfiguring(true)}
-                    className="self-start text-sm text-bronze transition-colors hover:text-bronze-deep"
-                  >
-                    Customize this artwork →
-                  </button>
-                </div>
-              </div>
-            </section>
           </div>
 
           {/* ── Right rail ─────────────────────────────────────────────── */}
+          {/*
+            The rail is the credits panel, not a checkout.
+
+            It used to open with "Customize & Add to Cart" and a list of print
+            assurances — giclée stock, worldwide shipping, a replacement policy
+            — which framed a photograph as a product in a basket. ARTINU does
+            not sell prints from this page: it puts photographs on other
+            people's walls, and the thing a visitor should leave with is who
+            made this one and where. So the photographer comes first, the place
+            second, and the invitation to talk to us last.
+          */}
           <aside className="lg:sticky lg:top-24 lg:h-fit">
-            {/*
-              A visitor looking at a photograph has no idea this can end up on
-              their own wall — the invitation has to be made explicitly, once,
-              where they are already looking. Shown only to people who are not
-              signed in as a space owner, so it never nags a returning customer.
-            */}
-            {(!isAuthenticated || user?.role !== 'space_owner') && (
-              <div className="mb-4 rounded-lg border border-bronze/30 bg-bronze-soft/40 p-5">
-                <p className="font-display text-lg leading-snug text-ink">
-                  You can put this photograph in your space.
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  We print it, frame it, hang it, and swap it for new work every
-                  few months. Want to see it on your wall?
-                </p>
+            {artwork.artist && (
+              <div className="rounded-lg border border-line bg-surface p-6 shadow-card">
+                <p className="eyebrow">Photograph by</p>
+                <Link
+                  to={`/artists/${artwork.artist.slug}`}
+                  className="group mt-4 flex items-center gap-3.5"
+                >
+                  <Avatar
+                    name={artwork.artist.name}
+                    src={artwork.artist.avatarUrl}
+                    className="size-12 shrink-0"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 truncate font-display text-lg text-ink">
+                      {artwork.artist.name}
+                      {artwork.artist.verified && (
+                        <BadgeCheck className="size-4 shrink-0 text-bronze" aria-label="Verified artist" />
+                      )}
+                    </span>
+                    {artwork.artist.city && (
+                      <span className="block truncate text-sm text-muted">{artwork.artist.city}</span>
+                    )}
+                  </span>
+                </Link>
+
+                <Button variant="outline" className="mt-5 w-full" asChild>
+                  <Link to={`/artists/${artwork.artist.slug}`}>See their work</Link>
+                </Button>
+
                 <Button
-                  variant="outline"
-                  className="mt-4 w-full"
+                  variant="ghost"
+                  className="mt-2 w-full"
                   onClick={() =>
                     isAuthenticated
-                      ? setConfiguring(true)
-                      : navigate(`/signin?as=space&next=/gallery/${artworkId}`)
+                      ? wishlist.mutate()
+                      : navigate(`/signin?next=/gallery/${artworkId}`)
                   }
                 >
-                  Add this to my space
+                  <Heart className={cn(artwork.wishlisted && 'fill-bronze text-bronze')} />
+                  {artwork.wishlisted ? 'Saved' : 'Save this photograph'}
                 </Button>
               </div>
             )}
 
-            <div className="rounded-lg border border-line bg-surface p-6 shadow-card">
-
-
-              <Button className="mt-5 w-full" onClick={() => setConfiguring(true)}>
-                Customize &amp; Add to Cart
+            {/*
+              The one commercial sentence on the page, and it leads to a
+              conversation rather than a basket: ARTINU curates a collection for
+              a room, it does not sell this single frame off the shelf.
+            */}
+            <div className="mt-4 rounded-lg border border-bronze/30 bg-bronze-soft/40 p-5">
+              <p className="font-display text-lg leading-snug text-ink">
+                Photographs like this hang in real spaces.
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                We read the room, print and frame the work that suits it, hang it,
+                and change it for new work every month.
+              </p>
+              <Button variant="outline" className="mt-4 w-full" asChild>
+                <Link to="/lets-talk">Talk to us about your space</Link>
               </Button>
-              <Button
-                variant="outline"
-                className="mt-2.5 w-full"
-                onClick={() =>
-                  isAuthenticated
-                    ? wishlist.mutate()
-                    : navigate(`/signin?as=space&next=/gallery/${artworkId}`)
-                }
-              >
-                <Heart className={cn(artwork.wishlisted && 'fill-bronze text-bronze')} />
-                {artwork.wishlisted ? 'Saved to Wishlist' : 'Save to Wishlist'}
-              </Button>
-
-              <ul className="mt-6 space-y-2.5 border-t border-line pt-5">
-                {ASSURANCES.map((assurance) => (
-                  <li key={assurance.label} className="flex items-center gap-2.5 text-[0.8125rem] text-muted">
-                    <assurance.icon className="size-4 shrink-0 text-bronze" aria-hidden />
-                    {assurance.label}
-                  </li>
-                ))}
-              </ul>
             </div>
-
-            {artwork.artist && (
-              <Link
-                to={`/artists/${artwork.artist.slug}`}
-                className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong"
-              >
-                <Avatar name={artwork.artist.name} src={artwork.artist.avatarUrl} className="size-11" />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ink">
-                    {artwork.artist.name}
-                    {artwork.artist.verified && <BadgeCheck className="size-3.5 shrink-0 text-bronze" />}
-                  </p>
-                  <p className="truncate text-xs text-muted">{artwork.artist.city}</p>
-                </div>
-                <span className="shrink-0 text-xs text-bronze">View Artist Profile →</span>
-              </Link>
-            )}
           </aside>
         </div>
       </Container>
@@ -469,21 +421,6 @@ export default function ArtworkDetailPage() {
           </Container>
         </Section>
       )}
-
-      <FrameConfigurator
-        artwork={artwork}
-        open={configuring}
-        onOpenChange={setConfiguring}
-        initialFrame={frame}
-        onConfirm={addToCart}
-        signedOutAction={
-          isAuthenticated && user?.role !== 'space_owner' ? undefined : !isAuthenticated ? (
-            <Button asChild>
-              <Link to={`/signin?as=space&next=/gallery/${artworkId}`}>Sign in to add to cart</Link>
-            </Button>
-          ) : undefined
-        }
-      />
     </>
   );
 }
@@ -504,15 +441,6 @@ function Meta({
         <dt className="text-xs text-subtle">{label}</dt>
         <dd className="truncate text-sm text-ink">{value}</dd>
       </div>
-    </div>
-  );
-}
-
-function Spec({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">{label}</dt>
-      <dd className="mt-0.5 text-sm text-ink">{value}</dd>
     </div>
   );
 }

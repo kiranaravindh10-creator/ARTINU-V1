@@ -17,7 +17,12 @@ import { recordAudit } from '@/services/audit.service';
 import { notify, notifyRole } from '@/services/notification.service';
 import { sendModerationDecision, sendUploadReceived } from '@/services/email.service';
 import { profileFor } from '@/services/auth.service';
-import { decodeDataUrl, removeStored, storeBase64 } from '@/services/storage.service';
+import {
+  decodeDataUrl,
+  removeStored,
+  removeVariants,
+  storeImageSet,
+} from '@/services/storage.service';
 import { withArtists } from '@/services/user.service';
 import { allocatePhotoId } from '@/services/photo-id.service';
 import { moderateImage } from '@/services/image-moderation.service';
@@ -242,7 +247,13 @@ artworkRouter.post(
      * To bring inspection back, restore the `moderateImage` call here; the
      * service in services/image-moderation.service.ts is still intact.
      */
-    const stored = await storeBase64(input.imageBase64, 'photographers', input.fileName, req.user!.id);
+    const imageSet = await storeImageSet(
+      input.imageBase64,
+      'photographers',
+      input.fileName,
+      req.user!.id,
+    );
+    const stored = imageSet.original;
 
     // Prefer what the file actually says over what the client claimed, so the
     // stored dimensions and the derived orientation describe the real image.
@@ -271,9 +282,23 @@ artworkRouter.post(
     if (failure) {
       // Reject before the artwork row exists, and take the uploaded file back
       // out of storage so a blocked upload does not leave an orphan behind.
-      await removeStored(stored.url).catch((error) =>
-        logger.warn(`Could not remove the rejected upload ${stored.url}`, error),
-      );
+      /*
+        `stored.path`, not `stored.url`.
+
+        removeStored bails out early on anything isRemoteUrl() calls remote, and
+        with STORAGE_DRIVER=supabase `stored.url` IS a remote https url - so
+        this cleanup silently did nothing in production and every rejected
+        upload has been left sitting in the bucket. `path` is the
+        `<folder>/<name>` form it actually wants.
+      */
+      await Promise.all([
+        removeStored(stored.path).catch((error) =>
+          logger.warn(`Could not remove the rejected upload ${stored.path}`, error),
+        ),
+        removeVariants(imageSet.variants).catch((error) =>
+          logger.warn('Could not remove the rejected upload variants', error),
+        ),
+      ]);
       throw badRequest(failure.detail);
     }
 
@@ -284,6 +309,12 @@ artworkRouter.post(
     // Photo ID is generated server-side and atomically — the client never
     // supplies it. Retry on a duplicate (possible only on the optimistic
     // allocation fallback, when the atomic DB function is not deployed).
+    const widths = Object.keys(imageSet.variants)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const smallestVariant = widths.length > 0 ? imageSet.variants[widths[0]] : null;
+    const largestVariant = widths.length > 0 ? imageSet.variants[widths[widths.length - 1]] : null;
+
     const insertArtwork = async (): Promise<Artwork> => {
       let current = await allocatePhotoId(req.user!.id);
       for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -298,9 +329,26 @@ artworkRouter.post(
             colors: input.colors,
             suitableFor: [],
             tags: input.tags,
-            imageUrl: stored.url,
-            thumbnailUrl: stored.url,
-            originalUrl: null,
+            /*
+              THREE DIFFERENT URLS, AND THE DIFFERENCE MATTERS.
+
+                originalUrl    the photographer's file, untouched. This is what
+                               gets printed - the print shop needs every pixel,
+                               so it is stored and never overwritten.
+                imageUrl       the largest screen copy (1600px WebP). What the
+                               lightbox opens. Was the original, which meant
+                               opening a photograph downloaded up to 25 MB.
+                thumbnailUrl   the smallest copy (400px WebP). What a grid tile
+                               loads. Was ALSO the original: a 15 MB file drawn
+                               at 324 pixels wide, forty times a page.
+
+              When no variants could be made every field falls back to the
+              original and the behaviour is exactly what it was before.
+            */
+            imageUrl: largestVariant ?? stored.url,
+            thumbnailUrl: smallestVariant ?? stored.url,
+            originalUrl: stored.url,
+            imageVariants: Object.keys(imageSet.variants).length > 0 ? imageSet.variants : null,
             orientation,
             width,
             height,

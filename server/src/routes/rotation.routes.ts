@@ -1,4 +1,11 @@
-import type { Artwork } from '@artinu/shared';
+import {
+  ROTATION_RESCHEDULE_WINDOW_DAYS,
+  canReschedule,
+  formatDate,
+  rescheduleRotationSchema,
+  shiftedDueAt,
+  type Artwork,
+} from '@artinu/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@/database/db';
@@ -111,6 +118,80 @@ rotationRouter.post(
   }),
 );
 
+/**
+ * Move a rotation by a day or two.
+ *
+ * The space owner's own write, like approve and request-changes - they are the
+ * one who knows their room is closed on Tuesday. Bounded so it stays a courtesy
+ * rather than a rescheduling system: see ROTATION_RESCHEDULE_WINDOW_DAYS.
+ *
+ * THE BOUND IS MEASURED FROM THE ORIGINAL DATE.
+ *
+ * `rescheduledFrom` is stamped on the first move and never overwritten, and
+ * every later move is checked against it. Checking against the CURRENT `dueAt`
+ * instead would let someone tap "+2 days" five times and walk a rotation a
+ * fortnight down the calendar, two days at a time, with every individual
+ * request passing validation.
+ *
+ * Operations is notified because by the time a cycle is due there may already
+ * be a print run and a route planned around the old date.
+ */
+rotationRouter.post(
+  '/:id/reschedule',
+  validate(rescheduleRotationSchema),
+  asyncHandler(async (req, res) => {
+    const cycle = await db.rotations.byId(req.params.id);
+    if (!cycle) throw notFound('That rotation');
+
+    const space = await db.spaces.byId(cycle.spaceId);
+    if (!space) throw notFound('That space');
+    if (space.ownerId !== req.user!.id) throw forbidden('That rotation belongs to another space.');
+
+    // Once the crew is on the way the date is not the owner's to move alone.
+    if (cycle.status === 'installed') {
+      throw badRequest('This rotation has already been installed.');
+    }
+
+    const { days } = req.valid as { days: number };
+
+    const anchor = cycle.rescheduledFrom ?? cycle.dueAt;
+
+    // canReschedule / shiftedDueAt are the same functions the calendar uses to
+    // decide which days to offer, so the grid cannot light up a date this
+    // endpoint would refuse.
+    if (!canReschedule(cycle.dueAt, cycle.rescheduledFrom, days)) {
+      throw badRequest(
+        `A rotation can move at most ${ROTATION_RESCHEDULE_WINDOW_DAYS} days from ${formatDate(anchor, 'long')}. Call us and we will find a date that works.`,
+      );
+    }
+
+    const nextDueAt = shiftedDueAt(cycle.dueAt, days);
+
+    const updated = await db.rotations.update(cycle.id, {
+      dueAt: nextDueAt,
+      rescheduledFrom: anchor,
+    });
+
+    await notifyRole('operations', {
+      type: 'rotation_reminder',
+      title: 'A rotation date moved',
+      body: `${space.name} moved their rotation to ${formatDate(nextDueAt, 'long')}.`,
+      link: '/console/orders',
+    });
+
+    await recordAudit({
+      actor: { id: req.user!.id, email: req.user!.email },
+      action: 'rotation.rescheduled',
+      entity: 'rotation',
+      entityId: cycle.id,
+      meta: { from: cycle.dueAt, to: nextDueAt, days, anchor },
+      ip: req.ip,
+    });
+
+    res.json(updated);
+  }),
+);
+
 rotationRouter.post(
   '/:id/approve',
   asyncHandler(async (req, res) => {
@@ -131,7 +212,7 @@ rotationRouter.post(
 
     await notifyRole('operations', {
       type: 'installation_scheduled',
-      title: 'Rotation approved — schedule the swap',
+      title: 'Rotation approved - schedule the swap',
       body: `${space.name} has approved their next collection.`,
       link: '/console/orders',
     });

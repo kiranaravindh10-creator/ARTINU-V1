@@ -25,10 +25,17 @@ export const isPast = (iso: string | null | undefined) =>
 
 const pad = (value: number, length = 4) => String(value).padStart(length, '0');
 
-/** CUR-2026-0417 — human-quotable in an email or over the phone. */
+/**
+ * ARTINU-2026-0417 — human-quotable in an email or over the phone.
+ *
+ * The prefix was CUR, left from when the project was called Curate, and it was
+ * printed on every order confirmation and invoice - customers were quoting a
+ * brand that does not exist. Only NEW references change: an order already
+ * placed keeps the CUR reference on the customer's email and in their records.
+ */
 export function orderReference(sequence?: number): string {
   const year = new Date().getFullYear();
-  return `CUR-${year}-${pad(sequence ?? randomInt(1000, 9999))}`;
+  return `ARTINU-${year}-${pad(sequence ?? randomInt(1000, 9999))}`;
 }
 
 /** INV-2026-0417 — matches the order it belongs to where possible. */

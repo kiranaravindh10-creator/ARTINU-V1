@@ -29,7 +29,21 @@ export const tokenStore = {
 
 export const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
-  timeout: 30000,
+  /*
+    60s, not 30s, and the reason is measured rather than cautious.
+
+    The API runs on a free Render dyno that sleeps after inactivity. A cold start
+    was timed at 43 seconds — so at the old 30s ceiling every request after an
+    idle period was ABORTED BY US a full 13 seconds before the server would have
+    answered. The visitor got "That request took too long", React Query retried,
+    and the retry succeeded only because the first attempt had woken the dyno.
+    The site looked broken when it was merely asleep.
+
+    A ceiling above the cold start turns that failure back into a wait. It is a
+    mitigation, not a fix: the fix is a dyno that does not sleep, and until then
+    the homepage renders its standing hero rather than blocking on this at all.
+  */
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 

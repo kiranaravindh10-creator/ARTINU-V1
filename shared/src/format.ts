@@ -20,7 +20,7 @@ export function formatNumber(value: number): string {
 
 export function formatDate(value: string | Date, style: 'short' | 'long' = 'short'): string {
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('en-IN', {
     day: 'numeric',
     month: style === 'long' ? 'long' : 'short',
@@ -30,7 +30,7 @@ export function formatDate(value: string | Date, style: 'short' | 'long' = 'shor
 
 export function formatDateTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -42,7 +42,7 @@ export function formatDateTime(value: string | Date): string {
 
 export function formatRelative(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   const diffMs = date.getTime() - Date.now();
   const diffMinutes = Math.round(diffMs / 60000);
   const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });

@@ -23,7 +23,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { DataRow } from '@/components/ui/stat';
-import { describeFrame } from '@/features/space/pages/CartPage';
+import { describeFrame } from '@/features/public/components/FrameConfigurator';
 import { ORDER_BADGE } from '@/features/space/pages/SpaceDashboardPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
@@ -100,7 +100,7 @@ export default function ConsoleOrderDetailPage() {
       invalidate();
       setStatus('');
       setNote('');
-      toast.success('Status updated — the space owner has been notified');
+      toast.success('Status updated - the space owner has been notified');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -117,7 +117,7 @@ export default function ConsoleOrderDetailPage() {
       setScheduledFor('');
       setInstallWindow('');
       setTechnician('');
-      toast.success('Installation scheduled — owner and artists notified');
+      toast.success('Installation scheduled - owner and artists notified');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -127,7 +127,7 @@ export default function ConsoleOrderDetailPage() {
       adminService.updateOrderCost(orderId, { frame: frameCost, printing: printingCost, logistics: logisticsCost, misc: miscCost }),
     onSuccess: () => {
       invalidate();
-      toast.success('Costs updated — margin recalculated');
+      toast.success('Costs updated - margin recalculated');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -406,7 +406,7 @@ export default function ConsoleOrderDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {options.length === 0 ? (
-                <p className="text-sm text-subtle">This order is complete — nothing left to move.</p>
+                <p className="text-sm text-subtle">This order is complete - nothing left to move.</p>
               ) : (
                 <>
                   <SimpleSelect
@@ -459,7 +459,7 @@ export default function ConsoleOrderDetailPage() {
                   id="window"
                   value={installWindow}
                   onChange={(event) => setInstallWindow(event.target.value)}
-                  placeholder="10:00 AM — 12:00 PM"
+                  placeholder="10:00 AM - 12:00 PM"
                   disabled={!canManage}
                 />
               </Field>

@@ -27,14 +27,41 @@
     <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Preconnect to external resources -->
+    <!--
+      Only hosts the page actually contacts.
+
+      fonts.googleapis.com and fonts.gstatic.com were dropped: the typefaces are
+      self-hosted through @fontsource and are in the bundle, so those two lines
+      were spending a DNS lookup and a TLS handshake per page load on hosts
+      nothing ever requested - and holding two of the browser's small number of
+      parallel connection slots to do it.
+
+      unsplash stays, because it is real: lib/images.ts resolves 37 editorial
+      images through it, so it is contacted on essentially every public page.
+      Supabase is added for the same reason - hero slides, artwork and uploads
+      are all served from its storage bucket and it had no preconnect at all.
+    -->
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://zqiiobtvbakznwegzlox.supabase.co" crossorigin />
+    <!--
+      The API, which every page calls and nothing else preconnects to.
+
+      Both hints above are for IMAGE hosts. The Express API on Render was the
+      one origin the browser contacts on literally every route - every gallery
+      query, every artwork, every sign-in - and it was paying a fresh DNS
+      lookup and TLS handshake to do it. It is also the slowest origin here by
+      a wide margin: the service is on Render's free plan, which sleeps after
+      fifteen minutes, so the handshake is in front of a cold start that has
+      been measured at 44 seconds. Opening the connection during head parsing
+      does not wake the dyno any sooner, but it does take the round trips off
+      the front of the first request.
+    -->
+    <link rel="preconnect" href="https://artinu-v1.onrender.com" crossorigin />
     <!--
       There is deliberately no Supabase dns-prefetch here.
 
       This used to be `href="%VITE_SUPABASE_URL%"`, but VITE_SUPABASE_URL is not
-      a variable this project defines — the browser never talks to Supabase, it
+      a variable this project defines - the browser never talks to Supabase, it
       only ever calls the Express API, which holds the service-role key server
       side. Vite leaves an unknown %VAR% substitution in the markup verbatim, so
       the built index.html shipped a literal `%VITE_SUPABASE_URL%` as an href:
@@ -47,15 +74,15 @@
     -->
 
     <!-- Fallback title/description (replaced by React Helmet) -->
-    <title>ARTINU — Photography that brings spaces to life</title>
-    <meta name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces — curated, framed, installed and rotated every 1–3 months. Zero upfront cost." />
+    <title>ARTINU - Photography that brings spaces to life</title>
+    <meta name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost." />
 
     <!--
       Static social + canonical fallback.
 
       This is a client-rendered app: react-helmet-async writes the real
       per-route tags, but only after JavaScript has run. Googlebot renders JS,
-      so it sees those. The social crawlers do not — Facebook, LinkedIn,
+      so it sees those. The social crawlers do not - Facebook, LinkedIn,
       WhatsApp and Slack read the raw HTML and stop. Without these tags a link
       to artinu.in shared in any of them previewed with no image and no title.
 
@@ -69,7 +96,7 @@
     <meta data-rh="true" property="og:site_name" content="ARTINU" />
     <meta data-rh="true" property="og:type" content="website" />
     <meta data-rh="true" property="og:url" content="https://artinu.in/" />
-    <meta data-rh="true" property="og:title" content="ARTINU — Photography that brings spaces to life" />
+    <meta data-rh="true" property="og:title" content="ARTINU - Photography that brings spaces to life" />
     <meta data-rh="true" property="og:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore. We print, frame, install and rotate the work." />
     <meta data-rh="true" property="og:image" content="https://artinu.in/image/artinu-model.png" />
     <meta data-rh="true" property="og:image:width" content="1200" />
@@ -77,7 +104,7 @@
     <meta data-rh="true" property="og:image:alt" content="A framed photograph curated by ARTINU in a real space" />
     <meta data-rh="true" property="og:locale" content="en_IN" />
     <meta data-rh="true" name="twitter:card" content="summary_large_image" />
-    <meta data-rh="true" name="twitter:title" content="ARTINU — Photography that brings spaces to life" />
+    <meta data-rh="true" name="twitter:title" content="ARTINU - Photography that brings spaces to life" />
     <meta data-rh="true" name="twitter:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore." />
     <meta data-rh="true" name="twitter:image" content="https://artinu.in/image/artinu-model.png" />
 
@@ -129,7 +156,7 @@
         overflow: auto;
       }
       #boot .eyebrow {
-        font-family: ui-monospace, Menlo, monospace;
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
         font-size: 0.6875rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
@@ -158,12 +185,12 @@
           </li>
           <li>
             <strong>The API is not up.</strong> Open
-            <code>http://localhost:4000/api/health</code> in a tab — it should return JSON.
+            <code>http://localhost:4000/api/health</code> in a tab - it should return JSON.
           </li>
           <li><strong>A stale cache.</strong> Hard reload with <code>Ctrl</code> + <code>Shift</code> + <code>R</code>.</li>
           <li><strong>An extension is blocking it.</strong> Brave shields or uBlock on <code>localhost</code>; a private window rules this out.</li>
         </ol>
-        <pre id="boot-detail">No error was captured — the module simply never ran.</pre>
+        <pre id="boot-detail">No error was captured - the module simply never ran.</pre>
       </div>
     </div>
 
@@ -172,6 +199,15 @@
       // panel only if React has not taken over the page.
       (function () {
         var problems = [];
+
+        /*
+          Did something genuinely break, as opposed to merely being slow?
+
+          Only a real failure - a script that would not load, or the page being
+          opened off disk - should ever accuse the app of not starting. Slowness
+          is not failure, and the two used to be treated identically.
+        */
+        var hardFailure = false;
 
         var BREAK = String.fromCharCode(10);
 
@@ -191,7 +227,8 @@
           function (event) {
             var el = event.target;
             if (el && (el.tagName === 'SCRIPT' || el.tagName === 'LINK')) {
-              record('Could not load ' + (el.src || el.href) + ' — the file was not served.');
+              hardFailure = true;
+              record('Could not load ' + (el.src || el.href) + ' - the file was not served.');
               return;
             }
             record(
@@ -211,6 +248,7 @@
         // Opened from disk rather than served. Nothing else will work, so say so
         // instead of letting the generic advice send them round in circles.
         if (location.protocol === 'file:') {
+          hardFailure = true;
           record(
             [
               'This page was opened directly from a folder (file://), not from the dev server.',
@@ -222,12 +260,58 @@
           );
         }
 
-        setTimeout(function () {
-          if (window.__curateMounted) return;
+        /*
+          ── Why this is a poll and not a deadline ──────────────────────────
+
+          This was a single setTimeout at 5000ms: if React had not painted by
+          then it revealed the panel, and nothing ever hid it again. Three
+          things were wrong with that, and together they took a working app
+          off the air.
+
+          1. The handshake was broken. main.tsx sets `window.__ARTINUMounted`;
+             this file read `window.__curateMounted`. The names stopped
+             matching when the project was renamed and only one side was
+             updated, so the primary check had been dead code ever since and
+             the whole decision rested on the childElementCount fallback.
+
+          2. Five seconds is not a failure. Measured on this project: a cold
+             Vite start needs 8.5s to serve the HTML and entry module alone,
+             before the browser fetches the rest of the graph; the production
+             bundle is ~300KB of critical JS, which is 6.1s on slow 3G. Both
+             comfortably outlast the deadline, so the panel fired on exactly
+             the loads that were slowest - first visits and cold servers.
+
+          3. It never retracted. #boot is position:fixed/inset:0 with an opaque
+             background, so once shown it is a full-screen sheet over an app
+             that was, in every one of these cases, about to work perfectly.
+             The panel then advised a hard reload, which "fixed" it by warming
+             the cache - teaching everyone that the site needs a hard refresh.
+
+          So: poll instead of deciding once, hide the panel the moment the app
+          is up, and only accuse it of failing when something really did fail
+          or when far more time has passed than any slow network explains.
+        */
+        var bootPanel = document.getElementById('boot');
+        var GIVE_UP_MS = 20000;
+        var startedAt = Date.now();
+
+        function appIsUp() {
+          if (window.__ARTINUMounted) return true;
           var root = document.getElementById('root');
-          if (root && root.childElementCount > 0) return;
-          document.getElementById('boot').className = 'show';
-        }, 5000);
+          return !!(root && root.childElementCount > 0);
+        }
+
+        var bootPoll = setInterval(function () {
+          if (appIsUp()) {
+            // It came up. Retract the panel if it was shown while we waited.
+            if (bootPanel) bootPanel.className = '';
+            clearInterval(bootPoll);
+            return;
+          }
+          if (hardFailure || Date.now() - startedAt > GIVE_UP_MS) {
+            if (bootPanel) bootPanel.className = 'show';
+          }
+        }, 250);
       })();
     </script>
 

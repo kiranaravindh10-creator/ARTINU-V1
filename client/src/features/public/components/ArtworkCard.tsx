@@ -48,6 +48,7 @@ export function ArtworkCard({
       ratio={RATIO[artwork.orientation] ?? RATIO.landscape}
       priority={priority}
       thumbnail
+      variants={artwork.imageVariants}
       className="photo-edge"
       imgClassName="transition-transform duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
     >
@@ -123,7 +124,16 @@ export function ArtworkCardSkeleton({ index = 0 }: { index?: number }) {
   return <Skeleton className={cn('w-full rounded-sm', ratios[index % ratios.length])} />;
 }
 
-/** Masonry column layout matching the reference gallery. */
+/**
+ * Masonry column layout. Every gallery in the app renders through this, so the
+ * breakpoints here are the gallery's breakpoints.
+ *
+ * TWO columns on a phone, not one. A single column showed one photograph at a
+ * time, which reads as a feed rather than a gallery: you cannot compare two
+ * pictures, you cannot see that there are many, and you have to scroll the
+ * height of a photograph to reach the next one. Two columns is what Pinterest
+ * does on a phone, and it is what the founder asked for.
+ */
 export function ArtworkMasonry({
   children,
   className,
@@ -132,7 +142,7 @@ export function ArtworkMasonry({
   className?: string;
 }) {
   return (
-    <div className={cn('masonry columns-1 sm:columns-2 lg:columns-3 xl:columns-4', className)}>
+    <div className={cn('masonry columns-2 lg:columns-3 xl:columns-4', className)}>
       {children}
     </div>
   );

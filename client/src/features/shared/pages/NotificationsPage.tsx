@@ -7,10 +7,10 @@ import {
   CircleX,
   CreditCard,
   FileSearch,
+  Heart,
   Info,
   PackageCheck,
   RefreshCw,
-  Sparkles,
   TriangleAlert,
   Truck,
   X,
@@ -26,7 +26,8 @@ import { useNotificationActions, useNotifications, useUnreadNotifications } from
 import { cn } from '@/lib/utils';
 
 const ICONS: Record<NotificationType, LucideIcon> = {
-  artwork_selected: Sparkles,
+  // A space chose your photograph. Sparkles reads as "AI did something".
+  artwork_selected: Heart,
   upload_approved: CircleCheck,
   upload_rejected: CircleX,
   payment_received: CreditCard,
@@ -76,7 +77,7 @@ export default function NotificationsPage() {
       <PageHeader
         eyebrow={count > 0 ? `${count} unread` : 'All caught up'}
         title="Notifications"
-        description="Every important event also appears here — email is never the only place it exists."
+        description="Every important event also appears here - email is never the only place it exists."
         actions={
           <Button
             variant="outline"
@@ -119,7 +120,7 @@ export default function NotificationsPage() {
         <div className="space-y-8">
           {groups.map(([day, notifications]) => (
             <section key={day}>
-              <h2 className="sticky top-16 z-10 bg-canvas-soft/90 py-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle backdrop-blur">
+              <h2 className="sticky top-16 z-10 bg-canvas-soft/90 py-2 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle backdrop-blur">
                 {day}
               </h2>
 

@@ -129,17 +129,17 @@ export async function createEmployee(
 
   void sendMail({
     to: destination,
-    subject: `Welcome to ARTINU — your account is ready`,
+    subject: `Welcome to ARTINU - your account is ready`,
     heading: `Welcome aboard, ${input.fullName.split(' ')[0]}.`,
     body:
       `Your ARTINU account has been created.\n\n` +
-      `Name — ${input.fullName}\n` +
-      `Employee ID — ${employeeCode}\n` +
-      `Official email — ${companyEmail}\n` +
-      `Role — ${input.jobTitle} (${input.role.replace('_', ' ')})\n` +
-      (input.department ? `Team — ${input.department}\n` : '') +
+      `Name - ${input.fullName}\n` +
+      `Employee ID - ${employeeCode}\n` +
+      `Official email - ${companyEmail}\n` +
+      `Role - ${input.jobTitle} (${input.role.replace('_', ' ')})\n` +
+      (input.department ? `Team - ${input.department}\n` : '') +
       `\nSign in with your official email above. Use the button below to set your ` +
-      `password — the link is good for seven days and can be used once.\n\n` +
+      `password - the link is good for seven days and can be used once.\n\n` +
       `We will never email you a password, and nobody at ARTINU can see the one you choose.`,
     cta: {
       label: 'Set your password',

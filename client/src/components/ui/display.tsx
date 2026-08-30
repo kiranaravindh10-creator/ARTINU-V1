@@ -48,7 +48,7 @@ export const Avatar = React.forwardRef<
         className="aspect-square size-full object-cover"
       />
     )}
-    <AvatarPrimitive.Fallback className="flex size-full items-center justify-center bg-sand font-mono text-[0.6875rem] uppercase tracking-wider text-bronze-deep">
+    <AvatarPrimitive.Fallback className="flex size-full items-center justify-center bg-sand font-label text-[0.6875rem] uppercase tracking-wider text-bronze-deep">
       {children ?? (name ? initials(name) : '')}
     </AvatarPrimitive.Fallback>
   </AvatarPrimitive.Root>

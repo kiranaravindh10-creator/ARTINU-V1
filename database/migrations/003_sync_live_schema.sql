@@ -124,11 +124,15 @@ create table if not exists cafes (
   name        text not null,
   photo_url   text not null,
   description text not null default '',
+  -- Where the homepage card links to. Entered by a manager; never guessed.
+  website_url text,
   "order"     integer not null default 0,
   is_active   boolean not null default true,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+alter table cafes add column if not exists website_url text;
 
 create index if not exists cafes_active_order_idx on cafes (is_active, "order");
 

@@ -121,7 +121,7 @@ const ARTISTS: ArtistSeed[] = [
     city: 'Bengaluru',
     country: 'India',
     genres: ['street', 'documentary'],
-    bio: 'Vibhu photographs the ordinary hours of Indian cities — the walk to work, the last chai of the evening. His work is unhurried and completely unstaged.',
+    bio: 'Vibhu photographs the ordinary hours of Indian cities - the walk to work, the last chai of the evening. His work is unhurried and completely unstaged.',
     featured: true,
   },
   {
@@ -139,7 +139,7 @@ const ARTISTS: ArtistSeed[] = [
     city: 'Chennai',
     country: 'India',
     genres: ['portrait', 'documentary'],
-    bio: 'Meera photographs people the way she listens to them — patiently, and without interrupting. Her portrait work has followed weavers, fisherfolk and classical dancers across Tamil Nadu.',
+    bio: 'Meera photographs people the way she listens to them - patiently, and without interrupting. Her portrait work has followed weavers, fisherfolk and classical dancers across Tamil Nadu.',
     featured: true,
   },
   {
@@ -183,7 +183,7 @@ const ARTISTS: ArtistSeed[] = [
     city: 'Hyderabad',
     country: 'India',
     genres: ['architecture', 'street'],
-    bio: 'Imran documents the old city — its stairwells, doorways and the light that gets in sideways. He works exclusively in black and white.',
+    bio: 'Imran documents the old city - its stairwells, doorways and the light that gets in sideways. He works exclusively in black and white.',
   },
   {
     email: 'tara.dsouza@artinu.in',
@@ -207,7 +207,7 @@ const ARTISTS: ArtistSeed[] = [
     city: 'Jaipur',
     country: 'India',
     genres: ['architecture', 'fine_art'],
-    bio: 'Nisha photographs courtyards, jaalis and the geometry of Rajasthani light. Her prints are unusually still — she waits for rooms to empty.',
+    bio: 'Nisha photographs courtyards, jaalis and the geometry of Rajasthani light. Her prints are unusually still - she waits for rooms to empty.',
   },
   {
     email: 'kabir.singh@artinu.in',
@@ -239,7 +239,7 @@ const ARTISTS: ArtistSeed[] = [
     city: 'Kyoto',
     country: 'Japan',
     genres: ['minimal', 'landscape'],
-    bio: 'Yuki photographs weather. Mist, snow, the specific grey of a Kyoto afternoon — her frames are mostly empty, on purpose.',
+    bio: 'Yuki photographs weather. Mist, snow, the specific grey of a Kyoto afternoon - her frames are mostly empty, on purpose.',
   },
   {
     email: 'sara.ahmed@artinu.in',
@@ -285,7 +285,7 @@ const OWNERS: OwnerSeed[] = [
     name: 'Vibhu Krishna',
     spaces: [
       {
-        name: 'The Test Kitchen — Bengaluru',
+        name: 'The Test Kitchen - Bengaluru',
         type: 'restaurant',
         city: 'Bengaluru',
         theme: 'Warm modern bistro, exposed brick and brass',
@@ -304,7 +304,7 @@ const OWNERS: OwnerSeed[] = [
     name: 'Ishaan Kapoor',
     spaces: [
       {
-        name: 'Toast & Tonic — Bengaluru',
+        name: 'Toast & Tonic - Bengaluru',
         type: 'restaurant',
         city: 'Bengaluru',
         theme: 'Industrial minimal with reclaimed wood',
@@ -316,7 +316,7 @@ const OWNERS: OwnerSeed[] = [
         verified: true,
       },
       {
-        name: 'Toast & Tonic — Indiranagar',
+        name: 'Toast & Tonic - Indiranagar',
         type: 'cafe',
         city: 'Bengaluru',
         theme: 'Bright and plant-filled',
@@ -373,7 +373,7 @@ const OWNERS: OwnerSeed[] = [
     name: 'Maya Krishnan',
     spaces: [
       {
-        name: 'Lalit Boutique — Lobby',
+        name: 'Lalit Boutique - Lobby',
         type: 'hotel',
         city: 'Delhi',
         theme: 'Contemporary luxury, brass and stone',
@@ -391,7 +391,7 @@ const OWNERS: OwnerSeed[] = [
     name: 'Samar Qureshi',
     spaces: [
       {
-        name: 'Workbay Home Decor — Powai',
+        name: 'Workbay Home Decor - Powai',
         type: 'home_decor',
         city: 'Mumbai',
         theme: 'Clean scandinavian, pale oak',
@@ -402,7 +402,7 @@ const OWNERS: OwnerSeed[] = [
         verified: true,
       },
       {
-        name: 'Workbay Home Decor — Baner',
+        name: 'Workbay Home Decor - Baner',
         type: 'home_decor',
         city: 'Pune',
         theme: 'Concrete and green',
@@ -455,7 +455,7 @@ const OWNERS: OwnerSeed[] = [
     name: 'Anita Fernandes',
     spaces: [
       {
-        name: 'Baga House — Dining',
+        name: 'Baga House - Dining',
         type: 'restaurant',
         city: 'Goa',
         theme: 'Coastal Portuguese, blue and lime',
@@ -467,7 +467,7 @@ const OWNERS: OwnerSeed[] = [
         verified: true,
       },
       {
-        name: 'Baga House — Terrace Bar',
+        name: 'Baga House - Terrace Bar',
         type: 'restaurant',
         city: 'Goa',
         theme: 'Sunset terrace',
@@ -548,14 +548,14 @@ const DESCRIPTIONS = [
   'A single figure, held still against a much larger structure.',
   'Reflected light doing most of the work, as it usually does.',
   'Taken on the third morning of waiting for this exact weather.',
-  'Colour left almost untouched — the wall was really that shade.',
+  'Colour left almost untouched - the wall was really that shade.',
   'A long exposure that turned a crowd into weather.',
 ];
 
 const STORIES = [
   'I had walked past this corridor a dozen times before noticing what the afternoon did to it. I came back at the same hour for a week until the light and the emptiness happened together.',
   'This was the end of a long, unproductive day. I had packed the camera away and then the cloud broke, and I unpacked it again in about four seconds.',
-  'The people who live here see this every morning and think nothing of it. That gap — between the ordinary and the remarkable — is most of what I photograph.',
+  'The people who live here see this every morning and think nothing of it. That gap - between the ordinary and the remarkable - is most of what I photograph.',
   'It rained for six days. On the seventh the fog lifted for maybe ninety seconds, and this is what was underneath it.',
   'I asked permission, then waited twenty minutes for them to forget I was there. The photograph is from the moment they did.',
 ];
@@ -594,7 +594,7 @@ const CHECK_DETAIL: Record<string, string> = {
 };
 
 const CHECK_FAILURE: Record<string, string> = {
-  ai_generated: 'Metadata is missing and the dimensions are suspiciously exact — this may be a generated image.',
+  ai_generated: 'Metadata is missing and the dimensions are suspiciously exact - this may be a generated image.',
   nsfw: 'The description contains language that needs a human review.',
   quality: 'The long edge is below 1200px, which is not enough for an A2 print.',
   duplicate: 'This closely matches another photograph already in your portfolio.',
@@ -839,7 +839,7 @@ function buildArtworks(
       validation: status === 'draft' ? [] : buildValidation(failing),
       reviewNote:
         status === 'rejected'
-          ? `We could not publish this one — ${CHECK_FAILURE[failing!]!.toLowerCase()}`
+          ? `We could not publish this one - ${CHECK_FAILURE[failing!]!.toLowerCase()}`
           : null,
       reviewedBy: status === 'approved' || status === 'rejected' ? 'Curation team' : null,
       reviewedAt: status === 'approved' || status === 'rejected' ? daysAgo(between(1, 300)) : null,
@@ -1006,7 +1006,7 @@ function buildCommerce(
         orderId,
         spaceId: space.id,
         scheduledFor,
-        installationWindow: pick(['9:00 AM — 11:00 AM', '11:00 AM — 1:00 PM', '3:00 PM — 5:00 PM']),
+        installationWindow: pick(['9:00 AM - 11:00 AM', '11:00 AM - 1:00 PM', '3:00 PM - 5:00 PM']),
         status: plan.status === 'completed' ? 'completed' : 'scheduled',
         technician: pick(['Rahul D.', 'Sana M.', 'Vivek P.', 'Joseph K.']),
         notes: null,
@@ -1125,11 +1125,11 @@ function buildNotifications(
       title: 'Your collection is up',
       body: 'Installation is complete. We would love to hear what you think.',
     },
-    {
-      type: 'payout_processed',
-      title: 'Payout processed',
-      body: 'Your earnings for this period have been transferred.',
-    },
+    /*
+      The payout notification is gone. ARTINU does not pay photographers, so
+      seeding 'your earnings have been transferred' put a message about money
+      into a demo artist's inbox that the real product will never send.
+    */
   ];
 
   const recipients = [...ownerUsers, ...artistUsers.slice(0, 8)];
@@ -1162,7 +1162,38 @@ function buildNotifications(
 
 // ── Seeding ──────────────────────────────────────────────────────────────────
 
-export async function seedAll(options: { fresh?: boolean } = {}): Promise<void> {
+/**
+ * Fills a throwaway database with demo people, spaces, photographs and orders.
+ *
+ * REFUSES TO RUN AGAINST ANYTHING BUT THE IN-MEMORY STORE.
+ *
+ * The README has always said the demo seed "deliberately does not run against
+ * Supabase". Nothing enforced that, and the two ways in disagreed about it:
+ *
+ *   · `ensureSeeded` (server boot) checked SEED_DEMO_DATA and then whether any
+ *     user already existed — so an empty real database was one env var away
+ *     from being filled with 31 fictional users.
+ *   · `npm run seed` calls this function directly and checked neither. Against a
+ *     .env pointing at production it would clear every table and reseed it.
+ *
+ * The first line of this function clears the store, so getting this wrong is not
+ * recoverable by noticing quickly. Hence a real guard rather than a comment.
+ *
+ * `allowRemote` exists for the one legitimate case — deliberately seeding your
+ * own staging project — and is only reachable from `npm run seed -- --allow-remote`.
+ */
+export async function seedAll(
+  options: { fresh?: boolean; allowRemote?: boolean } = {},
+): Promise<void> {
+  if (env.DATA_DRIVER !== 'memory' && !options.allowRemote) {
+    throw new Error(
+      `Refusing to seed demo data: DATA_DRIVER is "${env.DATA_DRIVER}", not "memory". ` +
+        'Seeding clears every table first, so this would wipe that database and replace it ' +
+        'with fictional users. For a local demo run `npm run dev:demo`, which uses the ' +
+        'in-memory store. If you really do mean to seed a remote project, pass --allow-remote.',
+    );
+  }
+
   if (options.fresh) clearPersistedStore();
 
   const { users, profiles, artistUsers, ownerUsers, spaces } = buildPeople();
@@ -1248,12 +1279,12 @@ export async function seedAll(options: { fresh?: boolean } = {}): Promise<void> 
         'Adding a second wall',
       ]),
       message:
-        'Hoping you can help with this — happy to be called on the number on our account if that is easier.',
+        'Hoping you can help with this - happy to be called on the number on our account if that is easier.',
       category: (['installation', 'billing', 'order', 'installation', 'account'] as const)[index]!,
       status: (['open', 'in_progress', 'resolved', 'resolved', 'open'] as const)[index]!,
       reply:
         index === 2 || index === 3
-          ? 'Sorted — a replacement frame is on its way and will go up during the next visit.'
+          ? 'Sorted - a replacement frame is on its way and will go up during the next visit.'
           : null,
       createdAt: daysAgo(between(1, 40)),
       updatedAt: daysAgo(between(0, 10)),
@@ -1358,6 +1389,17 @@ export async function ensureSeeded(): Promise<boolean> {
   // so leaving this unguarded made "start the server" a destructive operation
   // against anything it decided looked empty.
   if (!env.SEED_DEMO_DATA) return false;
+
+  // Belt as well as braces: seedAll refuses this too, but throwing on boot is a
+  // worse failure than declining quietly, and SEED_DEMO_DATA=true against a real
+  // database is a misconfiguration rather than a request.
+  if (env.DATA_DRIVER !== 'memory') {
+    logger.warn(
+      `SEED_DEMO_DATA is true but DATA_DRIVER is "${env.DATA_DRIVER}" - skipping the demo seed. ` +
+        'Demo data only ever goes into the in-memory store; use `npm run dev:demo`.',
+    );
+    return false;
+  }
 
   const existing = await db.users.count();
   if (existing > 0) return false;

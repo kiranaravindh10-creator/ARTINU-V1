@@ -25,7 +25,7 @@ export default function ConsoleAuditPage() {
     <div>
       <PageHeader
         title="Audit log"
-        description="Every privileged action, with who did it and when. Append-only — entries cannot be edited or deleted from here."
+        description="Every privileged action, with who did it and when. Append-only - entries cannot be edited or deleted from here."
       />
 
       <SubNav
@@ -85,14 +85,14 @@ export default function ConsoleAuditPage() {
                         <Row label="Actor">{entry.actorEmail ?? 'system'}</Row>
                         <Row label="Entity">{entry.entity}</Row>
                         <Row label="Entity id">
-                          <span className="font-mono text-xs">{entry.entityId ?? '—'}</span>
+                          <span className="font-mono text-xs">{entry.entityId ?? '-'}</span>
                         </Row>
-                        <Row label="IP">{entry.ip ?? '—'}</Row>
+                        <Row label="IP">{entry.ip ?? '-'}</Row>
                       </dl>
 
                       {entry.meta && Object.keys(entry.meta).length > 0 && (
                         <div className="mt-4">
-                          <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+                          <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
                             Details
                           </p>
                           <dl className="mt-2 space-y-1">

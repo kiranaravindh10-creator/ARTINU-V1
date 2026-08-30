@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { EmptyState, Skeleton } from '@/components/ui/display';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { errorMessage } from '@/lib/api';
@@ -49,7 +49,7 @@ const STATUS_COPY: Record<
   approved: {
     tone: 'success',
     label: 'Approved',
-    explain: 'Approved — our operations team is scheduling the swap.',
+    explain: 'Approved - our operations team is scheduling the swap.',
   },
   installed: {
     tone: 'neutral',
@@ -63,7 +63,13 @@ export default function RotationPage() {
   const [changesFor, setChangesFor] = React.useState<string | null>(null);
   const [note, setNote] = React.useState('');
 
-  const { data: cycles, isLoading } = useQuery({
+  const {
+    data: cycles,
+    isLoading,
+    isError,
+    error: cyclesError,
+    refetch: refetchCycles,
+  } = useQuery({
     queryKey: qk.rotation,
     queryFn: () => rotationService.list(),
   });
@@ -77,7 +83,25 @@ export default function RotationPage() {
     mutationFn: (id: string) => rotationService.approve(id),
     onSuccess: () => {
       invalidate();
-      toast.success('Approved — we’ll schedule the installation');
+      toast.success('Approved - we’ll schedule the installation');
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  /*
+    Moving the date.
+
+    A delta in days, not a date - see rescheduleRotationSchema. The optimistic
+    path is deliberately NOT taken here: the server enforces a window measured
+    from the original due date, so it can legitimately refuse, and a calendar
+    that jumps and then jumps back is worse than one that waits.
+  */
+  const reschedule = useMutation({
+    mutationFn: ({ id, days }: { id: string; days: number }) =>
+      rotationService.reschedule(id, days),
+    onSuccess: (cycle) => {
+      void queryClient.invalidateQueries({ queryKey: qk.rotation });
+      toast.success(`Rotation moved to ${formatDate(cycle.dueAt, 'long')}.`);
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -89,7 +113,7 @@ export default function RotationPage() {
       invalidate();
       setChangesFor(null);
       setNote('');
-      toast.success('Thanks — our curators will take another pass');
+      toast.success('Thanks - our curators will take another pass');
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -101,18 +125,31 @@ export default function RotationPage() {
       <PanelHeader
         icon={RefreshCw}
         title="Rotation"
-        description="Your walls change every one to three months. Nothing moves without your approval."
+        description="Your walls change every month. Nothing moves without your approval."
       />
+
+      {/*
+        A failed request is not an empty schedule.
+
+        `isError` was not read, so when /rotation failed - which on a sleeping
+        free dyno is every request after an idle period - `cycles` was undefined
+        and the empty state below fired. A space owner with a rotation due next
+        week was told "No rotations scheduled yet", which is both wrong and
+        alarming. Same bug, same fix, as the dashboard's spaces query.
+      */}
+      {isError && <ErrorState error={cyclesError} onRetry={() => void refetchCycles()} />}
 
       {cycles && cycles.length > 0 && (
         <RotationCalendar
           cycles={cycles}
           spaceName={(id) => spaceById.get(id)?.name ?? 'Your space'}
           className="mb-12"
+          onReschedule={(id, days) => reschedule.mutate({ id, days })}
+          rescheduling={reschedule.isPending}
         />
       )}
 
-      {!cycles || cycles.length === 0 ? (
+      {isError ? null : !cycles || cycles.length === 0 ? (
         <EmptyState
           icon={<RefreshCw />}
           title="No rotations scheduled yet."
@@ -138,7 +175,7 @@ export default function RotationPage() {
           <DialogHeader>
             <DialogTitle>Ask for a different selection</DialogTitle>
             <DialogDescription>
-              Tell us what isn&rsquo;t working — too dark, wrong mood, we&rsquo;ve had similar
+              Tell us what isn&rsquo;t working - too dark, wrong mood, we&rsquo;ve had similar
               before. Our curators will take another pass.
             </DialogDescription>
           </DialogHeader>
@@ -207,7 +244,7 @@ function RotationCycleSection({
 
       <div className="mt-7 grid gap-8 sm:grid-cols-2">
           <div>
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
               Currently on your walls
             </h3>
             <div className="mt-3 grid grid-cols-4 gap-2">
@@ -228,7 +265,7 @@ function RotationCycleSection({
           </div>
 
           <div className="sm:border-l sm:border-line sm:pl-8">
-            <h3 className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
+            <h3 className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze">
               Proposed next collection
             </h3>
             <div className="mt-3 grid grid-cols-4 gap-2">

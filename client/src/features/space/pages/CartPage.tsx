@@ -1,15 +1,12 @@
 import {
   formatCurrency,
+  FRAME_COLOR_MATERIAL,
   FRAME_COLORS,
-  FRAME_MATERIALS,
   FRAME_SIZES,
-  GLASS_TYPES,
   MIN_ORDER_QUANTITY,
-  PRICING,
-  PRINT_FINISHES,
   type FrameConfiguration,
 } from '@artinu/shared';
-import { Minus, Plus, ShoppingBag, Tag, Trash2 } from 'lucide-react';
+import { Frame, Tag, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,19 +25,14 @@ import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { DataRow } from '@/components/ui/stat';
 import { useCart, type CartLine } from '@/contexts/CartContext';
+import { describeFrame } from '@/features/public/components/FrameConfigurator';
 
-const label = <T extends readonly { value: string; label: string }[]>(options: T, value: string) =>
-  options.find((option) => option.value === value)?.label ?? value;
-
-export function describeFrame(frame: FrameConfiguration): string {
-  return [
-    label(FRAME_SIZES, frame.size),
-    label(FRAME_MATERIALS, frame.material),
-    label(FRAME_COLORS, frame.color),
-    `${label(GLASS_TYPES, frame.glass)} glass`,
-    `${label(PRINT_FINISHES, frame.finish)} print`,
-  ].join(' · ');
-}
+/*
+  `describeFrame` used to live here, and three other screens imported it from
+  this page. It now sits beside the configurator that produces the configuration
+  it describes, so the wording of a frame spec is defined once, next to the only
+  code that can create one.
+*/
 
 export default function CartPage() {
   const cart = useCart();
@@ -53,7 +45,7 @@ export default function CartPage() {
       <div>
         <PanelHeader title="Your cart" />
         <EmptyState
-          icon={<ShoppingBag />}
+          icon={<Frame />}
           title="Your cart is empty."
           description="Browse the collection and configure a frame to get started."
           action={
@@ -72,7 +64,9 @@ export default function CartPage() {
     <div>
       <PanelHeader
         title="Your cart"
-        description={`${cart.count} ${cart.count === 1 ? 'frame' : 'frames'} ready to go.`}
+        description={`${cart.count} ${
+          cart.count === 1 ? 'photograph' : 'photographs'
+        } ready to go.`}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -95,27 +89,15 @@ export default function CartPage() {
                       {describeFrame(line.frame)}
                     </p>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <div className="flex items-center rounded-md border border-line">
-                        <button
-                          type="button"
-                          onClick={() => cart.updateQuantity(line.key, line.quantity - 1)}
-                          className="flex size-8 items-center justify-center text-muted transition-colors hover:text-ink"
-                          aria-label={`Decrease quantity of ${line.snapshot.title}`}
-                        >
-                          <Minus className="size-3.5" />
-                        </button>
-                        <span className="w-8 text-center text-sm tabular-nums">{line.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => cart.updateQuantity(line.key, line.quantity + 1)}
-                          className="flex size-8 items-center justify-center text-muted transition-colors hover:text-ink"
-                          aria-label={`Increase quantity of ${line.snapshot.title}`}
-                        >
-                          <Plus className="size-3.5" />
-                        </button>
-                      </div>
+                    {/*
+                      No quantity stepper.
 
+                      One print per photograph, so the only numbers this control
+                      could produce were wrong ones. What is left is the two
+                      things an owner actually does to a cart line: change the
+                      frame, or take it out.
+                    */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <Button variant="ghost" size="sm" onClick={() => setEditing(line)}>
                         Change frame
                       </Button>
@@ -140,28 +122,34 @@ export default function CartPage() {
           <div className="border-t-2 border-ink pt-6">
               <h2 className="font-display text-lg text-ink">Order summary</h2>
 
+              {/*
+                Three rows, not eight.
+
+                It listed "Artwork licensing", "Frames", "Printing", a subtotal,
+                delivery, installation and GST - seven lines of internal cost
+                composition shown to a café owner who wants to know what to pay.
+                The composition is still computed and still recorded on the
+                order, which is where an accountant needs it.
+
+                Installation and the GST row are gone because neither is charged:
+                installation is included, and ARTINU is not registered for GST
+                yet. A "GST @ 18% ... 0" row invites exactly one question.
+              */}
               <div className="mt-4">
-                <DataRow label="Artwork licensing" value={formatCurrency(cart.pricing.artworkTotal)} />
-                <DataRow label="Frames" value={formatCurrency(cart.pricing.frameTotal)} />
-                <DataRow label="Printing" value={formatCurrency(cart.pricing.printingTotal)} />
-                <DataRow label="Subtotal" value={formatCurrency(cart.pricing.subtotal)} />
+                <DataRow label="Printing and framing" value={formatCurrency(cart.pricing.subtotal)} />
                 {cart.pricing.discount > 0 && (
                   <DataRow
                     label={`Discount${cart.couponCode ? ` (${cart.couponCode})` : ''}`}
-                    value={`− ${formatCurrency(cart.pricing.discount)}`}
+                    value={`- ${formatCurrency(cart.pricing.discount)}`}
                   />
                 )}
-                <DataRow
-                  label="Delivery"
-                  value={cart.pricing.delivery === 0 ? 'Free' : formatCurrency(cart.pricing.delivery)}
-                />
-                <DataRow label="Installation" value={formatCurrency(cart.pricing.installation)} />
-                <DataRow
-                  label={`GST @ ${PRICING.GST_RATE * 100}%`}
-                  value={formatCurrency(cart.pricing.gst)}
-                />
+                <DataRow label="Delivery" value="Included" />
                 <DataRow label="Total" value={formatCurrency(cart.pricing.total)} emphasis />
               </div>
+
+              <p className="mt-3 text-xs text-subtle">
+                Inclusive of delivery. One print per photograph.
+              </p>
 
               <div className="mt-5">
                 {cart.couponCode ? (
@@ -181,9 +169,11 @@ export default function CartPage() {
                 ) : (
                   <form
                     className="flex gap-2"
-                    onSubmit={(event) => {
+                    onSubmit={async (event) => {
                       event.preventDefault();
-                      const result = cart.applyCoupon(coupon);
+                      // Awaited now: the code is checked by the server rather
+                      // than against a table compiled into the page.
+                      const result = await cart.applyCoupon(coupon);
                       if (result.ok) {
                         toast.success(result.message);
                         setCoupon('');
@@ -208,7 +198,7 @@ export default function CartPage() {
 
               {shortfall > 0 && (
                 <p className="mt-5 rounded-md border border-bronze/30 bg-bronze-soft/50 px-3 py-2.5 text-sm text-bronze-deep">
-                  A minimum of {MIN_ORDER_QUANTITY} frames is required — add {shortfall} more.
+                  A collection starts at {MIN_ORDER_QUANTITY} photographs - add {shortfall} more.
                 </p>
               )}
 
@@ -256,6 +246,17 @@ function ChangeFrameDialog({
   const set = (key: keyof FrameConfiguration) => (value: string) =>
     setFrame((current) => ({ ...current, [key]: value }) as FrameConfiguration);
 
+  /* Colour writes the material with it - the same rule as the configurator. */
+  const setColor = (value: string) =>
+    setFrame(
+      (current) =>
+        ({
+          ...current,
+          color: value,
+          material: FRAME_COLOR_MATERIAL[value] ?? current.material,
+        }) as FrameConfiguration,
+    );
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
@@ -263,32 +264,41 @@ function ChangeFrameDialog({
           <DialogTitle>Change frame</DialogTitle>
         </DialogHeader>
 
+        {/*
+          Two selects, matching the configurator.
+
+          It offered five - including glass and print finish, which are no longer
+          choices, and material, which is decided by the colour. A cart line
+          edited here could disagree with the same line configured on the gallery
+          page, which is how you end up printing a white wooden frame.
+        */}
         <div className="space-y-4">
-          <SimpleSelect
-            value={frame.size}
-            onValueChange={set('size')}
-            options={FRAME_SIZES.map((o) => ({ value: o.value, label: o.label }))}
-          />
-          <SimpleSelect
-            value={frame.material}
-            onValueChange={set('material')}
-            options={FRAME_MATERIALS.map((o) => ({ value: o.value, label: o.label }))}
-          />
-          <SimpleSelect
-            value={frame.color}
-            onValueChange={set('color')}
-            options={FRAME_COLORS.map((o) => ({ value: o.value, label: o.label }))}
-          />
-          <SimpleSelect
-            value={frame.glass}
-            onValueChange={set('glass')}
-            options={GLASS_TYPES.map((o) => ({ value: o.value, label: `${o.label} glass` }))}
-          />
-          <SimpleSelect
-            value={frame.finish}
-            onValueChange={set('finish')}
-            options={PRINT_FINISHES.map((o) => ({ value: o.value, label: `${o.label} print` }))}
-          />
+          <label className="block">
+            <span className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              Size
+            </span>
+            <SimpleSelect
+              value={frame.size}
+              onValueChange={set('size')}
+              options={FRAME_SIZES.map((o) => ({
+                value: o.value,
+                label: `${o.label} - ${o.description}`,
+              }))}
+            />
+          </label>
+          <label className="block">
+            <span className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+              Colour
+            </span>
+            <SimpleSelect
+              value={frame.color}
+              onValueChange={setColor}
+              options={FRAME_COLORS.map((o) => ({
+                value: o.value,
+                label: `${o.label} - ${FRAME_COLOR_MATERIAL[o.value] === 'metal' ? 'metal' : 'wooden'} frame`,
+              }))}
+            />
+          </label>
         </div>
 
         <DialogFooter>

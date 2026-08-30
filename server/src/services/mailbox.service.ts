@@ -1,9 +1,30 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { db } from '@/database/db';
 import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
 import { now, uuid } from '@/utils/ids';
 import { currentContext } from '@/utils/request-context';
+
+/**
+ * WHERE SENT MAIL IS RECORDED, AND WHY IT IS NOW IN TWO PLACES.
+ *
+ * This began as a development inbox backed by JSON files under
+ * server/.data/mail, which is exactly right locally and useless in production:
+ * Render gives every deploy a fresh filesystem, so the Console's mail log was
+ * always empty on the live site. The practical consequence was that when
+ * password reset emails appeared not to arrive there was no way to tell whether
+ * they had been sent, refused by the provider, or never attempted - the only
+ * honest answer available was "no idea".
+ *
+ * So every message is now also written to a `mail_log` table. The disk copy
+ * stays because it is genuinely convenient offline and costs nothing, but the
+ * database is the source of truth whenever a real driver is configured.
+ *
+ * Neither write is allowed to fail a send. An email that went out but was not
+ * logged is a small problem; an email that failed to go out because logging
+ * broke is a much larger one.
+ */
 
 /**
  * A development inbox.
@@ -91,6 +112,31 @@ export function recordMail(
 
   mailbox.unshift(entry);
 
+  /*
+    Fire and forget, deliberately.
+
+    `recordMail` is called from inside `sendMail` on the request path and is
+    synchronous by signature, so this cannot be awaited without turning every
+    caller async. Failing to write the log must never fail the send, so the
+    error is swallowed to a warning.
+  */
+  void db.mailLog
+    .insert({
+      id: entry.id,
+      to: entry.to,
+      subject: entry.subject,
+      heading: entry.heading,
+      body: entry.body,
+      html: entry.html,
+      delivered: entry.delivered,
+      via: entry.via,
+      sentAt: entry.sentAt,
+      triggeredBy: entry.triggeredBy,
+      requestId: entry.requestId,
+      trigger: entry.trigger,
+    })
+    .catch((error) => logger.warn('Could not write the mail log entry', error));
+
   // Trim, removing the dropped files from disk as well.
   const dropped = mailbox.splice(MAX_KEPT);
   try {
@@ -106,6 +152,71 @@ export function recordMail(
   }
 
   return entry;
+}
+
+/**
+ * Read the log, preferring the durable copy.
+ *
+ * Falls back to the on-disk mailbox when the database has nothing - which is
+ * the normal case locally, and the case for anything sent before the mail_log
+ * table existed.
+ */
+export async function listMailDurable(
+  options: { to?: string; actor?: string; requestId?: string; limit?: number } = {},
+): Promise<RecordedMail[]> {
+  let rows: RecordedMail[] = [];
+  try {
+    rows = (await db.mailLog.find({
+      orderBy: { field: 'sentAt', direction: 'desc' },
+    })) as unknown as RecordedMail[];
+  } catch (error) {
+    logger.warn('Could not read the mail log from the database', error);
+  }
+
+  if (rows.length === 0) return listMail(options);
+
+  let filtered = rows;
+  if (options.to) {
+    const needle = options.to.toLowerCase();
+    filtered = filtered.filter((entry) => (entry.to ?? '').toLowerCase().includes(needle));
+  }
+  if (options.actor) {
+    const needle = options.actor.toLowerCase();
+    filtered = filtered.filter((entry) =>
+      (entry.triggeredBy?.email ?? '').toLowerCase().includes(needle),
+    );
+  }
+  if (options.requestId) {
+    filtered = filtered.filter((entry) => entry.requestId === options.requestId);
+  }
+  return filtered.slice(0, options.limit ?? 100);
+}
+
+export async function getMailDurable(id: string): Promise<RecordedMail | null> {
+  try {
+    const row = (await db.mailLog.byId(id)) as unknown as RecordedMail | null;
+    if (row) return row;
+  } catch (error) {
+    logger.warn('Could not read that mail log entry from the database', error);
+  }
+  return getMail(id);
+}
+
+export async function mailboxSummaryDurable() {
+  try {
+    const rows = (await db.mailLog.find()) as unknown as RecordedMail[];
+    if (rows.length > 0) {
+      const sorted = [...rows].sort((a, b) => (b.sentAt ?? '').localeCompare(a.sentAt ?? ''));
+      return {
+        captured: rows.length,
+        delivered: rows.filter((entry) => entry.delivered).length,
+        lastSentAt: sorted[0]?.sentAt ?? null,
+      };
+    }
+  } catch (error) {
+    logger.warn('Could not summarise the mail log', error);
+  }
+  return mailboxSummary();
 }
 
 export function listMail(

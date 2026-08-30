@@ -94,9 +94,9 @@ export default function ConsoleArtistsPage() {
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-muted">{artist.city ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-muted">{artist.city ?? '-'}</TableCell>
                     <TableCell className="max-w-[12rem] truncate text-xs capitalize text-muted">
-                      {artist.genres.map((genre) => genre.replace(/_/g, ' ')).join(', ') || '—'}
+                      {artist.genres.map((genre) => genre.replace(/_/g, ' ')).join(', ') || '-'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{artist.artworkCount}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -175,7 +175,7 @@ function ArtistDetail({ artist }: { artist: PublicArtist }) {
         </div>
       )}
 
-      <h3 className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
+      <h3 className="mt-6 font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
         Recent work
       </h3>
       <div className="mt-3 grid grid-cols-3 gap-2">

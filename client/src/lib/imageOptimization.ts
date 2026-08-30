@@ -48,7 +48,78 @@ export function buildSeededSrcSet(
     .join(', ');
 }
 
+/*
+  SUPABASE STORAGE RESIZES ON REQUEST, AND UNTIL NOW NOTHING ASKED IT TO.
+
+  Every photograph a member uploads lands in Supabase Storage and is served
+  straight from `/storage/v1/object/public/…` — the original file, byte for
+  byte. Measured on the live gallery: the first seven tiles alone are 17 MB, and
+  a full page of twenty-four is roughly 62 MB, to draw images about 324px wide.
+  That is the whole of "the gallery is slow", and it is a bytes problem, so no
+  amount of lazy-loading or caching touches it.
+
+  Swapping `/object/public/` for `/render/image/public/` and adding a width
+  turns the same file into a resized one. Measured on a real 3.4 MB PNG upload:
+
+      original            3,522,426 bytes
+      render, width=800     339,270 bytes   (WebP)     ~10x smaller
+      render, width=1600    403,398 bytes   (WebP)
+
+  WebP is negotiated from the browser's Accept header, which every browser
+  ARTINU supports sends, so no format parameter is needed.
+
+  ── How this relates to the stored variants ────────────────────────────────
+
+  `buildVariantSrcSet` (shared/src/media.ts) is still the better answer and
+  still wins when an artwork has variants: those are generated once at upload
+  and served as plain files. Supabase charges per transformation, so this path
+  costs money per unique size served, where stored variants do not.
+
+  This exists because it needs no migration and no backfill — it makes all 53
+  photographs already in the database fast today, and it keeps working for any
+  upload whose resize did not run.
+
+  NOTE: image transformations are a paid Supabase feature. If the plan is
+  downgraded these URLs stop resolving, which is why `looksLikeSupabaseStorage`
+  is deliberately narrow and everything else falls through to the original.
+*/
+const SUPABASE_OBJECT = '/storage/v1/object/public/';
+const SUPABASE_RENDER = '/storage/v1/render/image/public/';
+
+/** Widths served for a gallery tile. Matches the stored-variant widths. */
+const SUPABASE_THUMB_WIDTHS = [400, 800, 1600];
+const SUPABASE_HERO_WIDTHS = [640, 1024, 1440, 1920];
+
+const looksLikeSupabaseStorage = (url: string) =>
+  url.includes('.supabase.co') && url.includes(SUPABASE_OBJECT);
+
+/**
+ * The same object, asked for at a given width.
+ *
+ * Returns the url untouched when it is not a Supabase object. Without that
+ * guard an Unsplash url - which already carries a query string - would come
+ * back with a second "?" appended and resolve to nothing.
+ */
+export function supabaseResized(url: string, width: number, quality = 75): string {
+  if (!looksLikeSupabaseStorage(url)) return url;
+  return `${url.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}`;
+}
+
+/**
+ * A srcset of on-the-fly resizes, or '' when this is not a Supabase object.
+ *
+ * Widths above the source are harmless: Supabase clamps to the original rather
+ * than upscaling, so the largest candidates simply resolve to the same pixels.
+ */
+export function buildSupabaseSrcSet(url: string, widths: number[]): string {
+  if (!looksLikeSupabaseStorage(url)) return '';
+  return widths.map((width) => `${supabaseResized(url, width)} ${width}w`).join(', ');
+}
+
 export function buildHeroSrcSet(url: string): string {
+  const supabase = buildSupabaseSrcSet(url, SUPABASE_HERO_WIDTHS);
+  if (supabase) return supabase;
+
   if (url.includes('unsplash.com')) {
     const match = url.match(/photo-([^?]+)/);
     if (match) {
@@ -65,6 +136,9 @@ export function buildHeroSrcSet(url: string): string {
 }
 
 export function buildThumbnailSrcSet(url: string): string {
+  const supabase = buildSupabaseSrcSet(url, SUPABASE_THUMB_WIDTHS);
+  if (supabase) return supabase;
+
   if (url.includes('unsplash.com')) {
     const match = url.match(/photo-([^?]+)/);
     if (match) {
@@ -104,62 +178,52 @@ export function getOptimizedUrl(url: string, width: number, height: number, qual
   return url;
 }
 
-const BLUR_PLACEHOLDER_CACHE = new Map<string, string>();
+/*
+  `generateBlurPlaceholder` and its cache lived here: an async function that
+  fetched a real 20x11 preview of each photograph to use as its placeholder.
 
-export async function generateBlurPlaceholder(url: string, width = 20, height = 11): Promise<string> {
-  if (BLUR_PLACEHOLDER_CACHE.has(url)) {
-    return BLUR_PLACEHOLDER_CACHE.get(url)!;
-  }
+  Nothing called it. `Photo` has always used the synchronous constant below, so
+  the only thing this code did was ship. It is removed rather than wired up
+  because a fetch per tile to decide what colour to show before the tile loads is
+  the wrong trade on the exact page that is already too slow - forty extra
+  round trips to avoid forty grey rectangles.
 
-  try {
-    const optimizedUrl = getOptimizedUrl(url, width, height, 20);
-    const response = await fetch(optimizedUrl);
-    if (!response.ok) throw new Error('Failed to fetch');
-    const blob = await response.blob();
-    const base64 = await blobToBase64(blob);
-    const placeholder = `data:image/jpeg;base64,${base64}`;
-    BLUR_PLACEHOLDER_CACHE.set(url, placeholder);
-    return placeholder;
-  } catch {
-    const fallback = generateCssBlurPlaceholder();
-    BLUR_PLACEHOLDER_CACHE.set(url, fallback);
-    return fallback;
-  }
-}
+  A real low-quality preview belongs in the upload pipeline, encoded once and
+  stored on the artwork row, not computed in the browser on every visit.
+*/
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+/*
+  The placeholder every photograph sits on until it loads.
 
-function generateCssBlurPlaceholder(): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = 20;
-  canvas.height = 11;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  Two things were wrong with the old one.
 
-  const gradient = ctx.createLinearGradient(0, 0, 20, 11);
-  gradient.addColorStop(0, '#1a1815');
-  gradient.addColorStop(0.5, '#2a2620');
-  gradient.addColorStop(1, '#1a1815');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 20, 11);
+  It was NEAR-BLACK - a #1a1815 to #2a2620 gradient - on a #f7f5f2 page. So the
+  gallery's first paint was a grid of forty dark rectangles on warm paper, each
+  of which then faded to a photograph. That is what "the gallery loads slowly"
+  looks like even when the network is fine: the page is legibly, obviously
+  unfinished, in the highest-contrast way available.
 
-  return canvas.toDataURL('image/jpeg', 0.1);
-}
+  And it was produced by painting a canvas and calling toDataURL('image/jpeg'),
+  a synchronous encode on the main thread, to arrive at a value that never
+  varies. That work is now gone entirely: the same gradient is written once, by
+  hand, as an inline SVG data URI. No canvas, no context, no encode, and nothing
+  for the DOM to be present for.
 
-export function getBlurPlaceholderSync(url: string): string {
-  if (BLUR_PLACEHOLDER_CACHE.has(url)) {
-    return BLUR_PLACEHOLDER_CACHE.get(url)!;
-  }
-  const placeholder = generateCssBlurPlaceholder();
-  BLUR_PLACEHOLDER_CACHE.set(url, placeholder);
-  return placeholder;
+  Sand rather than paper white on purpose - a tile has to read as "a photograph
+  is arriving here", and pure canvas would read as empty space.
+*/
+const PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='11'%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23efeae2'/%3E%3Cstop offset='.5' stop-color='%23e6dfd4'/%3E%3Cstop offset='1' stop-color='%23efeae2'/%3E%3C/linearGradient%3E%3Crect width='20' height='11' fill='url(%23g)'/%3E%3C/svg%3E";
+
+/**
+ * The placeholder every photograph sits on until it loads.
+ *
+ * Takes a url and ignores it. The signature is kept because `Photo` and the
+ * homepage hero both call it with one, and because a per-image placeholder is
+ * the thing that should eventually live here - see the note above.
+ */
+export function getBlurPlaceholderSync(_url?: string): string {
+  return PLACEHOLDER;
 }
 
 export function preloadImage(url: string, as = 'image', type = 'image/webp'): HTMLLinkElement {

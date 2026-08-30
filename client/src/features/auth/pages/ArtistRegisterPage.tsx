@@ -1,6 +1,7 @@
 import {
   ART_STYLE_LABELS,
   ART_STYLES,
+  formatDate,
   registerStep1Schema,
   registerStep2Schema,
   registerStep3Schema,
@@ -21,7 +22,8 @@ import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CharCount, Field } from '@/components/ui/field';
-import { Input, PasswordInput, Textarea } from '@/components/ui/input';
+import { DateInput, Input, PasswordInput, PhoneInput, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { AvatarDropzone, PasswordRules } from '@/features/auth/components/AuthBits';
@@ -127,6 +129,12 @@ export default function ArtistRegisterPage() {
                   { label: 'Name', value: draft.fullName, step: 1 },
                   { label: 'Artist Name', value: draft.artistName, step: 2 },
                   { label: 'Email', value: draft.email, step: 1 },
+                  { label: 'Phone', value: draft.phone, step: 1 },
+                  {
+                    label: 'Date of Birth',
+                    value: draft.dateOfBirth ? formatDate(draft.dateOfBirth, 'long') : undefined,
+                    step: 1,
+                  },
                   { label: 'Location', value: draft.location, step: 2 },
                   {
                     label: 'Art Style',
@@ -138,7 +146,7 @@ export default function ArtistRegisterPage() {
                   <div key={row.label} className="flex items-center justify-between gap-4 py-3">
                     <dt className="text-[0.8125rem] text-muted">{row.label}</dt>
                     <dd className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-sm text-ink">{row.value || '—'}</span>
+                      <span className="truncate text-sm text-ink">{row.value || '-'}</span>
                       <button
                         type="button"
                         onClick={() => setStep(row.step)}
@@ -207,6 +215,8 @@ function StepOne({ defaults, onNext }: { defaults: Draft; onNext: (values: Regis
     defaultValues: {
       fullName: defaults.fullName ?? '',
       email: defaults.email ?? '',
+      phone: defaults.phone ?? '',
+      dateOfBirth: defaults.dateOfBirth ?? '',
       password: defaults.password ?? '',
     },
   });
@@ -237,6 +247,25 @@ function StepOne({ defaults, onNext }: { defaults: Draft; onNext: (values: Regis
             {...register('email')}
           />
         </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Phone number" htmlFor="phone" error={errors.phone?.message}>
+            <PhoneInput id="phone" invalid={!!errors.phone} {...register('phone')} />
+          </Field>
+
+          <Field
+            label="Date of birth"
+            htmlFor="dateOfBirth"
+            error={errors.dateOfBirth?.message}
+          >
+            <DateInput
+              id="dateOfBirth"
+              autoComplete="bday"
+              invalid={!!errors.dateOfBirth}
+              {...register('dateOfBirth')}
+            />
+          </Field>
+        </div>
 
         <Field label="Password" htmlFor="password" error={errors.password?.message}>
           <PasswordInput
@@ -299,12 +328,20 @@ function StepTwo({
         </Field>
 
         <Field label="Location" htmlFor="location" error={errors.location?.message}>
-          <Input
-            id="location"
-            icon={<MapPin />}
-            placeholder="City, Country"
-            invalid={!!errors.location}
-            {...register('location')}
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <LocationInput
+                id="location"
+                name={field.name}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                placeholder="Start typing your city"
+                invalid={!!errors.location}
+              />
+            )}
           />
         </Field>
 

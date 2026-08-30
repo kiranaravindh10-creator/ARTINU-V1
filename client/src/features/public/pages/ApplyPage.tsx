@@ -2,6 +2,7 @@ import {
   artistApplicationSchema,
   ART_STYLE_LABELS,
   ART_STYLES,
+  CONTACT,
   REFERRAL_SOURCE_LABELS,
   REFERRAL_SOURCES,
   type ArtistApplicationInput,
@@ -10,50 +11,46 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowRight,
-  CircleHelp,
   Camera,
   Check,
-  FileSearch,
   Globe,
   Instagram,
   Lightbulb,
   Lock,
   Mail,
   MapPin,
-  Sparkles,
   Upload,
   User,
-  Users,
   X,
 } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Container, Section, StepIcon } from '@/components/layout/primitives';
+import { Container, Section } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CharCount, Field, Label } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { publicService } from '@/services/public.service';
-import { fileToBase64, formatBytes } from '@/lib/utils';
+import { fileToImageDataUrl, formatBytes } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MIN_PHOTOS = 6;
 const MAX_PHOTOS = 15;
 
-const NEXT_STEPS = [
-  { icon: FileSearch, title: 'Application Review', body: 'Our team will review your application and portfolio.' },
-  { icon: Mail, title: "We'll Be in Touch", body: 'If selected, we’ll reach out within 7–10 business days.' },
-  { icon: Sparkles, title: 'Welcome Onboard', body: 'Get access to ARTINU and start sharing your stories.' },
-  { icon: Users, title: 'Grow Together', body: 'Connect, collaborate, and inspire with our community.' },
-];
+/*
+  NEXT_STEPS lived here - the four-icon "what happens next" row. The section it
+  fed is gone (the page you land on after submitting says the same thing), so
+  the data and the StepIcon import went with it.
+*/
 
 const TIPS = [
   'Share your best and most recent work.',
@@ -119,14 +116,14 @@ export default function ApplyPage() {
         continue;
       }
       if (file.size > MAX_FILE_BYTES) {
-        toast.error(`${file.name} is ${formatBytes(file.size)} — the limit is 10 MB.`);
+        toast.error(`${file.name} is ${formatBytes(file.size)} - the limit is 10 MB.`);
         continue;
       }
       if (uploads.length + accepted.length >= MAX_PHOTOS) {
         toast.error(`You can upload up to ${MAX_PHOTOS} photographs.`);
         break;
       }
-      accepted.push({ name: file.name, size: file.size, dataUrl: await fileToBase64(file) });
+      accepted.push({ name: file.name, size: file.size, dataUrl: await fileToImageDataUrl(file) });
     }
 
     if (accepted.length === 0) return;
@@ -235,13 +232,21 @@ export default function ApplyPage() {
                 </Field>
 
                 <Field label="Location" htmlFor="location" required error={errors.location?.message}>
-                  <Input
+              <Controller
+                name="location"
+                control={control}
+                render={({ field }) => (
+                  <LocationInput
                     id="location"
-                    icon={<MapPin />}
-                    placeholder="City / State / Country"
+                    name={field.name}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder="Start typing your city"
                     invalid={!!errors.location}
-                    {...register('location')}
                   />
+                )}
+              />
                 </Field>
 
                 <Field label="Website / Portfolio" htmlFor="website" hint="Optional" error={errors.website?.message}>
@@ -377,14 +382,14 @@ export default function ApplyPage() {
                     </button>
                   </p>
                   <p className="mt-4 text-xs text-subtle">
-                    Upload {MIN_PHOTOS} – {MAX_PHOTOS} images
+                    Upload {MIN_PHOTOS} - {MAX_PHOTOS} images
                     <br />
-                    (JPG, PNG – Max 10MB each)
+                    (JPG, PNG - Max 10MB each)
                   </p>
                   <input
                     ref={inputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     multiple
                     className="sr-only"
                     onChange={(event) => {
@@ -451,7 +456,7 @@ export default function ApplyPage() {
                     className="mt-0.5"
                   />
                   <span>
-                    I confirm that all the information provided is acARTINU and I agree to
+                    I confirm that all the information provided is accurate and I agree to
                     ARTINU&rsquo;s{' '}
                     <Link to="/legal/terms" className="text-bronze underline underline-offset-4">
                       Terms of Use
@@ -490,47 +495,33 @@ export default function ApplyPage() {
         </Container>
       </Section>
 
-      {/* ── What happens next ──────────────────────────────────────────── */}
-      <Section size="compact" className="pt-0">
-        <Container>
-          <div className="rounded-xl bg-sand-soft px-6 py-10 text-center sm:px-10">
-            <h2 className="font-display text-[1.5rem] text-ink">What happens next?</h2>
-            <div className="mt-9 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {NEXT_STEPS.map((step, index) => (
-                <div key={step.title} className="relative flex flex-col items-center">
-                  <StepIcon className="bg-canvas">
-                    <step.icon aria-hidden />
-                  </StepIcon>
-                  <h3 className="mt-4 text-sm font-medium text-ink">
-                    {index + 1}. {step.title}
-                  </h3>
-                  <p className="mt-1.5 max-w-[14rem] text-xs leading-relaxed text-muted">{step.body}</p>
-                  {index < NEXT_STEPS.length - 1 && (
-                    <ArrowRight
-                      className="absolute -right-3 top-6 hidden size-4 text-line-strong lg:block"
-                      aria-hidden
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Container>
-      </Section>
+      {/*
+        "What happens next?" used to sit here as well.
+
+        It was the same four steps, the same four lucide glyphs in the same
+        discs, with arrows between them - and the page you land on the instant
+        you press submit shows it again, word for word. Two identical process
+        diagrams either side of one button.
+
+        It belongs on the page AFTER applying, which is when someone actually
+        wants to know what happens next, so that is the only place it survives.
+        See ApplicationSubmittedPage.
+      */}
 
       {/* ── Help band ──────────────────────────────────────────────────── */}
       <Section size="compact" className="pt-0">
         <Container>
           <div className="grid gap-8 rounded-xl bg-ink px-6 py-9 text-canvas sm:px-10 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
             <div className="flex items-start gap-4">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-canvas/25 text-bronze-light">
-                <CircleHelp className="size-4" aria-hidden />
-              </span>
               <div>
                 <h3 className="font-display text-lg text-canvas">Need help?</h3>
                 <p className="mt-1 text-sm text-canvas/55">We&rsquo;re here for you.</p>
-                <a href="mailto:hello@ARTINU.space" className="text-sm text-canvas/80 hover:underline">
-                  hello@ARTINU.space
+                {/* Was hello@ARTINU.space - a domain ARTINU does not own. */}
+                <a
+                  href={`mailto:${CONTACT.email}`}
+                  className="text-sm text-canvas/80 hover:underline"
+                >
+                  {CONTACT.email}
                 </a>
               </div>
             </div>

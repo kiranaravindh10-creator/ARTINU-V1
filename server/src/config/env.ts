@@ -111,11 +111,36 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-opus-5'),
 
+  /**
+   * Where the location fields get their place suggestions.
+   *
+   * `photon` is the default because it needs no key and no signup: OpenStreetMap
+   * data through Komoot's public instance, which unlike Nominatim is intended
+   * for autocomplete. It is best-effort with no SLA, which is an acceptable
+   * trade for a field that degrades to plain text when suggestions are
+   * unavailable.
+   *
+   * `google` gives materially better coverage of Indian localities and needs
+   * GOOGLE_PLACES_API_KEY plus billing. Switching is this one value — the lookup
+   * runs server-side precisely so that a key never reaches the browser.
+   *
+   * `none` turns suggestions off and leaves every location field as a plain text
+   * input.
+   */
+  GEOCODE_PROVIDER: z.enum(['photon', 'google', 'none']).default('photon'),
+  GOOGLE_PLACES_API_KEY: z.string().optional(),
+
   PAYMENT_PROVIDER: z.enum(['mock_qr', 'razorpay', 'stripe']).default('mock_qr'),
   PAYMENT_UPI_VPA: z.string().default('artinu@upi'),
   PAYMENT_PAYEE_NAME: z.string().default('ARTINU'),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
+  /**
+   * Signs webhook bodies, and is a DIFFERENT secret from RAZORPAY_KEY_SECRET —
+   * it is set per-webhook in the Razorpay dashboard. Using the API secret here
+   * is the usual reason webhook verification never matches.
+   */
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
@@ -150,7 +175,7 @@ const WEAK_SECRET_MARKERS = [/change[-_ ]?me/i, /^artinu-development-secret/i, /
 if (raw.NODE_ENV === 'production') {
   if (WEAK_SECRET_MARKERS.some((marker) => marker.test(raw.JWT_SECRET))) {
     throw new Error(
-      'JWT_SECRET is still a placeholder. Set a unique random value in production — ' +
+      'JWT_SECRET is still a placeholder. Set a unique random value in production - ' +
         'generate one with:  node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64url\'))"',
     );
   }
@@ -237,7 +262,7 @@ export const driverSummary = {
 /** Warn when a requested driver was downgraded for missing credentials. */
 export function reportDriverFallbacks(log: (message: string) => void) {
   if (raw.DATA_DRIVER !== env.DATA_DRIVER)
-    log('DATA_DRIVER=supabase requested but SUPABASE_URL/SERVICE_ROLE_KEY are missing — using memory');
+    log('DATA_DRIVER=supabase requested but SUPABASE_URL/SERVICE_ROLE_KEY are missing - using memory');
 if (raw.STORAGE_DRIVER !== env.STORAGE_DRIVER) {
     const reason =
       raw.STORAGE_DRIVER === 'supabase' && !(raw.SUPABASE_URL && raw.SUPABASE_SERVICE_ROLE_KEY)
@@ -247,22 +272,22 @@ if (raw.STORAGE_DRIVER !== env.STORAGE_DRIVER) {
         : raw.STORAGE_DRIVER === 's3' && !(raw.AWS_REGION && raw.AWS_ACCESS_KEY_ID && raw.AWS_SECRET_ACCESS_KEY && raw.S3_BUCKET)
         ? 'S3 credentials are missing'
         : 'credentials are missing';
-    log(`STORAGE_DRIVER=${raw.STORAGE_DRIVER} requested but ${reason} — using local disk`);
+    log(`STORAGE_DRIVER=${raw.STORAGE_DRIVER} requested but ${reason} - using local disk`);
   }
   if (raw.AUTH_DRIVER !== env.AUTH_DRIVER)
     log(
-      'AUTH_DRIVER=supabase is not implemented yet (see docs/SERVICES.md) — using the local bcrypt + JWT driver',
+      'AUTH_DRIVER=supabase is not implemented yet (see docs/SERVICES.md) - using the local bcrypt + JWT driver',
     );
 
   // Mail silently falling back to the console is the failure that hurts most in
   // production: registration still succeeds, so nothing looks broken, and the
   // welcome mail simply never arrives. Say it out loud at boot.
   if (raw.MAIL_PROVIDER === 'sendgrid' && !sendgridConfigured)
-    log('MAIL_PROVIDER=sendgrid requested but SENDGRID_API_KEY is missing — printing mail to the console');
+    log('MAIL_PROVIDER=sendgrid requested but SENDGRID_API_KEY is missing - printing mail to the console');
   if (raw.MAIL_PROVIDER === 'smtp' && !smtpConfigured)
-    log('MAIL_PROVIDER=smtp requested but SMTP_HOST/SMTP_USER are missing — printing mail to the console');
+    log('MAIL_PROVIDER=smtp requested but SMTP_HOST/SMTP_USER are missing - printing mail to the console');
   if (raw.MAIL_PROVIDER === 'auto' && env.MAIL_PROVIDER === 'console')
-    log('No SENDGRID_API_KEY and no SMTP credentials — mail is printed to the console, not delivered');
+    log('No SENDGRID_API_KEY and no SMTP credentials - mail is printed to the console, not delivered');
   if (env.isProduction && env.MAIL_PROVIDER === 'console')
-    log('PRODUCTION with no mail provider configured — sign-in codes and password resets cannot be delivered');
+    log('PRODUCTION with no mail provider configured - sign-in codes and password resets cannot be delivered');
 }

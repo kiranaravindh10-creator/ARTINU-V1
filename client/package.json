@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "npm --prefix .. run dev:demo",
+    "demo:sync": "npm --prefix .. run demo:sync",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -15,7 +17,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.1.1",
-    "@fontsource-variable/jetbrains-mono": "^5.1.2",
     "@fontsource/playfair-display": "^5.1.1",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.2",
@@ -48,7 +49,8 @@
     "react-router-dom": "^7.1.2",
     "sonner": "^1.7.2",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -59,6 +61,7 @@
     "tailwindcss": "^4.0.0",
     "tw-animate-css": "^1.2.5",
     "typescript": "^5.7.3",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "@types/qrcode": "^1.5.5"
   }
 }

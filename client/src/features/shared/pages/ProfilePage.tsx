@@ -38,7 +38,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadNotifications } from '@/hooks/useNotifications';
 import { errorMessage } from '@/lib/api';
 import { authService } from '@/services/auth.service';
-import { fileToBase64, readImageSize } from '@/lib/utils';
+import { fileToImageDataUrl, readImageSizeOrZero } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 type Pane = 'profile' | 'account' | 'security' | 'support';
@@ -116,8 +116,8 @@ const uploadAvatar = useMutation({
       toast.error('Please upload a JPG, PNG, or WebP image.');
       return;
     }
-    const dataUrl = await fileToBase64(file);
-    const { width, height } = await readImageSize(dataUrl);
+    const dataUrl = await fileToImageDataUrl(file);
+    const { width, height } = await readImageSizeOrZero(dataUrl);
     const ratio = width / height;
     if (ratio < 0.8 || ratio > 1.25) {
       toast.warning('For best results, use a square image (1:1 aspect ratio).');
@@ -134,8 +134,8 @@ const uploadAvatar = useMutation({
       toast.error('Please upload a JPG, PNG, or WebP image.');
       return;
     }
-    const dataUrl = await fileToBase64(file);
-    const { width, height } = await readImageSize(dataUrl);
+    const dataUrl = await fileToImageDataUrl(file);
+    const { width, height } = await readImageSizeOrZero(dataUrl);
     const ratio = width / height;
     if (ratio < 3 || ratio > 4.5) {
       toast.warning('For best results, use a wide image (3:1 to 4:1 aspect ratio).');
@@ -211,7 +211,7 @@ const uploadAvatar = useMutation({
                 {profile?.fullName ?? 'Your account'}
               </p>
               <p className="truncate text-xs text-muted">
-                {user ? ROLE_LABELS[user.role] : '—'}
+                {user ? ROLE_LABELS[user.role] : '-'}
               </p>
               {(profile?.city || profile?.country) && (
                 <p className="truncate text-xs text-subtle">
@@ -343,7 +343,7 @@ const uploadAvatar = useMutation({
                   <input
                     ref={avatarInput}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     className="sr-only"
                     onChange={async (event) => {
                       const file = event.target.files?.[0];
@@ -413,12 +413,12 @@ const uploadAvatar = useMutation({
                         Change backdrop
                       </Button>
                       <p className="mt-2 text-xs text-subtle">
-                        JPG, PNG or WebP up to 5 MB. Wide (3:1–4:1) recommended.
+                        JPG, PNG or WebP up to 5 MB. Wide (3:1-4:1) recommended.
                       </p>
                       <input
                         ref={coverInput}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                         className="sr-only"
                         onChange={async (event) => {
                           const file = event.target.files?.[0];
@@ -521,11 +521,11 @@ const uploadAvatar = useMutation({
                 <Row label="Email address">
                   <span className="text-ink">{user?.email}</span>
                   <p className="mt-1 text-xs text-subtle">
-                    Your email is your sign-in — contact support to change it.
+                    Your email is your sign-in - contact support to change it.
                   </p>
                 </Row>
                 <Row label="Role">
-                  <span className="text-ink">{user ? ROLE_LABELS[user.role] : '—'}</span>
+                  <span className="text-ink">{user ? ROLE_LABELS[user.role] : '-'}</span>
                 </Row>
                 <Row label="Status">
                   <Status tone={user?.status === 'verified' ? 'success' : 'warning'}>
@@ -538,7 +538,7 @@ const uploadAvatar = useMutation({
                 </Row>
                 <Row label="Member since">
                   <span className="text-ink">
-                    {user ? formatDate(user.createdAt, 'long') : '—'}
+                    {user ? formatDate(user.createdAt, 'long') : '-'}
                   </span>
                 </Row>
               </dl>
@@ -599,7 +599,7 @@ const uploadAvatar = useMutation({
             <div>
               <SectionHead
                 title="Help & support"
-                description="We're here if you need us — reach the ARTINU team however suits you."
+                description="We're here if you need us - reach the ARTINU team however suits you."
               />
 
               <div className="mt-8 space-y-4">
@@ -618,7 +618,7 @@ const uploadAvatar = useMutation({
 
                 <a
                   href={`https://wa.me/${CONTACT.phoneRaw}?text=${encodeURIComponent(
-                    'Hi ARTINU — I need help with my artist account.',
+                    'Hi ARTINU - I need help with my artist account.',
                   )}`}
                   target="_blank"
                   rel="noreferrer"
@@ -630,7 +630,7 @@ const uploadAvatar = useMutation({
                   <div>
                     <p className="text-sm font-medium text-ink">Chat on WhatsApp</p>
                     <p className="mt-0.5 text-sm text-muted">
-                      Message us on {CONTACT.phone} — fastest for quick questions
+                      Message us on {CONTACT.phone} - fastest for quick questions
                     </p>
                   </div>
                 </a>
@@ -692,7 +692,7 @@ function PaneLink({
       />
       <span className="flex-1 text-left">{label}</span>
       {badge != null && badge > 0 && (
-        <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze-soft px-1.5 font-mono text-[0.5625rem] text-bronze-deep">
+        <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze-soft px-1.5 font-label tabular-nums text-[0.5625rem] text-bronze-deep">
           {badge > 99 ? '99' : badge}
         </span>
       )}
@@ -719,7 +719,7 @@ function PaneLink({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-6">
-      <dt className="font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:pt-1">
+      <dt className="font-label text-[0.5625rem] uppercase tracking-[0.16em] text-subtle sm:pt-1">
         {label}
       </dt>
       <dd className="text-sm">{children}</dd>

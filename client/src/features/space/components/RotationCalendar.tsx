@@ -1,4 +1,10 @@
-import { formatDate, type RotationCycle } from '@artinu/shared';
+import {
+  ROTATION_RESCHEDULE_WINDOW_DAYS,
+  formatDate,
+  rescheduleOptions,
+  shiftedDueAt,
+  type RotationCycle,
+} from '@artinu/shared';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
@@ -34,10 +40,18 @@ export function RotationCalendar({
   cycles,
   spaceName,
   className,
+  onReschedule,
+  rescheduling = false,
 }: {
   cycles: RotationCycle[];
   spaceName: (spaceId: string) => string;
   className?: string;
+  /**
+   * Move the next rotation by a whole number of days. Omit to render the
+   * calendar read-only, which is what a staff view would want.
+   */
+  onReschedule?: (cycleId: string, days: number) => void;
+  rescheduling?: boolean;
 }) {
   const upcoming = React.useMemo(
     () =>
@@ -52,15 +66,40 @@ export function RotationCalendar({
     next ? new Date(next.dueAt) : new Date(),
   );
 
-  // Every due date in the set, keyed by day, so a cell can look itself up.
+  /*
+    Every UPCOMING due date, keyed by day, so a cell can look itself up.
+
+    This iterated `cycles`, which includes installed ones, so a rotation that
+    happened three months ago still painted a solid bronze dot on the grid - a
+    calendar of things to come, marking things already done.
+  */
   const dueByDay = React.useMemo(() => {
     const map = new Map<string, RotationCycle[]>();
-    for (const cycle of cycles) {
+    for (const cycle of upcoming) {
       const key = dayKey(new Date(cycle.dueAt));
       map.set(key, [...(map.get(key) ?? []), cycle]);
     }
     return map;
-  }, [cycles]);
+  }, [upcoming]);
+
+  /*
+    The days the next rotation may be moved to.
+
+    The window is measured from where the cycle was ORIGINALLY due, so someone
+    who has already pulled it forward a day can only push it one further - which
+    is the same rule the server enforces, shown rather than discovered by
+    getting an error back. Rendering it as selectable days is the whole reason
+    this is a calendar: "the 23rd, but not the 24th" is obvious on a grid and
+    invisible in a stepper.
+  */
+  const movable = React.useMemo(() => {
+    if (!next || !onReschedule) return new Map<string, number>();
+    const options = new Map<string, number>();
+    for (const days of rescheduleOptions(next.dueAt, next.rescheduledFrom)) {
+      options.set(dayKey(new Date(shiftedDueAt(next.dueAt, days))), days);
+    }
+    return options;
+  }, [next, onReschedule]);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -74,6 +113,13 @@ export function RotationCalendar({
   ];
 
   const shift = (delta: number) => setCursor(new Date(year, month + delta, 1));
+
+  // Follow the date when it moves, so the grid does not sit on last month after
+  // a reschedule pushes the rotation into the next one.
+  const nextDueAt = next?.dueAt;
+  React.useEffect(() => {
+    if (nextDueAt) setCursor(new Date(nextDueAt));
+  }, [nextDueAt]);
   const daysAway = next
     ? Math.ceil((new Date(next.dueAt).getTime() - Date.now()) / 86400000)
     : null;
@@ -114,7 +160,7 @@ export function RotationCalendar({
             {DAY_LABELS.map((label) => (
               <span
                 key={label}
-                className="text-center font-mono text-[0.5625rem] uppercase tracking-[0.14em] text-subtle"
+                className="text-center font-label text-[0.5625rem] uppercase tracking-[0.14em] text-subtle"
               >
                 {label.slice(0, 3)}
               </span>
@@ -128,6 +174,35 @@ export function RotationCalendar({
               const key = dayKey(new Date(year, month, day));
               const due = dueByDay.get(key);
               const isToday = key === today;
+              const moveBy = movable.get(key);
+
+              /*
+                A day you can move the rotation to is a real button; every other
+                day stays a span. An element that looks clickable and is not is
+                worse than one that plainly is not, and a keyboard user needs
+                the difference to be in the markup rather than in the styling.
+              */
+              if (moveBy !== undefined && next && onReschedule) {
+                return (
+                  <div key={key} className="flex justify-center">
+                    <button
+                      type="button"
+                      disabled={rescheduling}
+                      onClick={() => onReschedule(next.id, moveBy)}
+                      title={`Move the rotation to ${formatDate(new Date(year, month, day), 'long')}`}
+                      aria-label={`Move the rotation to ${formatDate(new Date(year, month, day), 'long')}`}
+                      className={cn(
+                        'flex size-8 items-center justify-center rounded-full text-[0.8125rem] tabular-nums transition-colors',
+                        'text-ink ring-1 ring-dashed ring-bronze/60 hover:bg-bronze hover:text-white',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze',
+                        rescheduling && 'cursor-not-allowed opacity-50',
+                      )}
+                    >
+                      {day}
+                    </button>
+                  </div>
+                );
+              }
 
               return (
                 <div key={key} className="flex justify-center">
@@ -175,6 +250,28 @@ export function RotationCalendar({
             <p className="mt-6 text-sm text-muted">
               {next.proposedArtworkIds.length} photographs proposed for this cycle.
             </p>
+          )}
+
+          {/*
+            Say that the dotted days are clickable. A ring around a number is
+            not self-explanatory, and the alternative - discovering it by
+            hovering every cell - is not discovery.
+          */}
+          {onReschedule && movable.size > 0 && (
+            <div className="mt-6 border-t border-line pt-5">
+              <p className="text-sm leading-relaxed text-muted">
+                Closed that day, or expecting a rush? Pick any circled date on the calendar to move
+                this rotation up to {ROTATION_RESCHEDULE_WINDOW_DAYS} days either way.
+              </p>
+              {next.rescheduledFrom && (
+                <p className="mt-2 text-xs text-subtle">
+                  Originally due {formatDate(next.rescheduledFrom, 'long')}.
+                </p>
+              )}
+              <p className="mt-2 text-xs text-subtle">
+                Need a bigger change? Call us and we will find a date that works.
+              </p>
+            </div>
           )}
 
           {/* Same page — a real fragment link, not a route. */}

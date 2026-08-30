@@ -1,6 +1,6 @@
 import { DEFAULT_FRAME, GALLERY_CATEGORY_LABELS, type ArtworkWithArtist } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { Heart, Frame } from 'lucide-react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,7 +35,7 @@ export default function WishlistPage() {
   });
 
   const addAll = () => {
-    for (const artwork of data) cart.add(artwork, DEFAULT_FRAME, 1);
+    for (const artwork of data) cart.add(artwork, DEFAULT_FRAME);
     toast.success(`${data.length} photographs added to your cart`, {
       description: 'Adjust frames and quantities in the cart.',
     });
@@ -55,7 +55,7 @@ export default function WishlistPage() {
               </Button>
               <Button asChild>
                 <Link to="/space/cart">
-                  <ShoppingBag /> Cart ({cart.count})
+                  <Frame /> Cart ({cart.count})
                 </Link>
               </Button>
             </>
@@ -118,7 +118,7 @@ export default function WishlistPage() {
                     'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
                   )}
                 >
-                  Add to cart
+                  Add to frame
                 </button>
               </div>
             </article>
@@ -132,7 +132,7 @@ export default function WishlistPage() {
           open
           onOpenChange={(open) => !open && setConfiguring(null)}
           onConfirm={(frame, quantity) => {
-            cart.add(configuring, frame, quantity);
+            cart.add(configuring, frame);
             setConfiguring(null);
             toast.success(`${configuring.title} added to your cart`);
           }}

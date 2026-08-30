@@ -2,12 +2,12 @@ import {
   CONTACT,
   formatCurrency,
   formatDate,
-  FRAME_COLORS,
-  FRAME_MATERIALS,
-  FRAME_SIZES,
-  GLASS_TYPES,
+  ALL_FRAME_COLORS,
+  ALL_FRAME_MATERIALS,
+  ALL_FRAME_SIZES,
+  ALL_GLASS_TYPES,
   PRICING,
-  PRINT_FINISHES,
+  ALL_PRINT_FINISHES,
   type FrameConfiguration,
   type Invoice,
   type Order,
@@ -21,10 +21,30 @@ export async function issueInvoice(order: Order): Promise<Invoice> {
   const existing = await db.invoices.findOne({ orderId: order.id });
   if (existing) return existing;
 
-  const sequence = (await db.invoices.count()) + 1;
+  /*
+    A financial document cannot share its number with another.
+
+    This was `count() + 1`, read and then written with no lock between them.
+    Two orders paid in the same moment - which is exactly what happens after a
+    rotation goes out to several spaces at once - both read the same count and
+    both issued the same invoice number. Duplicate invoice numbers are not a
+    cosmetic problem; they are the one field an accountant uses to tell two
+    sales apart.
+
+    Advancing past anything already taken closes the window on both drivers
+    without needing a sequence object the memory driver does not have. The
+    ceiling stops a corrupt table spinning forever.
+  */
+  let sequence = (await db.invoices.count()) + 1;
+  let number = invoiceNumber(1000 + sequence);
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    if (!(await db.invoices.findOne({ number }))) break;
+    sequence += 1;
+    number = invoiceNumber(1000 + sequence);
+  }
 
   const invoice = await db.invoices.insert({
-    number: invoiceNumber(1000 + sequence),
+    number,
     orderId: order.id,
     spaceId: order.spaceId,
     ownerId: order.ownerId,
@@ -43,11 +63,14 @@ const label = <T extends readonly { value: string; label: string }[]>(options: T
 
 export function describeFrame(frame: FrameConfiguration): string {
   return [
-    label(FRAME_SIZES, frame.size),
-    label(FRAME_MATERIALS, frame.material),
-    label(FRAME_COLORS, frame.color),
-    `${label(GLASS_TYPES, frame.glass)} glass`,
-    `${label(PRINT_FINISHES, frame.finish)} print`,
+    // ALL_ lists: an invoice is a record of a past sale, and the sizes and
+    // finishes it names may no longer be for sale. Reading the offered lists
+    // here printed the raw enum value - "a3_landscape" - on a real invoice.
+    label(ALL_FRAME_SIZES, frame.size),
+    label(ALL_FRAME_MATERIALS, frame.material),
+    label(ALL_FRAME_COLORS, frame.color),
+    `${label(ALL_GLASS_TYPES, frame.glass)} glass`,
+    `${label(ALL_PRINT_FINISHES, frame.finish)} print`,
   ].join(' · ');
 }
 
@@ -110,6 +133,24 @@ const escapeHtml = (value: string) =>
  * perfectly well to paper or PDF.
  */
 export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space | null): string {
+  /*
+    Every field of CONTACT.address is currently an empty string, and this block
+    printed them unconditionally - so a real invoice carried two blank lines and
+    a stray ", " under the ARTINU wordmark. Compose from the parts that exist
+    and render nothing when none do; the address goes in by filling the constant
+    in, not by editing this template.
+  */
+  const sellerAddress = [
+    CONTACT.address.line1,
+    CONTACT.address.line2,
+    [CONTACT.address.city, CONTACT.address.pin].filter(Boolean).join(' '),
+    [CONTACT.address.state, CONTACT.address.country].filter(Boolean).join(', '),
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => escapeHtml(part))
+    .join('<br />');
+
   const rows = order.items
     .map(
       (item) => `
@@ -138,7 +179,7 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${invoice.number} — ARTINU</title>
+<title>${invoice.number} - ARTINU</title>
 <style>
   @page { size: A4; margin: 16mm; }
   * { box-sizing: border-box; }
@@ -178,12 +219,10 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
   <div class="sheet">
     <div class="head">
       <div>
-        <p class="eyebrow">Tax Invoice</p>
+        <p class="eyebrow">${PRICING.GST_REGISTERED ? 'Tax Invoice' : 'Invoice'}</p>
         <h1>ARTINU</h1>
         <div class="muted" style="margin-top:8px">
-          ${escapeHtml(CONTACT.address.line1)}<br />
-          ${escapeHtml(CONTACT.address.line2)}<br />
-          ${escapeHtml(CONTACT.address.city)} ${escapeHtml(CONTACT.address.pin)}, ${escapeHtml(CONTACT.address.country)}
+          ${sellerAddress}
         </div>
       </div>
       <div class="meta">
@@ -204,7 +243,7 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
       </div>
       <div style="flex:1">
         <h3>Installation address</h3>
-        ${space ? `${escapeHtml(space.addressLine1)}<br />${escapeHtml(space.city)}` : '—'}
+        ${space ? `${escapeHtml(space.addressLine1)}<br />${escapeHtml(space.city)}` : '-'}
       </div>
     </div>
 
@@ -221,9 +260,9 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
         ${rows}
         ${line('Subtotal', formatCurrency(pricing.subtotal))}
         ${pricing.discount > 0 ? line(`Discount${pricing.couponCode ? ` (${escapeHtml(pricing.couponCode)})` : ''}`, `− ${formatCurrency(pricing.discount)}`) : ''}
-        ${line('Delivery', pricing.delivery === 0 ? 'Free' : formatCurrency(pricing.delivery))}
-        ${line('Installation', formatCurrency(pricing.installation))}
-        ${line(`GST @ ${PRICING.GST_RATE * 100}%`, formatCurrency(pricing.gst))}
+        ${line('Delivery', pricing.delivery === 0 ? 'Included' : formatCurrency(pricing.delivery))}
+        ${pricing.installation > 0 ? line('Installation', formatCurrency(pricing.installation)) : ''}
+        ${PRICING.GST_REGISTERED ? line(`GST @ ${PRICING.GST_RATE * 100}%`, formatCurrency(pricing.gst)) : ''}
         ${pricing.securityDeposit > 0 ? line('Refundable security deposit', formatCurrency(pricing.securityDeposit)) : ''}
         ${line('Total', formatCurrency(pricing.total), true)}
       </tbody>

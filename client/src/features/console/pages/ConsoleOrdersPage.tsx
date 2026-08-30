@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS, ORDER_STATUSES } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Truck } from 'lucide-react';
+import { Plus, Search, Truck } from 'lucide-react';
 import * as React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FilterChips } from '@/components/ui/tabs';
+import { CreateOrderDialog } from '@/features/console/components/CreateOrderDialog';
 import { ORDER_BADGE } from '@/features/space/pages/SpaceDashboardPage';
 import { qk } from '@/lib/query';
 import { adminService } from '@/services/admin.service';
@@ -33,6 +34,7 @@ export default function ConsoleOrdersPage() {
   const q = params.get('q') ?? '';
   const page = Number(params.get('page') ?? 1);
   const [draft, setDraft] = React.useState(q);
+  const [creating, setCreating] = React.useState(false);
 
   React.useEffect(() => setDraft(q), [q]);
 
@@ -53,7 +55,20 @@ export default function ConsoleOrdersPage() {
 
   return (
     <div>
-      <PageHeader title="Orders" description="Every order across every space." />
+      <PageHeader
+        title="Orders"
+        description="Every order across every space."
+        actions={
+          /* For the café owners who will never log in and just tell us what
+             they want - see CreateOrderDialog. */
+          <Button onClick={() => setCreating(true)}>
+            <Plus />
+            Add order
+          </Button>
+        }
+      />
+
+      <CreateOrderDialog open={creating} onOpenChange={setCreating} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <form
@@ -105,7 +120,7 @@ export default function ConsoleOrdersPage() {
                     <TableRow key={order.id}>
                       <TableCell className="font-mono text-xs text-ink">{order.reference}</TableCell>
                       <TableCell className="max-w-[14rem] truncate">
-                        {(order as { spaceName?: string }).spaceName ?? '—'}
+                        {(order as { spaceName?: string }).spaceName ?? '-'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {order.pricing.quantity}

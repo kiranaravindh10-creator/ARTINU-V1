@@ -79,7 +79,7 @@ export default function ConsoleEmployeesPage() {
       void queryClient.invalidateQueries({ queryKey: ['ops', 'employees'] });
       setOpen(false);
       toast.success(`${employee.fullName} added`, {
-        description: `${employee.companyEmail} — a password setup link has been emailed.`,
+        description: `${employee.companyEmail} - a password setup link has been emailed.`,
       });
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -179,7 +179,7 @@ export default function ConsoleEmployeesPage() {
                   <TableCell>
                     <Badge variant="bronze">{employee.jobTitle}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted">{employee.department ?? '—'}</TableCell>
+                  <TableCell className="text-sm text-muted">{employee.department ?? '-'}</TableCell>
                   <TableCell className="text-sm text-muted">
                     {formatDate(employee.createdAt)}
                   </TableCell>
@@ -208,7 +208,7 @@ export default function ConsoleEmployeesPage() {
         <EmptyState
           icon={<Users />}
           title="No employees yet."
-          description="Add your first team member — ARTINU generates their official email and sends a secure setup link."
+          description="Add your first team member - ARTINU generates their official email and sends a secure setup link."
           action={<Button onClick={() => setOpen(true)}>Add employee</Button>}
         />
       )}
@@ -321,7 +321,7 @@ function AddEmployeeDialog({
           <Field
             label="Personal email"
             htmlFor="employee-personal"
-            hint="Where the setup link is sent — their ARTINU mailbox may not exist yet"
+            hint="Where the setup link is sent - their ARTINU mailbox may not exist yet"
           >
             <Input
               id="employee-personal"

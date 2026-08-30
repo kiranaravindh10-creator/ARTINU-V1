@@ -1,8 +1,9 @@
+import { catalogService } from '@/services/catalog.service';
 import {
   calculatePricing,
   DEFAULT_FRAME,
   MIN_ORDER_QUANTITY,
-  resolveCoupon,
+  QUANTITY_PER_PHOTOGRAPH,
   type ArtworkWithArtist,
   type FrameConfiguration,
   type PriceBreakdown,
@@ -39,12 +40,20 @@ interface CartContextValue {
   pricing: PriceBreakdown;
   spaceId: string | null;
   setSpaceId: (id: string | null) => void;
-  add: (artwork: ArtworkWithArtist, frame?: FrameConfiguration, quantity?: number) => void;
-  updateQuantity: (key: string, quantity: number) => void;
+  /**
+   * Put a photograph in the cart. There is no quantity: one print per
+   * photograph, and adding the same photograph in the same frame twice is a
+   * double click rather than a second copy.
+   *
+   * `updateQuantity` was removed with the stepper it fed. Nothing outside this
+   * file called it, and leaving a quantity setter on the context is an invitation
+   * to reintroduce the thing that was just taken out.
+   */
+  add: (artwork: ArtworkWithArtist, frame?: FrameConfiguration) => void;
   updateFrame: (key: string, frame: FrameConfiguration) => void;
   remove: (key: string) => void;
   clear: () => void;
-  applyCoupon: (code: string) => { ok: boolean; message: string };
+  applyCoupon: (code: string) => Promise<{ ok: boolean; message: string }>;
   removeCoupon: () => void;
   isInCart: (artworkId: string) => boolean;
 }
@@ -65,7 +74,18 @@ function readStored(): PersistedCart {
     if (!raw) return { lines: [], couponCode: null, spaceId: null };
     const parsed = JSON.parse(raw) as Partial<PersistedCart>;
     return {
-      lines: Array.isArray(parsed.lines) ? parsed.lines : [],
+      /*
+        Quantities are normalised on the way in, not just on the way out.
+
+        Carts written by an older build are sitting in real browsers with
+        quantity 3 on a single line, because the configurator used to default to
+        the order minimum. Left alone, one photograph would report a count of
+        three and satisfy the "three photographs" minimum on its own - the exact
+        check the minimum exists to enforce.
+      */
+      lines: Array.isArray(parsed.lines)
+        ? parsed.lines.map((line) => ({ ...line, quantity: QUANTITY_PER_PHOTOGRAPH }))
+        : [],
       couponCode: parsed.couponCode ?? null,
       spaceId: parsed.spaceId ?? null,
     };
@@ -92,21 +112,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [lines, couponCode, spaceId]);
 
   const add = React.useCallback(
-    (artwork: ArtworkWithArtist, frame: FrameConfiguration = DEFAULT_FRAME, quantity = 1) => {
+    (artwork: ArtworkWithArtist, frame: FrameConfiguration = DEFAULT_FRAME) => {
       const key = frameKey(artwork.id, frame);
       setLines((current) => {
-        const existing = current.find((line) => line.key === key);
-        if (existing) {
-          return current.map((line) =>
-            line.key === key ? { ...line, quantity: line.quantity + quantity } : line,
-          );
-        }
+        /*
+          Already in the cart? Then there is nothing to do.
+
+          This used to add the quantities together, which is right for a shop and
+          wrong here: one photograph is printed once. Adding the same photograph
+          in the same frame twice is a double click, not a request for a second
+          copy, so the cart is left exactly as it was.
+        */
+        if (current.some((line) => line.key === key)) return current;
         return [
           ...current,
           {
             key,
             artworkId: artwork.id,
-            quantity,
+            quantity: QUANTITY_PER_PHOTOGRAPH,
             frame,
             snapshot: {
               title: artwork.title,
@@ -121,14 +144,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const updateQuantity = React.useCallback((key: string, quantity: number) => {
-    setLines((current) =>
-      quantity <= 0
-        ? current.filter((line) => line.key !== key)
-        : current.map((line) => (line.key === key ? { ...line, quantity } : line)),
-    );
-  }, []);
-
   const updateFrame = React.useCallback((key: string, frame: FrameConfiguration) => {
     setLines((current) => {
       const line = current.find((item) => item.key === key);
@@ -138,11 +153,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Reconfiguring into a frame that is already in the cart merges the lines.
       const collision = current.find((item) => item.key === nextKey && item.key !== key);
       if (collision) {
-        return current
-          .filter((item) => item.key !== key)
-          .map((item) =>
-            item.key === nextKey ? { ...item, quantity: item.quantity + line.quantity } : item,
-          );
+        // Merge, but do not add the quantities - see `add` above.
+        return current.filter((item) => item.key !== key);
       }
       return current.map((item) => (item.key === key ? { ...item, key: nextKey, frame } : item));
     });
@@ -152,17 +164,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLines((current) => current.filter((line) => line.key !== key));
   }, []);
 
+  /*
+    Read by applyCoupon without putting the basket in its dependency list -
+    otherwise the callback is rebuilt on every line change and every consumer
+    re-renders with it.
+  */
+  const pricingRef = React.useRef({ subtotal: 0 });
+  const spaceIdRef = React.useRef<string | null>(null);
+
   const clear = React.useCallback(() => {
     setLines([]);
     setCouponCode(null);
   }, []);
 
-  const applyCoupon = React.useCallback((code: string) => {
-    const coupon = resolveCoupon(code);
-    if (!coupon) return { ok: false, message: 'That code is not valid.' };
-    setCouponCode(code.trim().toUpperCase());
-    return { ok: true, message: coupon.label };
-  }, []);
+  /*
+    The server decides whether a code applies.
+
+    This used to look the code up in a table compiled into the bundle, which
+    meant the browser was the authority on what a discount was worth - and the
+    only codes that could ever exist were the three that shipped with the
+    build. It asks now, against this basket's real subtotal, and the same
+    validator prices the order later so the two cannot disagree.
+
+    Async, because it is a network call. The signature changed from returning a
+    verdict to returning a promise of one; every caller already awaited it.
+  */
+  const applyCoupon = React.useCallback(
+    async (code: string): Promise<{ ok: boolean; message: string }> => {
+      const trimmed = code.trim();
+      if (!trimmed) return { ok: false, message: 'Enter a code.' };
+
+      try {
+        const verdict = await catalogService.validateCoupon(trimmed, pricingRef.current.subtotal, spaceIdRef.current);
+        if (!verdict.ok) return { ok: false, message: verdict.message };
+        setCouponCode(verdict.code ?? trimmed.toUpperCase());
+        return { ok: true, message: verdict.message };
+      } catch {
+        // A network failure is not the customer's code being wrong, and saying
+        // so would send them to support over a dropped request.
+        return { ok: false, message: 'We could not check that code just now. Try again.' };
+      }
+    },
+    [],
+  );
 
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
@@ -170,7 +214,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     () =>
       calculatePricing(
         lines.map((line) => ({ frame: line.frame, quantity: line.quantity })),
-        { discountPercent: resolveCoupon(couponCode)?.percent ?? 0, couponCode },
+        /*
+          No discount is computed here.
+
+          Coupons live in the database and only the server knows what one
+          is worth against this basket. The cart used to look the code up
+          in a compiled-in table, so the discount it showed and the
+          discount actually charged came from two different sources. The
+          code is carried so checkout can send it; the money comes back
+          from the server quote.
+        */
+        { couponCode },
       ),
     [lines, couponCode],
   );
@@ -186,7 +240,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       spaceId,
       setSpaceId,
       add,
-      updateQuantity,
       updateFrame,
       remove,
       clear,
@@ -194,7 +247,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeCoupon: () => setCouponCode(null),
       isInCart: (artworkId: string) => lines.some((line) => line.artworkId === artworkId),
     }),
-    [lines, count, couponCode, pricing, spaceId, add, updateQuantity, updateFrame, remove, clear, applyCoupon],
+    [lines, count, couponCode, pricing, spaceId, add, updateFrame, remove, clear, applyCoupon],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -1,7 +1,7 @@
 import { formatDate, formatRelative, type ArtistAnalytics } from '@artinu/shared';
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Sparkles, Upload } from 'lucide-react';
+import { MapPin, Heart, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   CircleArrow,
@@ -12,7 +12,7 @@ import {
   ViewAll,
 } from '@/components/layout/panel';
 import { Button } from '@/components/ui/button';
-import { EmptyState, Skeleton } from '@/components/ui/display';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
 import { useAuth } from '@/contexts/AuthContext';
 import { IMAGES } from '@/lib/images';
@@ -72,7 +72,7 @@ function CollaborationCarousel() {
     return (
       <div className="relative flex min-h-[15rem] w-full items-center justify-center overflow-hidden bg-ink px-8 lg:min-h-[24rem]">
         <div className="max-w-sm text-center">
-          <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
+          <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
             Collaborations
           </p>
           <p className="mt-3 font-display text-xl leading-snug text-canvas">
@@ -101,7 +101,7 @@ function CollaborationCarousel() {
         >
           <Photo
             src={current.photoUrl}
-            alt={`${current.name} — an ARTINU collaboration`}
+            alt={`${current.name} - an ARTINU collaboration`}
             priority
             className="h-full w-full"
             imgClassName="h-full w-full object-cover object-center"
@@ -111,7 +111,7 @@ function CollaborationCarousel() {
             aria-hidden
           />
           <div className="absolute inset-x-0 bottom-0 p-6 lg:p-8">
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
+            <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-bronze-light">
               Now collaborating
             </p>
             <p className="mt-2 font-display text-2xl text-canvas">{current.name}</p>
@@ -149,7 +149,13 @@ export default function ArtistWorkspacePage() {
   const { profile } = useAuth();
   const firstName = profile?.fullName?.split(' ')[0] ?? 'there';
 
-  const { data: analytics, isLoading } = useQuery({
+  const {
+    data: analytics,
+    isLoading,
+    isError: analyticsFailed,
+    error: analyticsError,
+    refetch: refetchAnalytics,
+  } = useQuery({
     queryKey: qk.analytics('artist'),
     queryFn: () => analyticsService.me<ArtistAnalytics>(),
   });
@@ -215,7 +221,20 @@ export default function ArtistWorkspacePage() {
 
       {/* ── The three numbers that matter ─────────────────────────────────── */}
       <section className="border-b border-line py-10 lg:py-12">
-        {isLoading ? (
+        {/*
+          A FAILED REQUEST IS NOT AN EMPTY PORTFOLIO.
+
+          `isError` was not read on any of the four queries behind this page, so
+          one failed call rendered a photographer with forty published works the
+          same screen as somebody who signed up a minute ago: three zeroes, "You
+          haven't uploaded anything yet", and a nudge telling them their
+          portfolio is thin. On a sleeping free dyno that is what they saw after
+          any idle period, and there was nothing on screen to suggest a retry
+          would help.
+        */}
+        {analyticsFailed ? (
+          <ErrorState error={analyticsError} onRetry={() => void refetchAnalytics()} />
+        ) : isLoading ? (
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-3">
             {Array.from({ length: 3 }, (_, index) => (
               <Skeleton key={index} className="h-24" />
@@ -235,11 +254,23 @@ export default function ArtistWorkspacePage() {
               hint="Up or scheduled"
               to="/studio/installations"
             />
+            {/*
+              "Pending reviews" was a permanently dead tile.
+
+              Uploads publish immediately - there is no review queue any more,
+              which this file already says at the comment above `recentUploads`
+              - so the server's count of `status === 'pending_review'` is
+              structurally always zero. One of only three headline numbers on a
+              photographer's home page read "0 / Nothing in queue" forever.
+
+              Replaced with the number they actually want, which is how many of
+              their photographs are live and can be chosen.
+            */}
             <Figure
-              value={analytics?.pendingReviews ?? 0}
-              label="Pending reviews"
-              hint={analytics?.pendingReviews ? 'Waiting on our curators' : 'Nothing in queue'}
-              to="/studio/submissions"
+              value={analytics?.approvedWorks ?? approved?.total ?? 0}
+              label="Published"
+              hint="Live in the gallery"
+              to="/studio/portfolio"
             />
           </FigureRow>
         )}
@@ -251,7 +282,7 @@ export default function ArtistWorkspacePage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="max-w-xl text-sm text-muted">
               <span className="text-ink">Spaces browse whole collections.</span> Artists with six or
-              more published photographs get selected far more often — you have{' '}
+              more published photographs get selected far more often - you have{' '}
               {analytics?.approvedWorks ?? 0}.
             </p>
             <ViewAll to="/studio/upload">Add another</ViewAll>
@@ -289,8 +320,12 @@ export default function ArtistWorkspacePage() {
               ))}
             </div>
           ) : (
+            /* Was Sparkles - the "magic AI" glyph - on an empty state about
+               work being chosen by a real person. A comment can sit HERE,
+               between the JSX expression's braces and the element, but never
+               inside an attribute list. */
             <EmptyState
-              icon={<Sparkles />}
+              icon={<Heart />}
               title="Nothing selected yet."
               description="When a space chooses one of your photographs, it shows up here."
             />
@@ -325,7 +360,7 @@ export default function ArtistWorkspacePage() {
               </Rows>
             ) : (
               <p className="text-sm text-subtle">
-                No installations yet. They appear once a space commissions your work.
+                No installations yet. They appear once a space chooses your work.
               </p>
             )}
           </div>

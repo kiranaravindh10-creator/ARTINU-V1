@@ -150,6 +150,18 @@ export const rotationService = {
     return data;
   },
 
+  /**
+   * Move a rotation by a whole number of days, positive or negative.
+   *
+   * A delta rather than a date - the server adds it to the stored timestamp, so
+   * a browser in IST and a server in UTC cannot disagree about which day was
+   * meant. See rescheduleRotationSchema.
+   */
+  async reschedule(id: string, days: number) {
+    const { data } = await api.post<RotationCycle>(`/rotation/${id}/reschedule`, { days });
+    return data;
+  },
+
   async requestChanges(id: string, note: string) {
     const { data } = await api.post<RotationCycle>(`/rotation/${id}/request-changes`, { note });
     return data;
