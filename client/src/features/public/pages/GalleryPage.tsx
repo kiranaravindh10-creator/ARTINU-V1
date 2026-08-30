@@ -304,8 +304,17 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       When the strip is hidden (a space owner, or an active search) they are
       folded into the grid instead, so nothing curated disappears.
     */
+    /*
+      Exclude what the strip ACTUALLY renders, not the whole curated list.
+
+      A space owner's strip is capped at five (SUGGESTED_FOR_SPACE) while the
+      curated list can hold twenty, so seeding `seen` from `top20Artworks` hid
+      the other fifteen from the grid as well - photographs pinned by a manager
+      would have vanished from the one screen a space owner orders from.
+      `strip` is the public gallery's full list anyway, so this is a no-op there.
+    */
     const source = showTopPicks ? paged : [...top20Artworks, ...paged];
-    if (showTopPicks) for (const artwork of top20Artworks) seen.add(artwork.id);
+    if (showTopPicks) for (const artwork of strip) seen.add(artwork.id);
 
     for (const artwork of source) {
       if (seen.has(artwork.id)) continue;
@@ -313,7 +322,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       unique.push(artwork);
     }
     return unique;
-  }, [top20Data, data, showTopPicks]);
+  }, [top20Data, data, showTopPicks, strip]);
   const lightbox = useLightbox(allArtworks);
 
   /*
@@ -438,30 +447,83 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
           </p>
         )}
 
-        <div className="grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-6 max-h-[calc(100dvh-4rem)] overflow-y-auto pr-2">
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                }}
-              >
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search photographs…"
-                  icon={<Search />}
-                  aria-label="Search photographs"
-                />
-              </form>
+        {/*
+          Search first, then the suggestions it belongs to, then the catalogue.
+
+          The search box used to sit alone in a `hidden lg:block` sidebar, which
+          had two consequences. Below 1024px there was no way to search at all -
+          the one control a space owner needs on the only screen they order from
+          simply was not rendered on a phone or a tablet. And the suggested strip
+          lived exclusively in the public branch below, which a space owner never
+          reaches, so the whole 14rem column was a search box and nothing else.
+
+          Both are fixed by putting the field at the head of the single content
+          column, full width, at every breakpoint, with the suggestions directly
+          under it.
+        */}
+        <div className="mb-8 max-w-xl">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search photographs…"
+              icon={<Search />}
+              aria-label="Search photographs"
+            />
+          </form>
+        </div>
+
+        {/*
+          Directly below the search box, and only while it is empty: once
+          somebody types, the results are the answer and a fixed strip above
+          them is noise. `showTopPicks` already carries the `!searchQuery`
+          half of that, which is why searching is unaffected.
+        */}
+        {showTopPicks && (
+          <section aria-labelledby="suggested-artwork-heading" className="mb-10">
+            <div className="mb-6">
+              <p className="eyebrow">Chosen this month</p>
+              <h2 id="suggested-artwork-heading" className="mt-3 font-display text-2xl text-ink">
+                Suggested artwork
+              </h2>
+              <span className="rule mt-4" />
             </div>
-          </aside>
+            <ArtworkMasonry>
+              {strip.map((artwork, index) => (
+                <ArtworkCard
+                  key={artwork.id}
+                  artwork={artwork}
+                  priority={index < 5}
+                  showPrice={false}
+                  onOpen={lightbox.open}
+                  onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                  action={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => setConfiguring(artwork)}
+                    >
+                      <Frame className="size-4" /> Add to frame
+                    </Button>
+                  }
+                />
+              ))}
+            </ArtworkMasonry>
+          </section>
+        )}
+
+        <div>
           {/*
             The grid used to drop to opacity-60 while the NEXT page was loading,
             so scrolling greyed out the photographs the visitor was looking at.
             The sentinel at the bottom already says more is coming.
           */}
-          <div className="mt-8">
+          <div>
             {isLoading ? (
               <ArtworkMasonry>
                 {/* 24, the page size - twelve left the grid half-height, so it
