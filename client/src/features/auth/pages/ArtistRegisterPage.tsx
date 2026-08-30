@@ -28,6 +28,7 @@ import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { AvatarDropzone, PasswordRules } from '@/features/auth/components/AuthBits';
 import { useAuth } from '@/contexts/AuthContext';
+import { VerifyEmailStep } from '@/features/auth/components/VerifyEmailStep';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { authService } from '@/services/auth.service';
@@ -43,12 +44,15 @@ export default function ArtistRegisterPage() {
   const [step, setStep] = React.useState(0); // 0 = intro, 1–4 = wizard, 5 = welcome
   const [draft, setDraft] = React.useState<Draft>({});
   const [accepted, setAccepted] = React.useState(false);
+  const [acceptedGuidelines, setAcceptedGuidelines] = React.useState(false);
   const [termsError, setTermsError] = React.useState<string | null>(null);
 
   const register = useMutation({
     mutationFn: (input: ArtistRegistrationInput) => authService.registerArtist(input),
     onSuccess: (session) => {
       setSession(session);
+      // Step 5 is now email verification rather than the welcome screen. The
+      // code has already been sent by the registration handler.
       setStep(5);
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -56,7 +60,24 @@ export default function ArtistRegisterPage() {
 
   const merge = (values: Draft) => setDraft((current) => ({ ...current, ...values }));
 
+  /*
+    Verification, then the welcome screen.
+
+    Skippable on purpose: the account exists and works, and trapping somebody
+    behind a code that landed in spam would be worse than letting them in and
+    prompting them from the studio. The studio shows an unverified banner until
+    it is done.
+  */
   if (step === 5) {
+    return (
+      <VerifyEmailStep
+        onVerified={() => setStep(6)}
+        onSkip={() => setStep(6)}
+      />
+    );
+  }
+
+  if (step === 6) {
     return <WelcomeScreen />;
   }
 
@@ -181,6 +202,41 @@ export default function ArtistRegisterPage() {
                   .
                 </span>
               </label>
+
+              {/*
+                A second box, on purpose.
+
+                The Terms are a contract; the Community Guidelines are the rules
+                a photographer will be moderated against, and §12 lets ARTINU
+                warn and eventually suspend an account for breaking them. Rolling
+                both into one tick would mean ARTINU could not honestly say the
+                Guidelines had been read when it came to enforcing them.
+
+                Unchecked by default, and `z.literal(true)` on the server refuses
+                a missing or false value — so it cannot be skipped.
+              */}
+              <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm text-muted">
+                <Checkbox
+                  checked={acceptedGuidelines}
+                  onCheckedChange={(value) => {
+                    setAcceptedGuidelines(value === true);
+                    setTermsError(null);
+                  }}
+                  className="mt-0.5"
+                />
+                <span>
+                  I have read and agree to follow the{' '}
+                  <Link
+                    to="/legal/community"
+                    target="_blank"
+                    className="text-bronze underline underline-offset-4"
+                  >
+                    ARTINU Photographer Community Guidelines
+                  </Link>
+                  .
+                </span>
+              </label>
+
               {termsError && <p className="mt-2 text-xs text-danger">{termsError}</p>}
 
               <Button
@@ -191,7 +247,17 @@ export default function ArtistRegisterPage() {
                     setTermsError('Please accept the terms to create your account.');
                     return;
                   }
-                  register.mutate({ ...(draft as ArtistRegistrationInput), acceptTerms: true });
+                  if (!acceptedGuidelines) {
+                    setTermsError(
+                      'Please confirm you have read the Community Guidelines.',
+                    );
+                    return;
+                  }
+                  register.mutate({
+                    ...(draft as ArtistRegistrationInput),
+                    acceptTerms: true,
+                    acceptGuidelines: true,
+                  });
                 }}
               >
                 Create Account

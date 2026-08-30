@@ -1,0 +1,19 @@
+{
+  // The Vercel Edge Middleware and its helpers sit outside the three
+  // workspaces, so nothing else typechecks them. This file exists so
+  // `npm run typecheck` still does.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["middleware.ts", "lib/**/*.ts"]
+}

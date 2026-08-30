@@ -3,7 +3,7 @@
  *
  * Seeded and Unsplash imagery is addressed by URL with the width requested from
  * the source. UPLOADED photography no longer works that way: since
- * `010_image_variants`, every upload is resized server-side into 400/800/1600px
+ * `015_image_variants`, every upload is resized server-side into 400/800/1600px
  * WebP copies and the map of them is stored on the artwork row. Use
  * `buildVariantSrcSet` for those - see below.
  */

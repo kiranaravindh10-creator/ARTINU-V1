@@ -78,8 +78,98 @@ export const ROLE_MODULES: Record<string, string[]> = {
   it_team: ['overview', 'users', 'content', 'announcements', 'system'],
 };
 
-/** Account lifecycle (SDD §20). */
-export const USER_STATUSES = ['pending_verification', 'pending_ceo_approval', 'verified', 'suspended'] as const;
+/**
+ * Account lifecycle (SDD §20).
+ *
+ * `banned` is the permanent end state from Community Guidelines §12 and is
+ * deliberately distinct from `suspended`: a suspension is reversible and the
+ * console offers a Restore action for it, a ban is not offered one. Both keep
+ * the account row and its work — neither deletes anything (§16, §17).
+ */
+export const USER_STATUSES = [
+  'pending_verification',
+  'pending_ceo_approval',
+  'verified',
+  'suspended',
+  'banned',
+] as const;
+
+/**
+ * The Community Guidelines version a photographer accepts at registration.
+ *
+ * Stored against the profile with the timestamp, so publishing a revision is a
+ * matter of changing this string — accounts on the older version can then be
+ * asked to acknowledge the new one without losing the record that they agreed
+ * to the previous text.
+ */
+export const COMMUNITY_GUIDELINES_VERSION = '1.0';
+
+/** Why a warning was issued. Kept short; the free-text reason carries detail. */
+export const WARNING_CATEGORIES = [
+  'guidelines',
+  'copyright',
+  'content',
+  'quality',
+  'impersonation',
+  'duplicate_account',
+  'manipulation',
+  'harassment',
+  'inactivity',
+  'other',
+] as const;
+
+export type WarningCategory = (typeof WARNING_CATEGORIES)[number];
+
+export const WARNING_CATEGORY_LABELS: Record<WarningCategory, string> = {
+  guidelines: 'Community Guidelines',
+  copyright: 'Copyright or ownership',
+  content: 'Unsuitable content',
+  quality: 'Print quality',
+  impersonation: 'Impersonation',
+  duplicate_account: 'Duplicate or fake account',
+  manipulation: 'Engagement manipulation',
+  harassment: 'Harassment',
+  inactivity: 'Account inactivity',
+  other: 'Other',
+};
+
+/**
+ * Three warnings make an account eligible for serious enforcement (§12).
+ *
+ * "May result in" — so reaching three does not ban anyone automatically. It
+ * surfaces the account for admin review, and the decision stays with a person.
+ */
+export const WARNING_LIMIT = 3;
+
+/** §13 — a new account with no upload after this many days may be warned. */
+export const NEW_ACCOUNT_GRACE_DAYS = 10;
+
+/** §14 — no activity and no upload for this long makes an account reviewable. */
+export const INACTIVITY_DAYS = 96;
+
+/** §11 — once a photograph is physically down, removal is processed within this. */
+export const REMOVAL_PROCESSING_DAYS = 5;
+
+/** Where a removal request has got to. */
+export const REMOVAL_REQUEST_STATUSES = [
+  'requested',
+  'under_review',
+  'awaiting_installation_removal',
+  'approved',
+  'completed',
+  'rejected',
+] as const;
+
+export type RemovalRequestStatus = (typeof REMOVAL_REQUEST_STATUSES)[number];
+
+export const REMOVAL_REQUEST_STATUS_LABELS: Record<RemovalRequestStatus, string> = {
+  requested: 'Requested',
+  under_review: 'Under review',
+  awaiting_installation_removal: 'Awaiting installation removal',
+  approved: 'Approved',
+  completed: 'Completed',
+  rejected: 'Declined',
+};
 
 /** Artwork moderation lifecycle (SDD §11). */
 export const ARTWORK_STATUSES = [
@@ -181,6 +271,15 @@ export const NOTIFICATION_TYPES = [
   'application_update',
   'system',
 ] as const;
+
+/**
+ * The roles that may send one.
+ *
+ * Manager, IT and CEO — the three named in the 20 Aug review. Accounts and
+ * operations are staff but have no reason to address the whole platform, and
+ * this is the one feature in the console that writes to every user at once.
+ */
+export const ANNOUNCEMENT_SENDER_ROLES = ['ceo', 'manager', 'it_team'] as const;
 
 export const SPACE_TYPES = [
   'cafe',
@@ -729,6 +828,20 @@ export const ALL_ROTATION_INTERVALS = [...ROTATION_INTERVALS, ...LEGACY_ROTATION
 
 // ── Brand / contact ──────────────────────────────────────────────────────────
 
+/*
+ * ARTINU publishes no physical address.
+ *
+ * There used to be an `address` object here with every field set to an empty
+ * string. That is worse than not having one: six call sites went on rendering
+ * it, so the help page showed a blank line where a street should be, the legal
+ * page offered to take post "by post to , ,  " and every transactional email
+ * footer carried a stray comma. An empty field is still a field, and callers
+ * treat it as one.
+ *
+ * The key is gone rather than blanked, so TypeScript fails the build at any
+ * call site that tries to print an address instead of letting one quietly
+ * reappear. Contact is phone, email and WhatsApp — all of which are real.
+ */
 export const CONTACT = {
   phone: '+91 96060 10193',
   phoneRaw: '919606010193',

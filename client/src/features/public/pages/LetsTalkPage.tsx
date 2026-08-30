@@ -24,6 +24,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
@@ -246,14 +247,16 @@ export default function LetsTalkPage() {
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
             <p className="eyebrow">Book a wall visit</p>
-            <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter
+              as="h1"
+              className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               {hero.headline.map((line, index) => (
                 <React.Fragment key={line}>
                   {index > 0 && <br />}
                   {line}
                 </React.Fragment>
               ))}
-            </h1>
+            </Typewriter>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">{hero.blurb}</p>
             <CircleArrowLink to="#form" direction="down" className="mt-9">

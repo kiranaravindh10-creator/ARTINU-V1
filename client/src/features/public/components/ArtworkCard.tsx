@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Photo } from '@/components/ui/photo';
 import { Skeleton } from '@/components/ui/display';
 import { cn } from '@/lib/utils';
+import { ShareButton } from '@/features/public/components/ShareSheet';
 
 const RATIO: Record<string, string> = {
   portrait: 'aspect-[3/4]',
@@ -24,6 +25,7 @@ export function ArtworkCard({
   artwork,
   onOpen,
   onToggleWishlist,
+  onShare,
   wishlisted,
   showPrice = false,
   className,
@@ -33,6 +35,8 @@ export function ArtworkCard({
   artwork: ArtworkWithArtist;
   onOpen?: (artwork: ArtworkWithArtist) => void;
   onToggleWishlist?: (artwork: ArtworkWithArtist) => void;
+  /** Opens the fallback share sheet. Omit to hide the share control. */
+  onShare?: (artwork: ArtworkWithArtist) => void;
   wishlisted?: boolean;
   showPrice?: boolean;
   className?: string;
@@ -52,14 +56,26 @@ export function ArtworkCard({
       className="photo-edge"
       imgClassName="transition-transform duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
     >
+      {/*
+        The caption wash and the caption itself.
+
+        `[@media(hover:none)]` holds both open permanently on touch devices. A
+        phone has no hover state, so every one of these transitions resolved to
+        "invisible, forever" — the photographer's name and the place the
+        photograph was taken simply did not exist on mobile, which is where most
+        of the gallery is actually read.
+      */}
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/0 to-ink/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
         aria-hidden
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 p-4 opacity-0 transition-all duration-500 ease-[var(--ease-out-soft)] group-hover:translate-y-0 group-hover:opacity-100">
-        <p className="font-medium text-sm text-canvas truncate">{artwork.artist?.name}</p>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 p-4 opacity-0 transition-all duration-500 ease-[var(--ease-out-soft)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100">
+        {/* The photograph's own title, in the display face — this is a gallery
+            label, and it was the one thing the tile never said. */}
+        <p className="truncate font-display text-base leading-snug text-canvas">{artwork.title}</p>
+        <p className="mt-1 truncate text-xs text-canvas/75">{artwork.artist?.name}</p>
         {artwork.location && (
-          <p className="mt-0.5 text-xs text-canvas/70">
+          <p className="mt-0.5 text-xs text-canvas/60">
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3" aria-hidden />
               {artwork.location}
@@ -91,6 +107,28 @@ export function ArtworkCard({
         </Link>
       )}
 
+      {/*
+        Share, on the tile itself.
+
+        Every photograph is shareable without opening it first — the same place
+        a photo app puts it. Sits left of the wishlist heart so the two controls
+        never overlap, and is revealed on the same terms: on hover with a
+        pointer, always on a touch screen.
+      */}
+      {onShare && (
+        <ShareButton
+          artwork={artwork}
+          onFallback={onShare}
+          className={cn(
+            'absolute top-3 flex size-9 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300',
+            'bg-canvas/80 text-ink opacity-0 hover:bg-canvas group-hover:opacity-100',
+            'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze',
+            '[@media(hover:none)]:opacity-100',
+            onToggleWishlist ? 'right-14' : 'right-3',
+          )}
+        />
+      )}
+
       {onToggleWishlist && (
         <button
           type="button"
@@ -102,7 +140,12 @@ export function ArtworkCard({
             'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze',
             saved
               ? 'bg-canvas text-bronze opacity-100'
-              : 'bg-canvas/80 text-ink opacity-0 hover:bg-canvas group-hover:opacity-100',
+              : // Revealed on hover on a pointer device — and always present on a
+                // touch one, where there is no hover to reveal it with. Without
+                // the `hover:none` case this control was invisible and
+                // untappable on every phone: not a styling detail but a feature
+                // that did not exist on mobile.
+                'bg-canvas/80 text-ink opacity-0 hover:bg-canvas group-hover:opacity-100 [@media(hover:none)]:opacity-100',
           )}
         >
           <Heart className={cn('size-4', saved && 'fill-current')} />

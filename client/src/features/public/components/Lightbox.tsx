@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { buildSupabaseSrcSet, supabaseResized } from '@/lib/imageOptimization';
 import { cn } from '@/lib/utils';
+import { ShareButton, ShareSheet } from '@/features/public/components/ShareSheet';
 
 /**
  * Looking at a photograph should cost one click and commit you to nothing.
@@ -28,6 +29,15 @@ export function Lightbox({
   onToggleWishlist?: (artwork: ArtworkWithArtist) => void;
 }) {
   const artwork = artworks[index];
+
+  /*
+    The artwork whose share sheet is open, or null.
+
+    Only ever set on a browser with no native share sheet — `ShareButton` calls
+    `onFallback` in that case and handles it itself otherwise, so on a phone
+    this stays null and the panel below never renders.
+  */
+  const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
 
   /** The opening of whatever the photographer wrote, not a generated summary. */
   const blurb = (artwork?.description || artwork?.story || '').trim();
@@ -147,7 +157,7 @@ export function Lightbox({
 
           `artwork.originalUrl` is the photographer's print file and can be
           25 MB; opening a photograph should not download that. `imageUrl` is
-          the 1600px WebP after 010_image_variants, and on older rows it is
+          the 1600px WebP after 015_image_variants, and on older rows it is
           still the original - which is why the srcset below matters: where
           variants exist the browser picks by viewport instead of always taking
           the biggest thing available.
@@ -221,6 +231,14 @@ export function Lightbox({
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Share sits beside Save, the way it does on every photo app. This
+              is the screen people are actually on when they decide to send a
+              photograph to someone. */}
+          <ShareButton
+            artwork={artwork}
+            onFallback={setSharing}
+            className="flex size-10 items-center justify-center rounded-full text-canvas/70 transition-colors hover:bg-canvas/10 hover:text-canvas"
+          />
           {onToggleWishlist && (
             <button
               type="button"
@@ -244,6 +262,10 @@ export function Lightbox({
           </Link>
         </div>
       </div>
+
+      {/* Only ever rendered where the browser has no native share sheet. On a
+          phone the OS sheet has already handled it and this stays closed. */}
+      <ShareSheet artwork={sharing} onClose={() => setSharing(null)} />
     </div>
   );
 }

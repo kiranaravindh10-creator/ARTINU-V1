@@ -1,4 +1,5 @@
 import { unsplash, seededPhoto } from '@artinu/shared';
+import { BLUR, WIDTHS, generatedNameFor } from '@/lib/generated-images';
 
 export interface ImageSize {
   width: number;
@@ -116,9 +117,73 @@ export function buildSupabaseSrcSet(url: string, widths: number[]): string {
   return widths.map((width) => `${supabaseResized(url, width)} ${width}w`).join(', ');
 }
 
+/**
+ * srcSet for a photograph we generated ourselves, or '' if this is not one.
+ *
+ * Local files used to get no srcSet at all — the two builders below only knew
+ * how to ask Unsplash and picsum to resize, because those services do it on
+ * request. That meant the moment a stock photograph was replaced with a real
+ * ARTINU one, every phone started downloading the desktop file. The widths come
+ * from the generated manifest rather than a constant, so a srcSet can never
+ * offer a file `npm run images` did not write.
+ */
+function buildGeneratedSrcSet(url: string): string {
+  const name = generatedNameFor(url);
+  if (!name) return '';
+  return WIDTHS[name].map((width) => `/image/${name}-${width}.webp ${width}w`).join(', ');
+}
+
+/**
+ * Photographs uploaded by artists.
+ *
+ * ── Why this exists ─────────────────────────────────────────────────────────
+ *
+ * An upload is stored exactly as the photographer sent it, and `thumbnailUrl`
+ * points at that same file. Photographers send full-resolution work: measured
+ * against the live gallery, page one was 47.8 MB across 24 photographs, the
+ * largest of them 9.6 MB — around a hundred seconds on a normal 4G phone, for
+ * one screen of thumbnails. The images were never broken; they had not
+ * finished arriving.
+ *
+ * Supabase Storage will resize on request. Swapping `/object/` for
+ * `/render/image/` and asking for a width turns that 9.6 MB into roughly 90 KB,
+ * and the browser's own `Accept: image/webp` gets WebP back without asking.
+ * Nothing is re-uploaded and no stored URL changes — the original stays exactly
+ * where it is, which matters because it is the artist's file.
+ */
+
+/** Widths a photograph is actually displayed at, thumbnail through full view. */
+const UPLOAD_WIDTHS = [320, 480, 640, 800, 1200, 1600] as const;
+
+export function isSupabaseUpload(url: string): boolean {
+  return typeof url === 'string' && url.includes(SUPABASE_OBJECT);
+}
+
+/**
+ * The same photograph, at a sane size. Returns the URL untouched for anything
+ * that is not a Supabase upload, so it is safe to call on any image.
+ */
+export function resizedUpload(url: string, width: number, quality = 72): string {
+  if (!isSupabaseUpload(url)) return url;
+  const [base] = url.split('?');
+  return `${base.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}`;
+}
+
+function buildUploadSrcSet(url: string, widths: readonly number[]): string {
+  if (!isSupabaseUpload(url)) return '';
+  return widths.map((width) => `${resizedUpload(url, width)} ${width}w`).join(', ');
+}
+
 export function buildHeroSrcSet(url: string): string {
+  // Photographs shipped with the site: resized once at build time.
+  const generated = buildGeneratedSrcSet(url);
+  if (generated) return generated;
+
   const supabase = buildSupabaseSrcSet(url, SUPABASE_HERO_WIDTHS);
   if (supabase) return supabase;
+
+  const upload = buildUploadSrcSet(url, UPLOAD_WIDTHS);
+  if (upload) return upload;
 
   if (url.includes('unsplash.com')) {
     const match = url.match(/photo-([^?]+)/);
@@ -136,8 +201,16 @@ export function buildHeroSrcSet(url: string): string {
 }
 
 export function buildThumbnailSrcSet(url: string): string {
+  const generated = buildGeneratedSrcSet(url);
+  if (generated) return generated;
+
   const supabase = buildSupabaseSrcSet(url, SUPABASE_THUMB_WIDTHS);
   if (supabase) return supabase;
+
+  // A gallery tile is at most a third of a wide viewport, so it never needs the
+  // larger end of the range — but a retina phone at 100vw does need 800.
+  const upload = buildUploadSrcSet(url, [320, 480, 640, 800]);
+  if (upload) return upload;
 
   if (url.includes('unsplash.com')) {
     const match = url.match(/photo-([^?]+)/);
@@ -182,48 +255,65 @@ export function getOptimizedUrl(url: string, width: number, height: number, qual
   `generateBlurPlaceholder` and its cache lived here: an async function that
   fetched a real 20x11 preview of each photograph to use as its placeholder.
 
-  Nothing called it. `Photo` has always used the synchronous constant below, so
-  the only thing this code did was ship. It is removed rather than wired up
-  because a fetch per tile to decide what colour to show before the tile loads is
-  the wrong trade on the exact page that is already too slow - forty extra
-  round trips to avoid forty grey rectangles.
-
-  A real low-quality preview belongs in the upload pipeline, encoded once and
-  stored on the artwork row, not computed in the browser on every visit.
-*/
-
 /*
-  The placeholder every photograph sits on until it loads.
-
-  Two things were wrong with the old one.
-
-  It was NEAR-BLACK - a #1a1815 to #2a2620 gradient - on a #f7f5f2 page. So the
-  gallery's first paint was a grid of forty dark rectangles on warm paper, each
-  of which then faded to a photograph. That is what "the gallery loads slowly"
-  looks like even when the network is fine: the page is legibly, obviously
-  unfinished, in the highest-contrast way available.
-
-  And it was produced by painting a canvas and calling toDataURL('image/jpeg'),
-  a synchronous encode on the main thread, to arrive at a value that never
-  varies. That work is now gone entirely: the same gradient is written once, by
-  hand, as an inline SVG data URI. No canvas, no context, no encode, and nothing
-  for the DOM to be present for.
-
-  Sand rather than paper white on purpose - a tile has to read as "a photograph
-  is arriving here", and pure canvas would read as empty space.
-*/
-const PLACEHOLDER =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='11'%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23efeae2'/%3E%3Cstop offset='.5' stop-color='%23e6dfd4'/%3E%3Cstop offset='1' stop-color='%23efeae2'/%3E%3C/linearGradient%3E%3Crect width='20' height='11' fill='url(%23g)'/%3E%3C/svg%3E";
+ * `generateBlurPlaceholder()` and its `blobToBase64()` helper were removed.
+ *
+ * It downloaded a small copy of a photograph over the network so it could show
+ * a blurred version of it while the full photograph downloaded — two requests
+ * to display one image, on a page whose problem was already the number of
+ * requests. Nothing ever called it.
+ *
+ * Previews for our own photographs are baked at build time by
+ * scripts/generate-images.mjs and inlined through `BLUR` below, which costs no
+ * request at all.
+ */
 
 /**
- * The placeholder every photograph sits on until it loads.
+ * The neutral placeholder, as a literal.
  *
- * Takes a url and ignores it. The signature is kept because `Photo` and the
- * homepage hero both call it with one, and because a per-image placeholder is
- * the thing that should eventually live here - see the note above.
+ * ── What this replaces ──────────────────────────────────────────────────────
+ *
+ * `generateCssBlurPlaceholder()` used to create a <canvas>, get a 2d context,
+ * paint a three-stop gradient and call `toDataURL('image/jpeg')` — a synchronous
+ * raster encode on the main thread. `getBlurPlaceholderSync` called it on a
+ * cache miss, and `Photo` calls `getBlurPlaceholderSync` during render, for
+ * every photograph on the page. The homepage mounts dozens of them.
+ *
+ * The punchline is that the function took no arguments and had no randomness,
+ * so all that work produced the same handful of bytes every single time. It is
+ * a constant. It is now written as one.
+ *
+ * The gradient it drew is preserved — the same three stops (#1a1815 → #2a2620
+ * → #1a1815) across the same 20×11, encoded once as a 70-byte WebP.
  */
-export function getBlurPlaceholderSync(_url?: string): string {
-  return PLACEHOLDER;
+const NEUTRAL_BLUR =
+  'data:image/webp;base64,UklGRj4AAABXRUJQVlA4IDIAAADwAgCdASoUAAsAPrVInkmnJCKhMAgA4BaJZwC+SDLxQAD+8QwdNSp3dvZ78rM+yAAAAA==';
+
+/**
+ * url -> placeholder, so a photograph rendered on several pages resolves once.
+ *
+ * `Photo` calls `getBlurPlaceholderSync` during render and the homepage mounts
+ * dozens of them, so the lookup below runs far more often than there are
+ * distinct photographs.
+ */
+const BLUR_PLACEHOLDER_CACHE = new Map<string, string>();
+
+/**
+ * A blur preview for `url`, resolved without touching the network or the DOM.
+ *
+ * Photographs we generated carry a real 24px preview of themselves, so the
+ * frame fills with roughly the right colours before the file arrives. Anything
+ * else — Unsplash, picsum, a Firebase upload — gets the neutral tone, because
+ * the alternative is a request we would be making purely to blur it.
+ */
+export function getBlurPlaceholderSync(url: string): string {
+  const cached = BLUR_PLACEHOLDER_CACHE.get(url);
+  if (cached) return cached;
+
+  const name = generatedNameFor(url);
+  const placeholder = (name && BLUR[name]) || NEUTRAL_BLUR;
+  BLUR_PLACEHOLDER_CACHE.set(url, placeholder);
+  return placeholder;
 }
 
 export function preloadImage(url: string, as = 'image', type = 'image/webp'): HTMLLinkElement {

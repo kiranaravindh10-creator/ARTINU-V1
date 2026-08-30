@@ -33,7 +33,7 @@
 -- ── Running it ─────────────────────────────────────────────────────────────
 --
 --   Supabase Dashboard → SQL Editor → paste → Run
---   (or: psql "$SUPABASE_DB_URL" -f database/migrations/010_image_variants.sql)
+--   (or: psql "$SUPABASE_DB_URL" -f database/migrations/015_image_variants.sql)
 --
 -- Then backfill the rows that already exist — this migration does NOT touch
 -- them, because generating derivatives means downloading and re-encoding every

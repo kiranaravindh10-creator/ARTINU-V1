@@ -79,8 +79,24 @@ export async function verifyCredentials(email: string, plain: string): Promise<S
   const rejection = unauthorized('That email and password do not match.');
   if (!user) throw rejection;
   if (!bcrypt.compareSync(plain, user.passwordHash)) throw rejection;
+  /*
+    Enforcement is checked here, at the credential gate, so it cannot be
+    bypassed by any client. The reason recorded when the decision was made is
+    included: an account told only "suspended" has nothing to appeal against.
+  */
   if (user.status === 'suspended') {
-    throw unauthorized('This account has been suspended. Please contact support.');
+    throw unauthorized(
+      user.statusReason
+        ? `This account has been suspended: ${user.statusReason}`
+        : 'This account has been suspended. Please contact support.',
+    );
+  }
+  if (user.status === 'banned') {
+    throw unauthorized(
+      user.statusReason
+        ? `This account has been closed: ${user.statusReason}`
+        : 'This account has been closed and can no longer be used.',
+    );
   }
   if (user.status === 'pending_ceo_approval') {
     throw unauthorized('This account is awaiting administrative approval.');

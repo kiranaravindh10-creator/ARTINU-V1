@@ -175,6 +175,26 @@
   }
 }
 
+/*
+   Named `type-caret-blink`, not `caret-blink`.
+
+   tw-animate-css already ships a `caret-blink` inside its own `@theme` block for
+   the OTP input, and its definition won — so this rule was being silently
+   replaced by that one and the caret blinked to somebody else's rhythm. Keyframes
+   are a single global namespace; a name a dependency has already taken is not
+   available.
+*/
+@keyframes type-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes shimmer {
   from {
     background-position: -200% 0;
@@ -310,6 +330,24 @@
 
   .eyebrow-muted {
     color: var(--color-muted);
+  }
+
+  /*
+    The caret trailing a heading as it types itself out.
+
+    Zero width plus a 2px left border, with that 2px taken straight back off the
+    right margin, so the caret contributes nothing to layout. Without that the
+    heading would measure two pixels wider while typing than when finished,
+    which is enough to move a break point on a heading that wraps tight.
+  */
+  .type-caret {
+    display: inline-block;
+    width: 0;
+    height: 0.78em;
+    margin-right: -2px;
+    border-left: 2px solid var(--color-bronze);
+    vertical-align: -0.06em;
+    animation: type-caret-blink 1.05s steps(1, end) infinite;
   }
 
   /* Short bronze rule under a heading. */

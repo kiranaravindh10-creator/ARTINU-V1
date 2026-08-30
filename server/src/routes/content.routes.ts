@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { slideshowSettingsSchema } from '@artinu/shared';
 import { db } from '@/database/db';
-import { asyncHandler, requireInternal, validate } from '@/middleware/index';
+import { asyncHandler, cachePublic, requireInternal, validate } from '@/middleware/index';
 import { forbidden } from '@/utils/errors';
 
 export const contentRouter = Router();
@@ -51,6 +51,11 @@ contentRouter.get(
 
 contentRouter.get(
   '/:id',
+  // Only the public ids are cacheable, and `cachePublic` already downgrades
+  // itself to `private, no-store` the moment a request carries credentials —
+  // which is exactly the case where the branch below lets an internal role read
+  // a non-public record.
+  cachePublic(60),
   asyncHandler(async (req, res) => {
     if (!PUBLIC_CONTENT_IDS.has(req.params.id) && !INTERNAL.includes(req.user?.role ?? '')) {
       throw forbidden('That content is not public.');

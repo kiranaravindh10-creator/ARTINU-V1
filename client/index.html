@@ -57,6 +57,34 @@
       the front of the first request.
     -->
     <link rel="preconnect" href="https://artinu-v1.onrender.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!--
+      The homepage hero photograph, requested while this file is still parsing.
+
+      It is the Largest Contentful Paint element, and without this hint the
+      browser cannot know it exists until React has downloaded, parsed and
+      rendered the route — so the single most important image on the site
+      queued up behind the entire JavaScript bundle.
+
+      `imagesrcset` mirrors the srcSet in HomePage exactly, so a phone preloads
+      the 35 KB file rather than the desktop one, and the preload and the render
+      resolve to the same URL instead of fetching two copies.
+
+      This is the fallback/editorial hero, which is what now paints first on
+      every load. When curated slides exist they replace it a moment later, and
+      an unused preload of a 35–112 KB local WebP is a cheap price for removing
+      the wait in the common case.
+    -->
+    <link
+      rel="preload"
+      as="image"
+      href="/image/home-hero-cafe-1440.webp"
+      imagesrcset="/image/home-hero-cafe-640.webp 640w, /image/home-hero-cafe-1024.webp 1024w, /image/home-hero-cafe-1440.webp 1440w, /image/home-hero-cafe-1920.webp 1672w"
+      imagesizes="100vw"
+      fetchpriority="high"
+    />
     <!--
       There is deliberately no Supabase dns-prefetch here.
 
@@ -75,7 +103,7 @@
 
     <!-- Fallback title/description (replaced by React Helmet) -->
     <title>ARTINU - Photography that brings spaces to life</title>
-    <meta name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost." />
+    <meta data-rh="true" name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost." />
 
     <!--
       Static social + canonical fallback.
@@ -86,11 +114,19 @@
       WhatsApp and Slack read the raw HTML and stop. Without these tags a link
       to artinu.in shared in any of them previewed with no image and no title.
 
-      Each carries data-rh="true", the attribute react-helmet-async uses to mark
-      tags it owns. On mount Helmet removes any it finds and writes the real
-      per-route values, so these are replaced rather than duplicated. Without
-      that attribute a page like /about would end up with two conflicting
-      <link rel="canonical"> tags, which is worse than having none.
+      Each carries data-rh="true". That was originally here in the belief that
+      react-helmet-async would recognise its own marker and replace these on
+      mount — it does not. Helmet reconciles only the tags it inserted itself,
+      so these stayed put and every route ended up serving them *alongside* its
+      real ones, generic card first.
+
+      The attribute is still the right marker, but the removal is explicit:
+      clearBootstrapMeta() in src/main.tsx strips them before the first render.
+      Anything added here must carry data-rh="true" so it is cleared too.
+
+      For a crawler that never runs JavaScript these are the whole preview, and
+      for a shared photograph they are the wrong one — middleware.ts answers
+      those requests with the photograph's own tags instead.
     -->
     <link data-rh="true" rel="canonical" href="https://artinu.in/" />
     <meta data-rh="true" property="og:site_name" content="ARTINU" />

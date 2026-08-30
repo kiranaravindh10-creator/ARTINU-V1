@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { getPageSEO, PAGE_SEO, DEFAULT_SEO, generateCanonical, buildBreadcrumbs } from '@/lib/seo';
+import { useEntityMetaClaimed } from './entityClaim';
 
 interface MetaTagsProps {
   seoOverride?: Partial<import('@/lib/seo').SEOProps>;
@@ -9,6 +10,8 @@ interface MetaTagsProps {
 
 export function MetaTags({ seoOverride }: MetaTagsProps) {
   const location = useLocation();
+  // An EntityMeta on this page knows the real subject; see ./entityClaim.
+  const claimed = useEntityMetaClaimed();
   const pageSEO = getPageSEO(location.pathname);
   const seo = { ...pageSEO, ...seoOverride };
 
@@ -25,30 +28,31 @@ export function MetaTags({ seoOverride }: MetaTagsProps) {
     <Helmet>
       <html lang="en" />
 
-      <title>{seo.title}</title>
-      <meta name="description" content={seo.description} />
-      <link rel="canonical" href={absoluteCanonical} />
+      {!claimed && <title>{seo.title}</title>}
+      {!claimed && <meta name="description" content={seo.description} />}
+      {!claimed && <link rel="canonical" href={absoluteCanonical} />}
 
       <meta name="robots" content={`${seo.noindex ? 'noindex' : 'index'},${seo.nofollow ? 'nofollow' : 'follow'}`} />
 
-      <meta property="og:title" content={seo.ogTitle || seo.title} />
-      <meta property="og:description" content={seo.ogDescription || seo.description} />
-      <meta property="og:url" content={absoluteCanonical} />
-      <meta property="og:type" content={seo.ogType || 'website'} />
-      <meta property="og:site_name" content="ARTINU" />
-      <meta property="og:image" content={ogImage.url} />
-      <meta property="og:image:width" content={String(ogImage.width || 1200)} />
-      <meta property="og:image:height" content={String(ogImage.height || 630)} />
-      <meta property="og:image:alt" content={ogImage.alt || seo.title} />
+      {!claimed && <meta property="og:title" content={seo.ogTitle || seo.title} />}
+      {!claimed && <meta property="og:description" content={seo.ogDescription || seo.description} />}
+      {!claimed && <meta property="og:url" content={absoluteCanonical} />}
+      {!claimed && <meta property="og:type" content={seo.ogType || 'website'} />}
+      {!claimed && <meta property="og:site_name" content="ARTINU" />}
+      {!claimed && <meta property="og:image" content={ogImage.url} />}
+      {!claimed && <meta property="og:image:width" content={String(ogImage.width || 1200)} />}
+      {!claimed && <meta property="og:image:height" content={String(ogImage.height || 630)} />}
+      {!claimed && <meta property="og:image:alt" content={ogImage.alt || seo.title} />}
 
-      <meta name="twitter:card" content={seo.twitterCard || 'summary_large_image'} />
-      <meta name="twitter:title" content={seo.twitterTitle || seo.ogTitle || seo.title} />
-      <meta name="twitter:description" content={seo.twitterDescription || seo.ogDescription || seo.description} />
-      <meta name="twitter:image" content={twitterImage.url} />
-      <meta name="twitter:image:alt" content={twitterImage.alt || seo.title} />
+      {!claimed && <meta name="twitter:card" content={seo.twitterCard || 'summary_large_image'} />}
+      {!claimed && <meta name="twitter:title" content={seo.twitterTitle || seo.ogTitle || seo.title} />}
+      {!claimed && <meta name="twitter:description" content={seo.twitterDescription || seo.ogDescription || seo.description} />}
+      {!claimed && <meta name="twitter:image" content={twitterImage.url} />}
+      {!claimed && <meta name="twitter:image:alt" content={twitterImage.alt || seo.title} />}
 
-      <meta name="theme-color" content="#14120f" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+      {/* viewport and theme-color are not written here: they must apply
+          before this bundle runs, so index.html owns them. Writing them
+          again only put a second copy of each in every page. */}
 
       {jsonLdData.length > 0 && (
         <script type="application/ld+json">

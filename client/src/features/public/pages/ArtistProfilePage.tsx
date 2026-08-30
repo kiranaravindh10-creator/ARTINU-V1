@@ -27,6 +27,7 @@ import { Avatar, EmptyState, Skeleton } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
 import { FilterChips, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArtworkCard, ArtworkCardSkeleton, ArtworkMasonry } from '@/features/public/components/ArtworkCard';
+import { ShareSheet, useShare } from '@/features/public/components/ShareSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
@@ -45,6 +46,8 @@ export default function ArtistProfilePage() {
   const [category, setCategory] = React.useState('all');
   const [pages, setPages] = React.useState(1);
   const [bioOpen, setBioOpen] = React.useState(false);
+  /** The share sheet for an individual photograph, not for this profile. */
+  const photoShare = useShare();
 
   const { data: artist, isLoading, isError, error } = useQuery({
     queryKey: qk.artist(slug),
@@ -168,8 +171,18 @@ export default function ArtistProfilePage() {
   const hasMoreBio = (artist.bio?.length ?? 0) > 180;
 
   const share = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copied');
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: artist.name, text: `${artist.name} on ARTINU`, url });
+        return;
+      } catch (error) {
+        // Dismissed on purpose — copying anyway would override that choice.
+        if ((error as Error)?.name === 'AbortError') return;
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    toast.success('Link copied.');
   };
 
   return (
@@ -303,7 +316,7 @@ export default function ArtistProfilePage() {
               <>
                 <ArtworkMasonry>
                   {works.items.map((artwork) => (
-                    <ArtworkCard key={artwork.id} artwork={artwork} />
+                    <ArtworkCard key={artwork.id} artwork={artwork} onShare={photoShare.open} />
                   ))}
                 </ArtworkMasonry>
                 {works.items.length < works.total && (
@@ -402,6 +415,8 @@ export default function ArtistProfilePage() {
 
         </Tabs>
       </Container>
+
+      <ShareSheet artwork={photoShare.artwork} onClose={photoShare.close} />
 
 
     </>

@@ -95,6 +95,16 @@ const GROUPS: { title?: string; items: ConsoleItem[] }[] = [
           */
           { to: '/console/content/manager', label: 'Homepage', icon: LayoutTemplate, modules: ['content'] },
           { to: '/console/content', label: 'Curated lists', icon: SlidersHorizontal, modules: ['content'] },
+          /*
+            Sending a notification to every artist or space owner.
+
+            Filed under `content` on purpose rather than under `system` or
+            `users`: it is the only module manager, IT and CEO all hold, and
+            those are precisely the three roles meant to have this. Under
+            `system` a manager could not reach it, which is the same mistake the
+            homepage editor had before it was moved here.
+          */
+          { to: '/console/content/announcements', label: 'Announcements', icon: Megaphone, modules: ['content'] },
           { to: '/console/system', label: 'System', icon: ServerCog, modules: ['system'] },
         ],
       },

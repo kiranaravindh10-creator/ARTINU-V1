@@ -34,12 +34,10 @@ export default function HelpPage() {
                 ))}
               </ul>
             </div>
-            <p>
-              <strong className="text-ink">Address:</strong><br />
-              {CONTACT.address.line1}<br />
-              {CONTACT.address.line2 && <>{CONTACT.address.line2}<br /></>}
-              {CONTACT.address.city}, {CONTACT.address.state} {CONTACT.address.pin}
-            </p>
+            {/* No "Address:" block. ARTINU has no public premises to send
+                anyone to, and a heading above a blank line reads as a page
+                that failed to load rather than as a company without a
+                storefront. Phone, email and WhatsApp above are all real. */}
           </div>
         </section>
       </Container>

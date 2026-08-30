@@ -23,6 +23,7 @@ import {
 } from '@/features/public/components/ArtworkCard';
 import { FrameConfigurator } from '@/features/public/components/FrameConfigurator';
 import { Lightbox } from '@/features/public/components/Lightbox';
+import { ShareSheet } from '@/features/public/components/ShareSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { qk } from '@/lib/query';
@@ -100,6 +101,8 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   const [configuring, setConfiguring] = React.useState<ArtworkWithArtist | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [sortBy, setSortBy] = React.useState<'latest' | 'popular'>('latest');
+  /** Set only where the browser has no native share sheet. */
+  const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
   /*
    * Infinite scroll, driven by the sentinel itself.
    *
@@ -312,6 +315,23 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
     return unique;
   }, [top20Data, data, showTopPicks]);
   const lightbox = useLightbox(allArtworks);
+
+  /*
+    The four photographs in the editorial opening, taken from the collection.
+
+    Spread across the list rather than the first four in a row, so the collage
+    reads as a sample of the whole gallery instead of a duplicate of the top of
+    the grid the visitor is about to scroll into.
+  */
+  const opener = React.useMemo(() => {
+    if (allArtworks.length < 4) return [];
+    const step = Math.max(1, Math.floor(allArtworks.length / 4));
+    return [0, 1, 2, 3].map(
+      (i) => allArtworks[(i * step) % allArtworks.length]?.thumbnailUrl ?? allArtworks[i].imageUrl,
+    );
+  }, [allArtworks]);
+
+  const shareNode = <ShareSheet artwork={sharing} onClose={() => setSharing(null)} />;
 
   const lightboxNode = lightbox.isOpen && (
     <Lightbox
@@ -531,6 +551,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
         </div>
 
         {lightboxNode}
+        {shareNode}
         {configurator}
       </div>
     );
@@ -666,6 +687,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
                       showPrice={false}
                       onOpen={lightbox.open}
                       onToggleWishlist={(entry) => onToggleWishlist(entry.id)}
+                      onShare={setSharing}
                     />
                   ))}
                 </ArtworkMasonry>
@@ -683,6 +705,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
       </Section>
 
       {lightboxNode}
+      {shareNode}
 
       {/* ── ARTINU band ───────────────────────────────────────────────── */}
       <Section size="compact" className="pt-0">

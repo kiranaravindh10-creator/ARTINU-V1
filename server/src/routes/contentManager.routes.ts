@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '@/database/db';
-import { asyncHandler, requireRole, validate } from '@/middleware/index';
+import { asyncHandler, cachePublic, requireRole, validate } from '@/middleware/index';
 import { forbidden, notFound } from '@/utils/errors';
 import { broadcastContentUpdate } from '@/services/sse.service';
 import { removeStored } from '@/services/storage.service';
@@ -102,6 +102,28 @@ const updateFeaturedCollectionSchema = z.object({
 });
 
 /**
+ * Where a collaboration photograph may live.
+ *
+ * Two shapes, because there are genuinely two sources. A manager uploading
+ * through the console gets an absolute Supabase Storage URL. A photograph
+ * shipped with the site lives at a path like
+ * `/image/partners/nib-and-nosh-1024.webp`, served by the same origin as the
+ * page — and `z.string().url()` alone rejected those outright, which is why the
+ * only way to set one was to write past this endpoint and leave behind a row
+ * the console could never save again.
+ *
+ * The `(?![/\\])` guard is the same one the announcement links use: "starts
+ * with a slash" is not "is on this site", because `//evil.com` starts with a
+ * slash and navigates off-site.
+ */
+const photoUrlSchema = z.union([
+  z.string().url(),
+  z
+    .string()
+    .regex(/^\/(?![/\\])[\w\-./?=&#]*$/, 'Use a full https:// address or a path beginning with /'),
+]);
+
+/**
  * `websiteUrl` is where the homepage collaboration card sends a visitor.
  *
  * It is optional and never derived from the name: a card whose partner has no
@@ -110,7 +132,7 @@ const updateFeaturedCollectionSchema = z.object({
  */
 const cafeSchema = z.object({
   name: z.string().min(1).max(200),
-  photoUrl: z.string().url(),
+  photoUrl: photoUrlSchema,
   description: z.string().min(1).max(1000),
   websiteUrl: z.string().url('Enter the full address, starting with https://').nullable().optional(),
   order: z.number().int().nonnegative().optional(),
@@ -119,7 +141,7 @@ const cafeSchema = z.object({
 
 const updateCafeSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  photoUrl: z.string().url().optional(),
+  photoUrl: photoUrlSchema.optional(),
   description: z.string().min(1).max(1000).optional(),
   websiteUrl: z
     .string()
@@ -283,6 +305,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/hero-slides/active',
+  cachePublic(60),
   asyncHandler(async (_req, res) => {
     const slides = await db.heroSlides.find({
       where: { isActive: true },
@@ -420,6 +443,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/featured-collections/active',
+  cachePublic(60),
   asyncHandler(async (_req, res) => {
     const collections = await db.featuredCollections.find({
       where: { isActive: true },
@@ -551,6 +575,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/cafes/active',
+  cachePublic(60),
   asyncHandler(async (_req, res) => {
     const cafes = await db.cafes.find({
       where: { isActive: true },
@@ -693,6 +718,7 @@ contentManagerRouter.get(
 
 contentManagerRouter.get(
   '/collaboration-slides/active',
+  cachePublic(60),
   asyncHandler(async (req, res) => {
     const photographerId = typeof req.query.photographerId === 'string' ? req.query.photographerId : undefined;
     const where: Record<string, unknown> = { isActive: true };

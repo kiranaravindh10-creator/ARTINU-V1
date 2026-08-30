@@ -2,7 +2,7 @@
  * One-time backfill: generate resized copies for photographs uploaded before
  * variants existed.
  *
- * Run AFTER applying database/migrations/010_image_variants.sql.
+ * Run AFTER applying database/migrations/015_image_variants.sql.
  *
  *   npm run backfill:image-variants --workspace server -- --dry-run
  *   npm run backfill:image-variants --workspace server

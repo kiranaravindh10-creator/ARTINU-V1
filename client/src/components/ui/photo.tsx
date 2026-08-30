@@ -2,7 +2,7 @@ import { ImageOff } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { buildVariantSrcSet, type ImageVariants } from '@artinu/shared';
-import { buildHeroSrcSet, buildThumbnailSrcSet, getBlurPlaceholderSync } from '@/lib/imageOptimization';
+import { buildHeroSrcSet, buildThumbnailSrcSet, getBlurPlaceholderSync, resizedUpload } from '@/lib/imageOptimization';
 
 export interface PhotoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'onLoad' | 'srcSet' | 'sizes'> {
   src: string;
@@ -73,7 +73,7 @@ export function Photo({
       against unsplash.com and picsum.photos and rewriting their query strings.
       For a real photographer upload on Supabase Storage neither matches, both
       return '', and the browser is left with the bare `src` - which until
-      010_image_variants was the untouched original. A variants map is a list of
+      015_image_variants was the untouched original. A variants map is a list of
       files we know exist at widths we chose, so it beats any amount of guessing.
     */
     const fromVariants = buildVariantSrcSet(variants);
@@ -82,6 +82,18 @@ export function Photo({
     if (thumbnail) return buildThumbnailSrcSet(src);
     return undefined;
   }, [src, hero, thumbnail, srcSet, variants]);
+
+  /*
+    The plain "src", which is what a browser falls back to and what it uses
+    when no "sizes" rule matches. Left as the stored URL it asks for the
+    photographer's full-resolution original — several megabytes for a tile a
+    few hundred pixels wide. resizedUpload leaves every other kind of image
+    exactly as it was.
+  */
+  const effectiveSrc = React.useMemo(
+    () => resizedUpload(src, thumbnail ? 800 : 1600),
+    [src, thumbnail],
+  );
 
   const effectiveSizes = React.useMemo(() => {
     // A variants srcset still needs a sizes hint, or the browser assumes 100vw
@@ -119,7 +131,7 @@ export function Photo({
       {state !== 'error' ? (
         <>
           <img
-            src={src}
+            src={effectiveSrc}
             srcSet={effectiveSrcSet}
             sizes={effectiveSizes}
             alt={alt}

@@ -37,16 +37,23 @@ const TABLES = [
   'cafes', 'collaborationSlides',
   // Added by 004_operations.sql
   'errorLogs', 'employees', 'frames', 'frameMovements',
+  // Added by 010_verification_and_enforcement.sql
+  'warnings', 'removalRequests',
 ] as const;
 
 /** Columns added after the initial schema, which older projects will lack. */
-const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes'; column: string }[] = [
+const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes' | 'users'; column: string }[] = [
   { table: 'profiles', column: 'coverUrl' },
   { table: 'profiles', column: 'photographerCode' },
   { table: 'profiles', column: 'nextPhotoNumber' },
   // Added by 009_registration_and_collaborations.sql
   { table: 'profiles', column: 'dateOfBirth' },
   { table: 'cafes', column: 'websiteUrl' },
+  // Added by 010_verification_and_enforcement.sql
+  { table: 'profiles', column: 'guidelinesVersion' },
+  { table: 'profiles', column: 'guidelinesAcceptedAt' },
+  { table: 'users', column: 'statusReason' },
+  { table: 'users', column: 'inactivityWarnedAt' },
   { table: 'artworks', column: 'photoId' },
   { table: 'artworks', column: 'photoNumber' },
 ];
@@ -98,15 +105,22 @@ async function run() {
   }
 
   if (failed.length) {
-    const needs004 = failed.some((f) =>
-      /errorLogs|employees|frames|frameMovements/.test(f.label),
-    );
+    // Name the file that actually fixes what failed. Pointing at the wrong
+    // migration sends someone to the SQL editor to run something that changes
+    // nothing, and the check still fails afterwards.
+    const file = failed.some((f) => /errorLogs|employees|frames|frameMovements/.test(f.label))
+      ? 'database/migrations/004_operations.sql'
+      : failed.some((f) =>
+            /warnings|removalRequests|guidelines|statusReason|inactivity|dateOfBirth|websiteUrl/i.test(
+              f.label,
+            ),
+          )
+        ? 'database/migrations/RUN_THIS_ON_PRODUCTION.sql'
+        : 'database/migrations/003_sync_live_schema.sql';
+
     console.log(
-      `\n${failed.length} problem(s). Apply ` +
-        (needs004
-          ? 'database/migrations/004_operations.sql'
-          : 'database/migrations/003_sync_live_schema.sql') +
-        ` in the Supabase SQL editor, then run this again.\n`,
+      `\n${failed.length} problem(s). Open supabase.com → your project → SQL Editor,` +
+        `\npaste ${file} and press Run, then run this check again.\n`,
     );
     process.exit(1);
   }

@@ -24,8 +24,20 @@ const COLUMNS = [
     ],
   },
   {
+    /*
+      "Join" was reachable from exactly one link, at the foot of the Artists
+      page, and from nowhere else — not the nav, not here. This column offered
+      a photographer who had just decided they wanted in a single option: sign
+      in to the account they do not have yet.
+
+      Giving photographers somewhere to be seen is the product, so the way in
+      belongs in the footer of every page, above the sign-in link rather than
+      after it.
+    */
     title: 'For Artists',
     links: [
+      { to: '/join', label: 'Join as an Artist' },
+      { to: '/gallery', label: 'Browse the Gallery' },
       { to: '/signin?as=artist', label: 'Artist Sign In' },
     ],
   },

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CircleArrowLink, Container, Section } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/display';
 import { Input } from '@/components/ui/input';
@@ -87,11 +88,11 @@ export default function ArtistsPage() {
       <section className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <div className="flex flex-col justify-center px-5 py-16 sm:px-8 lg:py-24 lg:pl-12 lg:pr-16">
           <Reveal>
-            <h1 className="font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter as="h1" className="font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               Real people.
               <br />
               Real <em className="italic">perspectives.</em>
-            </h1>
+            </Typewriter>
             {/*
               Letterspaced capitals, broken across two lines on purpose.
 

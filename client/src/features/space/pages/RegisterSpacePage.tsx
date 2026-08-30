@@ -468,7 +468,7 @@ export default function RegisterSpacePage() {
                         setValue('imageUrls', next, { shouldDirty: true });
                       }}
                       aria-label="Remove photograph"
-                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>

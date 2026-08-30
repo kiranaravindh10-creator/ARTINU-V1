@@ -1,4 +1,5 @@
 import {
+  type ArtworkWithArtist,
   formatDate,
   GALLERY_CATEGORY_LABELS,
   ORIENTATION_LABELS,
@@ -25,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, EmptyState, Skeleton } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
 import { ArtworkCard, ArtworkMasonry } from '@/features/public/components/ArtworkCard';
+import { ShareButton, ShareSheet } from '@/features/public/components/ShareSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { qk } from '@/lib/query';
@@ -32,12 +34,22 @@ import { SITE_URL } from '@/lib/seo';
 import { EntityMeta } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
+import { resizedUpload } from '@/lib/imageOptimization';
 
 export default function ArtworkDetailPage() {
   const { artworkId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
+
+  /*
+    The artwork whose share sheet is open, or null.
+
+    Set only where the browser has no native share sheet: `ShareButton` calls
+    `onFallback` in that case and otherwise handles the share itself, so on a
+    phone this stays null and the panel at the bottom never renders.
+  */
+  const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
 
   const {
     data: artwork,
@@ -154,7 +166,9 @@ export default function ArtworkDetailPage() {
         title={artworkTitle}
         description={artworkDescription}
         path={artworkPath}
-        image={artwork.imageUrl}
+        /* WhatsApp and Facebook refuse preview images past a few megabytes,
+           so a shared photograph must unfurl from a resized copy. */
+        image={resizedUpload(artwork.imageUrl, 1200)}
         imageAlt={`${artwork.title} by ${artwork.artist.name}`}
         jsonLd={artworkJsonLd}
       />
@@ -190,9 +204,12 @@ export default function ArtworkDetailPage() {
             >
               <Heart className={cn(artwork.wishlisted && 'fill-bronze text-bronze')} />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Share" onClick={() => void share()}>
-              <Share2 />
-            </Button>
+            {/* Native sheet on a phone, our own on a desktop — same button. */}
+            <ShareButton
+              artwork={artwork}
+              onFallback={setSharing}
+              className="inline-flex size-10 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-sand hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze"
+            />
           </div>
         </div>
       </Container>
@@ -415,12 +432,15 @@ export default function ArtworkDetailPage() {
             <h2 className="font-display text-2xl text-ink">You might also like</h2>
             <ArtworkMasonry className="mt-8">
               {related.map((entry) => (
-                <ArtworkCard key={entry.id} artwork={entry} />
+                <ArtworkCard key={entry.id} artwork={entry} onShare={setSharing} />
               ))}
             </ArtworkMasonry>
           </Container>
         </Section>
       )}
+
+      {/* Only ever rendered where the browser has no native share sheet. */}
+      <ShareSheet artwork={sharing} onClose={() => setSharing(null)} />
     </>
   );
 }

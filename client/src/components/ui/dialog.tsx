@@ -32,6 +32,14 @@ export const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      /*
+        Radix hides the overlay from assistive technology but leaves #root
+        exposed, so a screen reader can walk straight out of an open dialog and
+        into the page behind it. `aria-modal` is the attribute that actually
+        confines it, and every Dialog in this app is modal. Declared before the
+        spread so a caller can still override it.
+      */
+      aria-modal="true"
       className={cn(
         'fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
         'max-h-[90vh] overflow-y-auto rounded-lg border border-line bg-surface p-6 shadow-lifted',

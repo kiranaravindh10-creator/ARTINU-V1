@@ -5,19 +5,21 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
+    "audit:production": "tsx src/scripts/audit-production.ts",
     "backfill:image-variants": "tsx src/scripts/backfill-image-variants.ts",
     "backfill:photo-ids": "tsx src/scripts/backfill-photo-ids.ts",
     "check:schema": "tsx src/scripts/check-schema.ts",
     "check:welcome": "node ../scripts/welcome-email-check.mjs",
     "create:staff": "tsx src/scripts/create-staff.ts",
+    "create:test-partners": "tsx src/scripts/create-test-partners.ts",
     "demo:sync": "tsx src/scripts/snapshot-prod.ts",
     "dev": "tsx watch src/index.ts",
     "dev:demo": "npm --prefix .. run dev:demo",
+    "fix:content": "tsx src/scripts/fix-collaboration-links.ts",
     "reconcile:engagement": "tsx src/scripts/reconcile-engagement.ts",
     "seed": "tsx src/database/seed-cli.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "create:test-partners": "tsx src/scripts/create-test-partners.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

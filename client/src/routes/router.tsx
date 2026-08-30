@@ -236,6 +236,16 @@ const consoleRoutes: RouteObject = {
               path: 'applications',
               element: lazyPage(() => import('@/features/console/pages/ConsoleApplicationsPage')),
             },
+            {
+              // One photographer's Community Guidelines record: warnings,
+              // enforcement, and what they have uploaded. Reached from the
+              // artists list rather than the sidebar — it is about a person,
+              // not a section.
+              path: ':artistId/moderation',
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleModerationCasePage'),
+              ),
+            },
           ],
         },
         {
@@ -343,6 +353,14 @@ const consoleRoutes: RouteObject = {
             {
               path: 'manager',
               element: lazyPage(() => import('@/features/console/pages/ConsoleContentManagerPage')),
+            },
+            {
+              // Under `content` because that is the only module manager, IT and
+              // CEO all have — the three roles the announcement feature is for.
+              path: 'announcements',
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleAnnouncementsPage'),
+              ),
             },
           ],
         },

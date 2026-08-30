@@ -160,6 +160,21 @@ export const registerStep4Schema = z.object({
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: 'Please accept the terms to create your account' }),
   }),
+  /**
+   * Community Guidelines acknowledgement, separate from the Terms box.
+   *
+   * Two boxes rather than one because they are two documents with different
+   * consequences: the Terms are a contract, the Guidelines are the rules a
+   * photographer is agreeing to be moderated against. Bundling them would mean
+   * ARTINU could not honestly say a photographer had read the Guidelines when
+   * enforcing §12 against them.
+   *
+   * `z.literal(true)` refuses `false` and refuses a missing field, so the box
+   * cannot ship pre-checked and cannot be skipped.
+   */
+  acceptGuidelines: z.literal(true, {
+    errorMap: () => ({ message: 'Please confirm you have read the Community Guidelines' }),
+  }),
 });
 
 /** The whole wizard, submitted in one call once step 4 is confirmed. */
@@ -322,6 +337,40 @@ export const artworkUploadSchema = z.object({
   imageBase64: z.string().min(32, 'Attach a photograph'),
   fileName: z.string().max(200).optional(),
 });
+
+/**
+ * Editing a photograph that is already published.
+ *
+ * The same rules as `artworkUploadSchema` for the fields a photographer may
+ * revise, but every one optional — a PATCH carries whatever changed and nothing
+ * else. The photograph itself, its category and its Photo ID are deliberately
+ * absent: the image is what was reviewed and what may already be printed and
+ * hanging on a wall, so replacing it is a new upload rather than an edit.
+ *
+ * `PATCH /artworks/:id` used to take `req.body` straight from the request and
+ * filter it against an array of allowed key *names* only, so the names were
+ * checked and the values never were. That accepted `title: ""` (a blank card in
+ * the gallery), `title` as an object, a 4,000-character description past what
+ * the column and the layout expect, and an unbounded `tags` array. `.strict()`
+ * additionally rejects an unknown key outright rather than silently dropping it,
+ * so a typo'd field name fails loudly instead of appearing to save.
+ */
+export const artworkEditSchema = z
+  .object({
+    title: z.string().min(2, 'Give this photograph a title').max(160),
+    description: z.string().max(600).nullable(),
+    story: z.string().max(1500).nullable(),
+    mood: z.array(enumOf(MOODS)).max(3, 'Choose up to 3 moods'),
+    colors: z.array(z.enum(values(ARTWORK_COLORS))).max(3),
+    tags: z.array(z.string().min(2).max(30)).max(10, 'Up to 10 tags'),
+    suitableFor: z.array(z.string().min(2).max(40)).max(10),
+    location: z.string().min(2, 'Enter the location where this was photographed').max(160),
+  })
+  .partial()
+  .strict()
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: 'Nothing to update',
+  });
 
 export const artworkReviewSchema = z.object({
   decision: z.enum(['approve', 'reject']),
@@ -703,8 +752,16 @@ export const announcementSchema = z.object({
     .string()
     .trim()
     .max(200)
-    .refine((value) => value === '' || value.startsWith('/'), {
-      message: 'Use a path within the site, starting with /',
+    /*
+      "Starts with /" is not "is on this site". `//evil.com` starts with a slash
+      and is protocol-relative: the browser fills in the scheme and navigates
+      off-site, and some browsers treat `/\evil.com` the same way. A broadcast
+      that points the whole artist roster at an external address is the shape of
+      a phishing message, so the character after the leading slash is checked
+      too.
+    */
+    .refine((value) => value === '' || /^\/(?![/\\])[\w\-./?=&#]*$/.test(value), {
+      message: 'Use a path within the site, starting with a single /',
     })
     .optional(),
 });
@@ -725,6 +782,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 export type SpaceInput = z.infer<typeof spaceSchema>;
 export type ArtworkUploadInput = z.infer<typeof artworkUploadSchema>;
+export type ArtworkEditInput = z.infer<typeof artworkEditSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type ConsultationInput = z.infer<typeof consultationSchema>;
 export type ArtistApplicationInput = z.infer<typeof artistApplicationSchema>;

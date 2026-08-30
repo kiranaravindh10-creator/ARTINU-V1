@@ -22,7 +22,7 @@
     "prebuild": "npm run preflight",
     "build": "npm run typecheck && npm run sitemap && npm run build --workspace client",
     "start": "npm run start --workspace server",
-    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client",
+    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client && tsc -p tsconfig.edge.json",
     "seed": "npm run seed --workspace server",
     "package": "node scripts/package-zip.mjs",
     "doctor": "node scripts/preflight.mjs",
@@ -34,7 +34,8 @@
     "clean": "node -e \"const{rmSync}=require('fs');for(const d of ['node_modules','client/node_modules','server/node_modules','shared/node_modules'])rmSync(d,{recursive:true,force:true})\"",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "favicons": "node scripts/generate-favicons.mjs",
-    "create:test-partners": "npm run create:test-partners --workspace server"
+    "create:test-partners": "npm run create:test-partners --workspace server",
+    "images": "node scripts/generate-images.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

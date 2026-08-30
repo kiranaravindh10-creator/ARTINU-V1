@@ -1,7 +1,7 @@
 import { CONTACT, formatDateTime, supportTicketSchema, type SupportTicketInput } from '@artinu/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LifeBuoy, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { LifeBuoy, Mail, MessageCircle, Phone } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useLocation } from 'react-router-dom';
@@ -130,14 +130,6 @@ export default function SupportPage() {
             >
               <Mail className="size-4 text-bronze" aria-hidden /> {CONTACT.supportEmail}
             </a>
-            <p className="flex items-start gap-2.5 text-sm leading-relaxed text-muted">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-bronze" aria-hidden />
-              <span>
-                {CONTACT.address.line1}
-                <br />
-                {CONTACT.address.city} {CONTACT.address.pin}
-              </span>
-            </p>
 
             <a
               href={whatsapp}

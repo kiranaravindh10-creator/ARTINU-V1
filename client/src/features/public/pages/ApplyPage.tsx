@@ -29,6 +29,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Container, Section } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CharCount, Field, Label } from '@/components/ui/field';
@@ -171,11 +172,11 @@ export default function ApplyPage() {
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
             <p className="eyebrow">Apply to join</p>
-            <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3rem]">
+            <Typewriter as="h1" className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3rem]">
               Your vision.
               <br />
               Our community.
-            </h1>
+            </Typewriter>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">
               ARTINU is a platform for photographers and visual storytellers. Apply to become a part
@@ -417,7 +418,7 @@ export default function ApplyPage() {
                           type="button"
                           onClick={() => removeUpload(index)}
                           aria-label={`Remove ${upload.name}`}
-                          className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-ink/80 text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-ink/80 text-canvas opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                         >
                           <X className="size-3.5" />
                         </button>

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/primitives';
 import { Reveal } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Photo } from '@/components/ui/photo';
 import { cn } from '@/lib/utils';
@@ -64,14 +65,16 @@ export function CtaBand({
         <Reveal className={cn('flex flex-col gap-6', centered && 'items-center text-center')}>
           {eyebrow && <p className="eyebrow text-bronze-light">{eyebrow}</p>}
 
-          <h2
+          <Typewriter
+            as="h2"
             className={cn(
               'max-w-3xl font-display text-[2.125rem] leading-[1.08] text-canvas sm:text-[2.75rem] lg:text-5xl',
               centered && 'mx-auto',
             )}
+            caretClassName="border-l-bronze-light"
           >
             {title}
-          </h2>
+          </Typewriter>
 
           {description && (
             <p className={cn('prose-quiet text-canvas/65', centered && 'mx-auto')}>{description}</p>

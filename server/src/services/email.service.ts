@@ -289,6 +289,126 @@ export function sendNoAccountEmail(to: string): Promise<MailResult> {
   });
 }
 
+/**
+ * The 6-digit code that confirms an email address.
+ *
+ * Goes through `sendMail` like everything else, so it uses the same SMTP or
+ * SendGrid transport, the same monthly allowance accounting and the same
+ * console fallback in development. No second mail path.
+ *
+ * `priority: 'critical'` because an account cannot be used until this arrives —
+ * it must still send in a month where the allowance has been spent on
+ * notifications.
+ *
+ * The code is rendered by `renderEmail`'s numeric-paragraph branch, which sets
+ * a bare 4–8 digit line as large spaced figures. That branch already existed
+ * for the sign-in code; this reuses it rather than inventing a second style.
+ */
+export function sendVerificationCodeEmail(
+  to: string,
+  name: string,
+  code: string,
+  minutes: number,
+): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: `${code} is your ARTINU verification code`,
+    heading: 'Confirm your email address',
+    body:
+      `Hello ${firstName(name)},\n\n${code}\n\n` +
+      `Enter this code on ARTINU to confirm your email address. It expires in ${minutes} minutes.`,
+    footnote:
+      'Never share this code. ARTINU will never ask you for it. ' +
+      'If you did not create an ARTINU account, you can ignore this email.',
+    priority: 'critical',
+  });
+}
+
+/**
+ * A Community Guidelines warning (§12).
+ *
+ * States the count plainly — "1 of 3" — because the policy is a count and
+ * softening it would leave the photographer unsure how serious this is. The
+ * reason is whatever the reviewer wrote; it is not paraphrased here.
+ */
+export function sendWarningEmail(
+  to: string,
+  name: string,
+  reason: string,
+  number: number,
+  limit: number,
+): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: `A note about your ARTINU account (warning ${number} of ${limit})`,
+    heading: 'About your recent activity on ARTINU',
+    body:
+      `Hello ${firstName(name)},\n\n` +
+      `We have issued a warning on your ARTINU account. This is warning ${number} of ${limit}.\n\n` +
+      `Reason given: ${reason}\n\n` +
+      'Please read the Community Guidelines so you know what we ask of photographers on the ' +
+      'platform. If you think this was a mistake, reply to this email and a person will look at it.',
+    cta: { label: 'Read the Community Guidelines', url: appUrl('/legal/community') },
+    footnote: `Reaching ${limit} warnings means an ARTINU reviewer looks at the account.`,
+    priority: 'critical',
+  });
+}
+
+/**
+ * Suspension, ban, or restoration.
+ *
+ * One function for all three because the recipient needs the same things in
+ * each case: what happened, why, and what they can do next. Splitting it into
+ * three near-identical templates is how they drift apart.
+ */
+export function sendAccountStatusEmail(
+  to: string,
+  name: string,
+  status: 'suspended' | 'banned' | 'verified',
+  reason: string,
+): Promise<MailResult> {
+  const copy = {
+    suspended: {
+      subject: 'Your ARTINU account has been suspended',
+      heading: 'Your account has been suspended',
+      body:
+        'Your ARTINU account has been suspended, so you will not be able to sign in for now. ' +
+        'Your photographs and your profile have not been deleted.',
+      footnote: 'If you think this is a mistake, reply to this email and a person will look at it.',
+    },
+    banned: {
+      subject: 'Your ARTINU account has been closed',
+      heading: 'Your account has been closed',
+      body:
+        'Your ARTINU account has been permanently closed and you will not be able to sign in. ' +
+        'Any photographs currently installed in a venue will be handled through our usual ' +
+        'removal process.',
+      footnote: 'If you believe this decision is wrong, reply to this email.',
+    },
+    verified: {
+      subject: 'Your ARTINU account has been restored',
+      heading: 'Your account is active again',
+      body:
+        'Your ARTINU account has been restored and you can sign in as usual. ' +
+        'Thank you for your patience.',
+      footnote: 'Welcome back.',
+    },
+  }[status];
+
+  return sendMail({
+    to,
+    subject: copy.subject,
+    heading: copy.heading,
+    body: `Hello ${firstName(name)},\n\n${copy.body}\n\nReason given: ${reason}`,
+    cta:
+      status === 'verified'
+        ? { label: 'Sign in', url: appUrl('/signin') }
+        : { label: 'Read the Community Guidelines', url: appUrl('/legal/community') },
+    footnote: copy.footnote,
+    priority: 'critical',
+  });
+}
+
 export function sendPasswordResetEmail(
   to: string,
   name: string,
@@ -305,6 +425,35 @@ export function sendPasswordResetEmail(
     },
     footnote: 'If you did not ask for this, nothing has changed - you can ignore this email.',
     priority: 'critical',
+  });
+}
+
+/**
+ * The birthday note, sent once a year on the artist's own date of birth.
+ *
+ * Deliberately short and with nothing to click. Every other message in this
+ * file is asking for something — confirm this, pay that, track the other — and
+ * a birthday wish that ends in a call to action is a marketing email wearing a
+ * card. The one link it carries is to the artist's own portfolio, because the
+ * nicest thing ARTINU can point someone at on their birthday is their own work
+ * hanging on real walls.
+ *
+ * `priority: 'normal'` on purpose: a courtesy note must never crowd out a
+ * password reset against the monthly send allowance.
+ */
+export function sendBirthdayEmail(to: string, name: string): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: `Happy birthday, ${firstName(name)} 🎉`,
+    heading: 'Happy birthday from all of us at ARTINU',
+    body:
+      `Hello ${firstName(name)},\n\n` +
+      'Everyone here hopes today is a good one — and that the year ahead brings you ' +
+      'light worth chasing, time to go and find it, and walls that want your work on them.\n\n' +
+      'Thank you for letting us show what you see.',
+    cta: { label: 'See your portfolio', url: appUrl('/studio/portfolio') },
+    footnote: 'With warm wishes — Team ARTINU',
+    priority: 'normal',
   });
 }
 
@@ -645,7 +794,6 @@ export function renderEmail(message: MailMessage): string {
         <tr><td style="padding:28px 36px 32px;">
           <div style="height:1px;background-color:${LINE};margin-bottom:20px;"></div>
           <p style="margin:0;font-family:${SANS};font-size:12px;line-height:1.7;color:${SUBTLE};">
-            ${escapeHtml(CONTACT.address.line1)}, ${escapeHtml(CONTACT.address.city)} ${escapeHtml(CONTACT.address.pin)}<br />
             <a href="mailto:${escapeAttribute(CONTACT.email)}" style="color:${MUTED};text-decoration:none;">${escapeHtml(CONTACT.email)}</a>
             &nbsp;·&nbsp; ${escapeHtml(CONTACT.phone)}
           </p>

@@ -115,7 +115,7 @@ export default function WishlistPage() {
                   onClick={() => setConfiguring(artwork)}
                   className={cn(
                     'text-xs text-muted underline-offset-4 transition-colors hover:text-ink hover:underline',
-                    'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                    'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100',
                   )}
                 >
                   Add to frame

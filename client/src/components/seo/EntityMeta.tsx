@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { generateCanonical, SITE_NAME, DEFAULT_SEO } from '@/lib/seo';
+import { useClaimEntityMeta } from './entityClaim';
 
 /**
  * Per-entity metadata for pages whose subject is only known after a request.
@@ -7,8 +8,9 @@ import { generateCanonical, SITE_NAME, DEFAULT_SEO } from '@/lib/seo';
  * `MetaTags` in PublicLayout can only see the URL, so a photographer page had
  * to guess its own title from the slug and an artwork page could say nothing at
  * all about the photograph. This renders a second <Helmet> once the data has
- * loaded; react-helmet-async takes the last value for each tag, so these
- * replace the route-level defaults rather than duplicating them.
+ * loaded. This version of react-helmet-async does not collapse two tags
+ * with the same property, so rather than relying on it, mounting this claims
+ * ownership and MetaTags stops writing the tags they share.
  *
  * Nothing here renders to the page. It writes to <head> only.
  */
@@ -27,6 +29,9 @@ export function EntityMeta({
   imageAlt?: string;
   jsonLd?: Record<string, unknown> | null;
 }) {
+  // Tells the route-level MetaTags to stand down; see ./entityClaim.
+  useClaimEntityMeta();
+
   const canonical = generateCanonical(path);
   // Falling back to the site card is better than a share with no image at all.
   const imageUrl = image || DEFAULT_SEO.ogImage!.url;

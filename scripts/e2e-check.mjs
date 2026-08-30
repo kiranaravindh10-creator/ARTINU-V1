@@ -105,6 +105,9 @@ const reg = await call(
     location: 'Bengaluru, India',
     artStyle: 'street',
     acceptTerms: true,
+    // Community Guidelines acknowledgement. Required at artist registration
+    // since the guidelines became enforceable (warnings, lifecycle sweeps).
+    acceptGuidelines: true,
   }),
 );
 check('Artist registration returns a session', reg.status === 201 && !!reg.body.accessToken, `HTTP ${reg.status}`);
@@ -125,6 +128,9 @@ const dupe = await call(
     location: 'Bengaluru, India',
     artStyle: 'street',
     acceptTerms: true,
+    // Community Guidelines acknowledgement. Required at artist registration
+    // since the guidelines became enforceable (warnings, lifecycle sweeps).
+    acceptGuidelines: true,
   }),
 );
 check('Duplicate email rejected', dupe.status >= 400 && dupe.status < 500, `HTTP ${dupe.status}`);

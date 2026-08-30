@@ -4,6 +4,7 @@ import { CONTACT } from '@artinu/shared';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
 import { Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { EASE, Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Photo } from '@/components/ui/photo';
 import { CtaBand } from '@/features/public/components/CtaBand';
 import { IMAGES } from '@/lib/images';
@@ -109,13 +110,14 @@ function AboutBeginningHero() {
             <div className="max-w-2xl">
               <Reveal>
                 <p className="eyebrow">The beginning</p>
-                <h1
+                <Typewriter
+                  as="h1"
                   id="about-beginning-title"
                   className="mt-7 font-display text-[2.6rem] leading-[1.05] text-ink sm:text-6xl lg:text-[4.5rem]">
                   Somewhere between a photograph
                   <br className="hidden sm:block" /> and a wall,{' '}
                   <em className="editorial-italic">Artinu</em> began.
-                </h1>
+                </Typewriter>
                 <span className="rule mt-9" aria-hidden />
               </Reveal>
 

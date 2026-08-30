@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Container, Section } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/display';
 import { Photo } from '@/components/ui/photo';
@@ -108,13 +109,13 @@ export default function JoinPage() {
         <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:py-20 lg:pl-12 lg:pr-16">
           <Reveal>
             <p className="eyebrow">A community for visionaries.</p>
-            <h1 className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
+            <Typewriter as="h1" className="mt-5 font-display text-[2.5rem] leading-[1.05] text-ink sm:text-[3.25rem]">
               Join our
               <br />
               artist
               <br />
               community.
-            </h1>
+            </Typewriter>
             <span className="rule mt-7" />
             <p className="prose-quiet mt-7 max-w-sm">
               ARTINU prints photographs and hangs them in cafés, hotels and offices. Shot on a

@@ -166,7 +166,7 @@ export default function NotificationsPage() {
                             type="button"
                             onClick={() => archive.mutate(notification.id)}
                             aria-label="Archive notification"
-                            className="text-subtle opacity-0 transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                            className="text-subtle opacity-0 transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                           >
                             <X className="size-4" />
                           </button>

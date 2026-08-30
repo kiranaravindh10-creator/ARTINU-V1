@@ -10,6 +10,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
+import { Typewriter } from '@/components/motion/typewriter';
 import { Button } from '@/components/ui/button';
 import {
   Accordion,
@@ -526,10 +527,11 @@ export default function SpacesPage() {
             <p className="eyebrow">
               {selected ? SPACE_TYPE_LABELS[selected] : 'Our Collaborations'}
             </p>
-            <h1
+            <Typewriter
+              as="h1"
               className="mt-5 max-w-[15ch] font-display text-[2.5rem] leading-[1.05] text-ink sm:text-5xl lg:text-6xl">
               {hero.headline}
-            </h1>
+            </Typewriter>
             <span className="rule mt-6" />
             <p className="prose-quiet mt-6">{hero.blurb}</p>
 

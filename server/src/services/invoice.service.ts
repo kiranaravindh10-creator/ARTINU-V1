@@ -221,6 +221,9 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
       <div>
         <p class="eyebrow">${PRICING.GST_REGISTERED ? 'Tax Invoice' : 'Invoice'}</p>
         <h1>ARTINU</h1>
+        <!-- Contact details rather than a postal address: ARTINU publishes
+             none, and the three empty lines this used to emit made every
+             invoice look truncated. See the note on CONTACT in shared. -->
         <div class="muted" style="margin-top:8px">
           ${sellerAddress}
         </div>
