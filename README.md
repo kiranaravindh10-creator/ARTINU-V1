@@ -365,8 +365,4 @@ Being explicit is more useful than a feature list that overstates itself.
 | Firestore Realtime       | `server/src/services/firebase.ts` (Admin), `client/src/hooks/useContentSync.ts` (Client)                                                                                                              |
 | Drive→Firebase Migration | `server/src/scripts/migrate-drive-to-firebase.ts`                                                                                                                                                     |
 
-#   A R T I N U - V 1 
- 
- 
-#   A R T I N U _ W e b s i t e _ D e v e l o p m e n t  
- 
+#
