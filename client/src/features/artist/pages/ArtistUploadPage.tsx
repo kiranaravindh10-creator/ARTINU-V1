@@ -36,8 +36,25 @@ const MAX_PHOTOS = 50;
  *
  * Four at a time keeps the pipe busy without any of that. A fifty-photograph
  * batch simply takes longer, which is honest, rather than failing halfway.
+ *
+ * ── Why it is two, not four ────────────────────────────────────────────────
+ *
+ * Four was still too many, and the failure was not on this side of the wire.
+ * A photograph travels as base64 in a JSON body (SDD §11), so the API holds it
+ * roughly four times over while it works - the raw body, the decoded string,
+ * the base64 string, the Buffer - and then sharp decodes it to raw pixels to
+ * build the variants. Measured on the API's own dependency baseline of ~190 MB,
+ * one 19-megapixel upload costs ~105 MB; four at once peaked at 615 MB against
+ * the 512 MB Render instance. The dyno was OOM-killed mid-batch, every open
+ * connection died at once with no response, and all four files came back as
+ * "We could not reach the ARTINU service" - the network error being reported
+ * for what was actually the server going down under the batch it was sent.
+ *
+ * Two, together with the one-at-a-time gate now in image-variants.service.ts,
+ * peaks at ~437 MB with files at the 25 MB ceiling. The batch is slower and it
+ * finishes.
  */
-const UPLOAD_CONCURRENCY = 4;
+const UPLOAD_CONCURRENCY = 2;
 
 /**
  * Run `task` over `items`, at most `limit` at once, settling every one.

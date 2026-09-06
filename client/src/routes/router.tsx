@@ -183,6 +183,89 @@ const artistRoutes: RouteObject = {
   ],
 };
 
+/*
+  ── Social Media ────────────────────────────────────────────────────────────
+
+  A fourth authenticated area, deliberately NOT a branch of the console.
+
+  Two gates, and they are not redundant. `ProtectedRoute roles` decides who may
+  be here at all; `ModuleRoute module` decides which screens they get, reading
+  the same ROLE_MODULES table the API's `requireModule` reads. That is what lets
+  the CEO open this area for oversight (requirements §10) while a role that held
+  only `campaigns` would find the promotion screens closed - without a second
+  list of who-may-do-what for either side to fall out of step with.
+
+  Neither gate is the security boundary. Both are navigation: they decide what
+  is worth rendering. Every one of these screens is useless without the API, and
+  the API checks the same role and module on every request, so typing the URL
+  gets an unauthorised visitor a shell and a row of 403s.
+*/
+const socialMediaRoutes: RouteObject = {
+  path: 'social-media',
+  element: <ProtectedRoute roles={['social_media', 'ceo']} />,
+  errorElement: <RouteError />,
+  children: [
+    {
+      element: lazyPage(() => import('@/features/social/SocialMediaLayout')),
+      children: [
+        {
+          element: <ModuleRoute module="campaigns" />,
+          children: [
+            /*
+              "Today" is the landing screen, not the campaign list.
+
+              Somebody opening this area is answering "what needs me?" before
+              "what have I made?" — so the overview owns the index and the list
+              moved to /campaigns. Both are inside the same module gate; the
+              overview reads campaigns, promotable artists and the public
+              gallery, and nothing beyond what this role already holds.
+            */
+            {
+              index: true,
+              element: lazyPage(() => import('@/features/social/pages/SocialMediaOverviewPage')),
+            },
+            {
+              path: 'campaigns',
+              element: lazyPage(
+                () => import('@/features/social/pages/SocialMediaCampaignsPage'),
+              ),
+            },
+            {
+              path: 'notifications',
+              element: lazyPage(() => import('@/features/shared/pages/NotificationsPage')),
+            },
+            {
+              path: 'new',
+              element: lazyPage(
+                () => import('@/features/social/pages/SocialMediaCampaignEditorPage'),
+              ),
+            },
+            {
+              path: ':campaignId',
+              element: lazyPage(
+                () => import('@/features/social/pages/SocialMediaCampaignEditorPage'),
+              ),
+            },
+          ],
+        },
+        {
+          element: <ModuleRoute module="promotions" />,
+          children: [
+            {
+              path: 'artists',
+              element: lazyPage(() => import('@/features/social/pages/SocialMediaArtistsPage')),
+            },
+            {
+              path: 'spaces',
+              element: lazyPage(() => import('@/features/social/pages/SocialMediaSpacesPage')),
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 // ── ARTINU Console (SDD Module 4) ────────────────────────────────────────────
 const consoleRoutes: RouteObject = {
   path: 'console',
@@ -272,6 +355,24 @@ const consoleRoutes: RouteObject = {
             },
           ],
         },
+        /*
+          Discount codes, gated on the three roles /admin/coupons itself names.
+
+          Not a ModuleRoute: no single module is held by exactly CEO, manager
+          and IT, so gating on one would either lock out a role the API allows
+          or admit one it refuses. Matching the endpoint's own role list is what
+          keeps the screen and the API from drifting.
+        */
+        {
+          path: 'coupons',
+          element: <ProtectedRoute roles={['ceo', 'manager', 'it_team']} />,
+          children: [
+            {
+              index: true,
+              element: lazyPage(() => import('@/features/console/pages/ConsoleCouponsPage')),
+            },
+          ],
+        },
         {
           path: 'payments',
           element: <ModuleRoute module="payments" />,
@@ -313,6 +414,21 @@ const consoleRoutes: RouteObject = {
             {
               path: 'employees',
               element: lazyPage(() => import('@/features/console/pages/ConsoleEmployeesPage')),
+            },
+            /*
+              Registered artists sits under `users`, not under `artists`.
+
+              The module decides who may read it, and this screen shows email,
+              phone and date of birth. `users` is held by the CEO and the IT
+              team only; `artists` is also held by the manager, so the other
+              branch would have widened the audience for contact details. The
+              API behind it (`/admin/users`) makes the same check server-side.
+            */
+            {
+              path: 'artists',
+              element: lazyPage(
+                () => import('@/features/console/pages/ConsoleRegisteredArtistsPage'),
+              ),
             },
             {
               path: 'audit',
@@ -436,6 +552,7 @@ export const router = createBrowserRouter([
   accountRoutes,
   spaceRoutes,
   artistRoutes,
+  socialMediaRoutes,
   consoleRoutes,
   { path: '/', ...publicRoutes },
 ]);

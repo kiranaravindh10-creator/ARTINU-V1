@@ -9,7 +9,7 @@ import {
   type Role,
 } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, ShieldAlert, Trash2, UserRound } from 'lucide-react';
+import { Check, Copy, Phone, Plus, Search, ShieldAlert, Trash2, UserRound } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/DashboardShell';
@@ -28,6 +28,7 @@ import {
 import { Avatar, EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { SimpleSelect } from '@/components/ui/select';
 import {
   Table,
@@ -52,6 +53,77 @@ const ROLE_BADGE: Record<string, 'neutral' | 'bronze' | 'info' | 'success'> = {
   space_owner: 'success',
   guest: 'neutral',
 };
+
+/**
+ * THE REGISTERED MOBILE NUMBER.
+ *
+ * ── Why this needed adding at all ───────────────────────────────────────────
+ *
+ * The number was never missing. Artist sign-up asks for it (registerStep1Schema
+ * → `phone`), the handler writes it to `profiles.phone`, and `/admin/users`
+ * has always returned the whole profile alongside the account — so it was
+ * already arriving in this page's response and simply was not being drawn.
+ * Thirty-one of the thirty-four artists on production have one stored.
+ *
+ * What made it look absent is that the obvious place to go looking — Console →
+ * Artists → Applications — renders an APPLICATION, and the application form
+ * has no phone field and the `applications` table has no phone column. Somebody
+ * accepted from an application therefore has no number until they fill their
+ * own profile in. Two different records, only one of which ever had a number.
+ *
+ * ── Why it is safe here specifically ────────────────────────────────────────
+ *
+ * This screen is inside the `users` module, which ROLE_MODULES grants to the
+ * CEO and the IT team and to nobody else — not the manager, not accounts, not
+ * operations. `/admin/users` makes the same check with `requireModule('users')`
+ * server-side, so the number is not merely hidden from other roles, it is never
+ * sent to them. It is deliberately NOT added to Console → Artists, which is the
+ * `artists` module and which the manager also holds.
+ */
+function MobileNumber({ phone, className }: { phone?: string | null; className?: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  if (!phone) {
+    // Never "null", "undefined" or "N/A" — an account that never gave a number
+    // is a fact about the account, not an error.
+    return <span className={cn('text-xs text-subtle', className)}>No number given</span>;
+  }
+
+  const copy = async () => {
+    try {
+      // The stored value, exactly. Nothing is reformatted on the way out.
+      await navigator.clipboard.writeText(phone);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard is blocked over plain http and in some embedded browsers.
+      // The number is selectable text either way, so this fails quietly.
+      toast.error('Could not copy - select the number instead.');
+    }
+  };
+
+  return (
+    <span className={cn('inline-flex items-center gap-1.5', className)}>
+      <Phone className="size-3.5 shrink-0 text-subtle" aria-hidden />
+      {/* `tel:` so it dials from a phone and is one tap on the console's mobile view. */}
+      <a href={`tel:${phone}`} className="tabular-nums text-ink hover:text-bronze">
+        {phone}
+      </a>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? 'Copied' : 'Copy mobile number'}
+        className="shrink-0 rounded p-0.5 text-subtle transition-colors hover:text-ink"
+      >
+        {copied ? (
+          <Check className="size-3.5 text-success" aria-hidden />
+        ) : (
+          <Copy className="size-3.5" aria-hidden />
+        )}
+      </button>
+    </span>
+  );
+}
 
 export default function ConsoleUsersPage() {
   const queryClient = useQueryClient();
@@ -239,6 +311,13 @@ export default function ConsoleUsersPage() {
                             {entry.profile?.fullName ?? '-'}
                           </span>
                           <span className="block truncate text-xs text-subtle">{entry.email}</span>
+                          {/*
+                            Under the email rather than in a column of its own:
+                            the number is what somebody opens this page to find,
+                            and a seventh column would have pushed the table into
+                            horizontal scrolling on a laptop to show it.
+                          */}
+                          <MobileNumber phone={entry.profile?.phone} className="mt-0.5 text-xs" />
                         </span>
                       </span>
                     </TableCell>
@@ -286,6 +365,21 @@ export default function ConsoleUsersPage() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/*
+              Contact first, above role and status.
+
+              Somebody opening this dialog is usually trying to reach the person,
+              not change their permissions — so the number sits at the top where
+              it is read at a glance rather than below two dropdowns.
+            */}
+            <div className="rounded-lg border border-line bg-canvas-soft px-4 py-3">
+              <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-subtle">
+                Mobile
+              </p>
+              <MobileNumber phone={editing?.profile?.phone} className="mt-1 text-sm" />
+              <p className="mt-1 truncate text-xs text-subtle">{editing?.email}</p>
+            </div>
+
             <Field
               label="Role"
               hint={

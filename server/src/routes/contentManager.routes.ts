@@ -31,7 +31,7 @@ const requireContentRole = requireRole(...CONTENT_ROLES);
  * client renders as no credit at all — an absent byline is honest, a UUID
  * fragment presented as a name is not.
  */
-async function withPhotographerNames<T extends { photographerId?: string | null }>(
+export async function withPhotographerNames<T extends { photographerId?: string | null }>(
   slides: T[],
 ): Promise<(T & { photographerName: string | null; photographerLocation: string | null })[]> {
   const ids = [...new Set(slides.map((slide) => slide.photographerId).filter(Boolean))] as string[];

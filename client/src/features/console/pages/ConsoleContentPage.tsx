@@ -8,6 +8,7 @@ import { Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/display';
 import { contentService } from '@/services/content.service';
+import { TopPicksPicker } from '@/features/console/components/TopPicksPicker';
 import { toast } from 'sonner';
 
 function ContentSection({
@@ -121,15 +122,16 @@ export default function ConsoleContentPage() {
         Console → Artists → Featured already manages with names, photographs and
         drag-to-order. One list, one place to edit it.
       */}
+      {/*
+        The top picks are chosen by looking at the photographs now.
+
+        This was a `ContentSection` — a textarea of comma-separated UUIDs, with
+        the instruction to copy an id out of a gallery URL. It wrote the same
+        `gallery_top_20` record this does, and it is the same record the gallery
+        still reads; only the editing surface changed. See TopPicksPicker.
+      */}
       <div className="grid gap-6">
-        <ContentSection
-          id="gallery_top_20"
-          title="Gallery top picks"
-          description="Photographs pinned to the top of the gallery page, above the automatic ordering. Leave it empty and the gallery sorts itself."
-          label="Photograph IDs"
-          hint="Comma-separated. Copy an ID from the end of a photograph's gallery address."
-          placeholder="9f1c…, 4ab2…"
-        />
+        <TopPicksPicker />
       </div>
     </div>
   );

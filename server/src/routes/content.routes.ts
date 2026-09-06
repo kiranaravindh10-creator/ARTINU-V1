@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { slideshowSettingsSchema } from '@artinu/shared';
 import { db } from '@/database/db';
-import { asyncHandler, cachePublic, requireInternal, validate } from '@/middleware/index';
+import { asyncHandler, cachePublic, requireInternal, requireModule, validate } from '@/middleware/index';
 import { forbidden } from '@/utils/errors';
 
 export const contentRouter = Router();
@@ -93,7 +93,22 @@ contentRouter.get(
 
 contentRouter.put(
   '/:id',
-  requireInternal,
+  /*
+    The `content` module, not merely "is staff".
+
+    This was `requireInternal`, which is every internal role — so accounts and
+    operations could write the gallery's curated top picks, the homepage
+    slideshow settings and every other curated list, through a direct request.
+    Neither role holds `content`, so the Console never showed them the screen;
+    the door was simply unlocked behind it.
+
+    `requireModule('content')` is the same check the Console navigation and the
+    route guard already make (ROLE_MODULES in shared/src/constants.ts), so the
+    API now agrees with the UI instead of being broader than it: CEO, manager
+    and IT team, and nobody else. Nothing legitimate loses access — no screen
+    that writes content was ever reachable by the two roles this removes.
+  */
+  requireModule('content'),
   validate(
     z.object({
       data: z.any(),

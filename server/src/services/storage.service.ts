@@ -33,7 +33,14 @@ export type StorageFolder =
   | 'hero'
   | 'featured'
   | 'cafes'
-  | 'collaborations';
+  | 'collaborations'
+  /*
+    Social media campaign posters. The same bucket, the same upload path and the
+    same signature checks as every other image — only the prefix is new, so this
+    is one more folder rather than a second storage system (requirements §6).
+    `getSupabasePath` already routes an unlisted folder to `<folder>/<name>`.
+  */
+  | 'campaigns';
 
 export interface StoredFile {
   url: string;

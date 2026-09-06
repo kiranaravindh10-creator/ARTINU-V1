@@ -6,7 +6,8 @@ and refreshed every one to three months — and the photographers behind that wo
 get paid, credited and seen.
 
 This repository is the complete product: the public website, the Space
-Experience, the Artist Experience and the internal ARTINU Console, on a REST API.
+Experience, the Artist Experience, the Social Media Centre and the internal
+ARTINU Console, on a REST API.
 
 ---
 
@@ -41,7 +42,7 @@ root and fill in what you have — see [Configuration](#configuration).
 > npm run create:staff                    # strong random ones, printed once
 > ```
 >
-> Either way it creates **only** these five staff accounts — no demo users, no
+> Either way it creates **only** the staff accounts below — no demo users, no
 > demo artworks, no spaces or orders. Add `--reset` to change the password on
 > an account that already exists (needed if you lose one).
 >
@@ -60,6 +61,7 @@ root and fill in what you have — see [Configuration](#configuration).
 | `accounts@artinu.in`          | _(see below)_ | Console — finance only              |
 | `fieldops@artinu.in`          | _(see below)_ | Console — orders & production       |
 | `it@artinu.in`                | _(see below)_ | Console — users, system & email log |
+| `socialmedia@artinu.in`       | _(see below)_ | Social Media Centre (`/social-media`) |
 
 For live SMTP testing there are two accounts on real inboxes:
 
@@ -81,6 +83,25 @@ end to end. A verified payment also notifies the artists whose work was chosen,
 creates their payouts, and puts the order into the production queue in the
 Console.
 
+**A real UPI transfer is a claim, not a confirmation.** Money lands in a bank
+account with no gateway to ask, so when a customer submits their UTR the payment
+moves to `verifying` and stops: the order does not advance, no invoice is issued
+and no artist is paid. Somebody checks it against the account and releases it
+from **Console → Payments**. That one click runs `settlePayment()`, which is the
+same function a gateway webhook would call — payment `succeeded`, order
+`confirmed`, invoice issued, owner and artists notified, payouts accrued — so a
+hand-verified payment is indistinguishable downstream from an automated one.
+
+`issueInvoice()` is idempotent per order and a second Verify is refused, so a
+double click cannot produce two bills or pay an artist twice.
+
+Who may release it: **CEO, manager, operations and accounts**. Accounts was
+missing from that list while holding the `payments` module that shows the page —
+so the finance desk could see the Verify button and receive a 403 on pressing
+it, and only the CEO could actually complete a verification. Note that manager
+and operations hold the API permission but not the `payments` module, so they
+cannot reach the screen yet.
+
 ---
 
 ## Commands
@@ -94,6 +115,31 @@ Console.
 | `npm start`                                               | Run the API alone                                          |
 | `npm run seed`                                            | Reseed demo data (`npm run seed -- --fresh` to wipe first) |
 | `npx tsx server/src/scripts/migrate-drive-to-firebase.ts` | One-time Drive→Firebase migration                          |
+
+---
+
+## Before the next deploy: run migration 016
+
+The social media control centre stores its promotional popups in a table a live
+Supabase project will not have yet:
+
+```
+database/migrations/016_social_media_campaigns.sql
+```
+
+Paste it into Supabase → SQL Editor → Run. It creates one table, touches nothing
+existing, and is safe to re-run.
+
+Until it runs nothing breaks: `GET /campaigns/active` treats a missing table as
+"no campaign" and answers `null`, so the public site is unaffected and the popup
+is simply inert. The social media screens themselves will error until the table
+exists.
+
+Then create the account, which prints a random password once:
+
+```
+npm run create:staff --workspace server
+```
 
 ---
 
@@ -160,17 +206,84 @@ Browser
         → db.<table>         memory store or Supabase, same interface
 ```
 
-### The four modules
+### The five modules
 
-| Module            | Routes                                                                  | For                                                                  |
-| ----------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Public website    | `/`, `/spaces`, `/gallery`, `/artists`, `/about`, `/lets-talk`, `/join` | Anyone                                                               |
-| Space Experience  | `/space/…`                                                              | Space owners: browse, configure frames, pay, track, rotate, invoices |
-| Artist Experience | `/studio/…`                                                             | Artists: upload, submissions, portfolio, installations, earnings     |
-| ARTINU Console    | `/console/…`                                                            | Internal staff, scoped by role                                       |
+| Module             | Routes                                                                  | For                                                                  |
+| ------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Public website     | `/`, `/spaces`, `/gallery`, `/artists`, `/about`, `/lets-talk`, `/join` | Anyone                                                               |
+| Space Experience   | `/space/…`                                                              | Space owners: browse, configure frames, pay, track, rotate, invoices |
+| Artist Experience  | `/studio/…`                                                             | Artists: upload, submissions, portfolio, installations, earnings     |
+| ARTINU Console     | `/console/…`                                                            | Internal staff, scoped by role                                       |
+| Social Media       | `/social-media/…`                                                       | The `social_media` role only — campaigns and promotion               |
+
+Social Media is deliberately **not** a branch of the Console. `INTERNAL_ROLES`
+is not a description, it is a grant: `adminRouter.use(requireInternal)` gates the
+whole admin API on membership, so adding `social_media` there would have handed
+that role the users module, payments and system settings in one line. It stands
+outside instead, gated on the role plus the `campaigns` and `promotions` modules.
 
 `docs/API-CONTRACT.md` lists every endpoint. `docs/CONVENTIONS.md` covers the
 design language and the code rules — read it before adding a screen.
+
+---
+
+## Core Features
+
+### Social Media Control Centre (`/social-media`)
+
+A fourth authenticated area for the `social_media` role, and for the CEO as
+oversight. Four screens: **Today** (what is live, what was uploaded this week,
+newest artists), **Campaigns**, **Create Campaign**, and read-only **Artists**
+and **Spaces** to build a promotion from.
+
+Every number on Today is counted from records the role can already read —
+`/campaigns`, `/campaigns/promotable/artists` and the public gallery. There are
+no impressions, reach or engagement figures, because ARTINU does not collect
+any; a dashboard showing invented numbers is worse than one showing none.
+
+Campaigns are the visitor-facing popup (`PromoPopup`, mounted once in
+`PublicLayout`). A campaign is live only while it is switched on **and** inside
+its date window — status is derived by `campaignStatus()`, never stored, so a
+campaign that ended overnight stops appearing without a cron job. Frequency
+(first visit / session / daily / every visit) is enforced per device in
+`localStorage`.
+
+The role cannot reach the users module, payments, orders, system settings,
+announcements, or write the gallery's curated picks. It cannot see a mobile
+number. Verified by probe: 41/41.
+
+### Registered artists and their mobile numbers
+
+**Console → Administration → Registered artists** (`/console/users/artists`)
+shows what each photographer gave at sign-up: name, email, **mobile number**,
+date of birth, city, registration date and status — searchable by name, email or
+phone.
+
+The number was never missing. Sign-up asks for it, the handler writes it to
+`profiles.phone`, and `/admin/users` has always returned the profile; it simply
+was not drawn. The place people looked — Console → Artists → **Applications** —
+renders an *application*, and the application form has no phone field and the
+`applications` table has no phone column. Two different records, only one of
+which ever had a number.
+
+Both screens sit in the `users` module, which `ROLE_MODULES` grants to the CEO
+and the IT team and nobody else. `/admin/users` makes the same check with
+`requireModule('users')`, so the number is never sent to another role rather
+than merely hidden. Verified by probe: manager, accounts, operations, artists
+→ 403; anonymous → 401; public artist endpoints carry no contact data.
+
+### Gallery top picks, chosen by looking at the photographs
+
+**Console → Curated lists** now shows the real photographs with search and
+click-to-pick, replacing a textarea of comma-separated UUIDs that required
+copying ids out of gallery URLs. Same `ui_content.gallery_top_20` record, same
+array of ids, same gallery reading it — only the editing surface changed. The
+previous selection is archived to `gallery_top_20_history` (another `ui_content`
+row, no new table) so a change never destroys what was there.
+
+`PUT /content/:id` was `requireInternal` — every staff role, including accounts
+and operations who hold no `content` module and never see the screen. It is now
+`requireModule('content')`, matching the navigation.
 
 ---
 
@@ -332,6 +445,53 @@ Being explicit is more useful than a feature list that overstates itself.
   browser prints them perfectly well.
 - **There is no scheduler.** Rotation cycles become due when someone reads them,
   rather than pretending a cron job exists.
+
+---
+
+## Security posture
+
+Authorisation is enforced server-side and mirrored in the UI from one table.
+`ROLE_MODULES` in `shared/src/constants.ts` is read by the client's navigation
+and route guards *and* by the server's `requireModule`, so a hidden button and a
+refused request are two consequences of one fact rather than two rules that can
+drift.
+
+They have drifted before, and it is the bug class worth watching for here — all
+three of these were real:
+
+| Symptom                                          | Cause                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| Accounts pressed Verify and got 403               | Route gated on `payments` module; API named different roles     |
+| Any staff role could rewrite the curated lists    | `PUT /content/:id` was `requireInternal`, not `requireModule`   |
+| Manager and operations cannot open Payments       | Hold the API permission, not the module — still open            |
+
+**When adding a privileged screen, check both ends.** A quick probe:
+
+```
+PROBE_API=http://localhost:4000/api node scripts/authz-probe.mjs
+```
+
+Last full probe: no unauthorised access on twelve privileged endpoints across
+nine actor types; no IDOR (one customer cannot read another's order or invoice —
+403/401); no private fields (`phone`, `dateOfBirth`, `email`, `passwordHash`) in
+any anonymous response from the gallery, artists, homepage or popup endpoints;
+forged and absent tokens both rejected with 401.
+
+Other properties worth knowing:
+
+- **Secrets** — `.env` is gitignored and has never been committed; no
+  service-role key, SendGrid key or JWT secret appears in a tracked file. The
+  Supabase service-role key is server-side only and never reaches the browser.
+- **Passwords** — bcrypt, cost 10. `authRouter.use(authLimiter)` covers every
+  auth route including sign-in: 20 attempts per 15 minutes. The limiter skips in
+  development, so a local probe will not see 429s.
+- **RLS** — every table has row level security on with no policies, which denies
+  the anon key outright; the API reaches Postgres with the service-role key,
+  which bypasses RLS. New tables must follow that pattern (see migration 008,
+  and 016 for the most recent example).
+- **Staff passwords** — `create:staff` generates a crypto-random password,
+  prints it once and sets `mustChangePassword`. The `--demo` passwords are
+  published in this repository and are refused when `NODE_ENV=production`.
 
 ---
 

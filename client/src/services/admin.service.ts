@@ -1,4 +1,5 @@
 import type {
+  Coupon,
   AdminCreateOrderInput,
   AdminProvisionSpaceInput,
   AdminProvisionSpaceResult,
@@ -279,6 +280,25 @@ export const adminService = {
 
   async system() {
     const { data } = await api.get<SystemHealth>('/admin/system');
+    return data;
+  },
+};
+
+/**
+ * Discount codes. CEO, manager and IT only — the same three roles the API
+ * names on /admin/coupons, so the screen and the endpoint agree.
+ */
+export const couponService = {
+  async list() {
+    const { data } = await api.get<Coupon[]>('/admin/coupons');
+    return data;
+  },
+  async create(input: Partial<Coupon>) {
+    const { data } = await api.post<Coupon>('/admin/coupons', input);
+    return data;
+  },
+  async update(id: string, patch: Partial<Coupon>) {
+    const { data } = await api.patch<Coupon>(`/admin/coupons/${id}`, patch);
     return data;
   },
 };

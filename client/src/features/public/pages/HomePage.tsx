@@ -8,6 +8,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useHomepage } from '@/hooks/useHomepage';
 import { Link } from 'react-router-dom';
 import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { EASE, Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
@@ -25,7 +26,6 @@ import { Lightbox } from '@/features/public/components/Lightbox';
 import { IMAGES, SPACE_TYPE_IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
 import { catalogService } from '@/services/catalog.service';
-import { SLIDESHOW_CONTENT_ID, contentService } from '@/services/content.service';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -113,25 +113,17 @@ function PhotographerShowcaseHero() {
 
   const reduced = useReducedMotion();
 
-  const { data: heroSlides, isLoading } = useQuery({
-    queryKey: ['content-manager', 'hero-slides', 'active'],
-    queryFn: () => contentService.getActiveHeroSlides(),
-    // Curated by hand in Console → Homepage, so it changes a few times a month.
-    // The default 60s meant a refetch on nearly every navigation back to the
-    // homepage; five minutes matches how often the answer can actually differ,
-    // and the SSE channel already pushes an invalidation when a manager saves.
-    staleTime: 5 * 60 * 1000,
-  });
-
+  /*
+    Both of these used to be their own request. They now come from the single
+    `/homepage` payload, which is served from localStorage on the first frame
+    for anyone who has been here before — see hooks/useHomepage.ts.
+  */
+  const { content, isLoading } = useHomepage();
+  const heroSlides = content.heroSlides;
   // Settings resolve to a complete object even when nothing has been saved — the
   // API answers an unset record with the schema defaults — so the hero never
   // waits on this query before it can play.
-  const { data: saved } = useQuery({
-    queryKey: ['content', SLIDESHOW_CONTENT_ID],
-    queryFn: () => contentService.getSlideshowSettings(),
-    staleTime: 5 * 60 * 1000,
-  });
-  const settings = saved ?? DEFAULT_SLIDESHOW_SETTINGS;
+  const settings = content.slideshow ?? DEFAULT_SLIDESHOW_SETTINGS;
 
   const total = heroSlides?.length ?? 0;
   // The list can shrink under us when a manager hides a slide, and the index is
@@ -614,13 +606,11 @@ function TestimonialsCarousel() {
   const reduced = useReducedMotion();
 
   // The only source. Nothing is shown until a manager has entered real quotes.
-  const { data: curated } = useQuery({
-    queryKey: ['content', 'homepage_testimonials'],
-    queryFn: () => contentService.getContent('homepage_testimonials'),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const stored = curated?.data as Testimonial[] | null | undefined;
+  // Arrives with the rest of the homepage in one request, and is remembered
+  // between visits — which is what stops this section vanishing when the API is
+  // cold. See hooks/useHomepage.ts.
+  const { content } = useHomepage();
+  const stored = content.testimonials as Testimonial[] | null | undefined;
   const TESTIMONIALS = React.useMemo(
     () => (Array.isArray(stored) ? stored.filter((entry) => entry?.quote && entry?.name) : []),
     [stored],
@@ -752,11 +742,11 @@ function TestimonialsCarousel() {
  * eight collaborations or one.
  */
 function CollaborationsSection() {
-  const { data: cafes, isLoading } = useQuery({
-    queryKey: ['content-manager', 'cafes', 'active'],
-    queryFn: () => contentService.getActiveCafes(),
-    staleTime: 5 * 60 * 1000,
-  });
+  // One request for the whole homepage, remembered between visits. This section
+  // disappearing on a cold API was the most visible symptom of the five-request
+  // fan-out it replaces — see hooks/useHomepage.ts.
+  const { content, isLoading } = useHomepage();
+  const cafes = content.cafes;
 
   if (isLoading || !cafes || cafes.length === 0) {
     return null;
@@ -1021,11 +1011,11 @@ function CollaborationCard({ cafe, featured = false }: { cafe: Cafe; featured?: 
  * lightbox the rest of the site uses.
  */
 function FeaturedCollectionsSection() {
-  const { data: collections, isLoading: loadingPointers } = useQuery({
-    queryKey: ['content-manager', 'featured-collections', 'active'],
-    queryFn: () => contentService.getActiveFeaturedCollections(),
-    staleTime: 5 * 60 * 1000,
-  });
+  // From the one homepage payload. This also removes a waterfall: the pointers
+  // used to be a request of their own, and the gallery lookup below could not
+  // start until it came back — two cold round trips in series.
+  const { content, isLoading: loadingPointers } = useHomepage();
+  const collections = content.featuredCollections;
 
   // `order` is what the console drag-and-drop writes; honour it here.
   const ids = React.useMemo(
