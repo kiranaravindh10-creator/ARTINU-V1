@@ -1,5 +1,5 @@
 /**
- * Creates the five internal ARTINU accounts in whatever database is configured.
+ * Creates the ARTINU staff accounts in whatever database is configured.
  *
  *   npm run create:staff --workspace server              # strong random passwords
  *   npm run create:staff --workspace server -- --demo    # the README passwords
@@ -14,7 +14,7 @@
  * invented artworks into production would be far worse. But it leaves nobody
  * able to open the Console.
  *
- * This creates only the five staff accounts. No demo users, no demo artworks,
+ * This creates only the staff accounts. No demo users, no demo artworks,
  * no spaces, no orders.
  *
  * ── About the passwords ─────────────────────────────────────────────────────
@@ -54,6 +54,32 @@ const STAFF: { email: string; demoPassword: string; role: StoredUser['role']; na
   { email: 'accounts@artinu.in', demoPassword: 'ARTINU@Acc2026', role: 'accounts', name: 'Priya Nair' },
   { email: 'it@artinu.in', demoPassword: 'ARTINU@IT2026', role: 'it_team', name: 'Nikhil Menon' },
   { email: 'fieldops@artinu.in', demoPassword: 'ARTINU@Ops2026', role: 'operations', name: 'Rahul Deshpande' },
+  /*
+    The social media team account.
+
+    It is created here rather than by a script of its own so it inherits what
+    this one already gets right: a crypto-random password printed once and
+    stored only as a bcrypt hash, `mustChangePassword` so the generated
+    credential buys nothing but its own replacement, and `--reset` for when the
+    CEO needs to rotate it (requirements §10). THE PASSWORD THIS ACCOUNT
+    ACTUALLY RUNS ON IS NEVER WRITTEN DOWN HERE - it is generated at run time by
+    strongPassword() and printed once to the operator's terminal.
+
+    The `demoPassword` literal below is not that password. It is a throwaway for
+    `--demo`, which is refused outright when NODE_ENV=production (see the guard
+    in run()), and it is published in this repository exactly like the other
+    five - which is precisely why it must never reach a live deployment.
+
+    `socialmedia@artinu.in` is the email form of the "socialmedia.artinu.in"
+    login that was asked for: ARTINU signs in with an email address, and every
+    other staff account is <function>@artinu.in.
+  */
+  {
+    email: 'socialmedia@artinu.in',
+    demoPassword: 'ARTINU@Social2026',
+    role: 'social_media',
+    name: 'Social Media Team',
+  },
 ];
 
 /**

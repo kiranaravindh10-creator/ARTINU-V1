@@ -26,6 +26,15 @@ export function useContentSSE(callbacks?: SSECallbacks) {
   const invalidateQueries = useCallback((type: ContentUpdateEvent['type']) => {
     queryClient.invalidateQueries({ queryKey: ['content-manager', type] });
     queryClient.invalidateQueries({ queryKey: ['content-manager', type, 'active'] });
+    /*
+      The homepage now reads all of this from one aggregated payload
+      (hooks/useHomepage.ts), so every content type has to invalidate it.
+      Without this line a manager's save would still refresh the console and
+      leave the live homepage showing the previous version until its own
+      staleTime expired — or, for a returning visitor, until the remembered
+      copy in localStorage was replaced.
+    */
+    queryClient.invalidateQueries({ queryKey: ['homepage'] });
 
     switch (type) {
       case 'hero-slides':

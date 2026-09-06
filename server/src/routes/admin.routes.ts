@@ -1170,7 +1170,28 @@ adminRouter.delete(
  */
 adminRouter.post(
   '/payments/:id/verify',
-  requireRole('ceo', 'manager', 'operations'),
+  /*
+    `accounts` was missing, and its absence is why nothing ever got verified.
+
+    Console → Payments is gated on the `payments` MODULE, which ROLE_MODULES
+    grants to the CEO and to accounts. So the accounts desk could open the page,
+    see a customer's UTR sitting at "verifying", press Verify — and receive a
+    403 from this very handler, because the role list below named manager and
+    operations instead. The one role that could both see the screen and use it
+    was the CEO.
+
+    Production shows the result: two payments submitted on 29 August, both still
+    `verifying` eight days later, and not a single invoice ever issued.
+
+    Adding accounts grants nothing new in principle — the module already gives
+    them this page, the button and the whole payment ledger. It only stops the
+    API contradicting the navigation.
+
+    Manager and operations keep their access here deliberately (see the note
+    above), but neither holds the `payments` module, so neither can reach the
+    screen yet. That half is a navigation gap, not an authorisation one.
+  */
+  requireRole('ceo', 'manager', 'operations', 'accounts'),
   asyncHandler(async (req, res) => {
     const payment = await db.payments.byId(req.params.id);
     if (!payment) throw notFound('That payment');
@@ -1205,7 +1226,10 @@ adminRouter.post(
  */
 adminRouter.post(
   '/payments/:id/reject',
-  requireRole('ceo', 'manager', 'operations'),
+  // Same roles as verify above — the two buttons sit side by side on one row,
+  // and a desk allowed to confirm a transfer is the desk allowed to say it
+  // never arrived. Splitting them would let accounts approve but not decline.
+  requireRole('ceo', 'manager', 'operations', 'accounts'),
   validate(
     z.object({
       reason: z
@@ -1382,7 +1406,21 @@ adminRouter.get(
         if (status && status !== 'all' && user.status !== status) return false;
         if (!q) return true;
         const profile = profileByUser.get(user.id);
-        return `${user.email} ${profile?.fullName ?? ''}`.toLowerCase().includes(q);
+        /*
+          Phone and display name are searchable too.
+
+          The registered-artist directory searches this endpoint, and "find the
+          artist who rang from this number" is one of the two things it is
+          actually used for. `phone` is read from the profile rather than the
+          user row because `sanitizeUser` strips `user.phone` from every
+          response, so the profile copy is the one the console can see anyway.
+
+          Widening a search filter shows no row that this role could not already
+          list — the same records, found by one more field.
+        */
+        return `${user.email} ${profile?.fullName ?? ''} ${profile?.displayName ?? ''} ${profile?.phone ?? ''}`
+          .toLowerCase()
+          .includes(q);
       },
       orderBy: { field: 'createdAt', direction: 'desc' },
     });

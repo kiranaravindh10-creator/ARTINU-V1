@@ -27,6 +27,10 @@ export function homePathForRole(role: Role | undefined | null): string {
   if (!role) return '/';
   if (role === 'artist') return '/studio';
   if (role === 'space_owner') return '/space';
+  // Before the INTERNAL_ROLES test, though it would not match anyway: the
+  // social media role is deliberately outside that list (see the note on it in
+  // shared/src/constants.ts) and has its own area rather than the console.
+  if (role === 'social_media') return '/social-media';
   if ((INTERNAL_ROLES as readonly string[]).includes(role)) return '/console';
   return '/';
 }

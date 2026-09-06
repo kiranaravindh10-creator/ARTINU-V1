@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Footer } from '@/components/layout/Footer';
 import { PublicNav } from '@/components/layout/PublicNav';
+import { PromoPopup } from '@/components/PromoPopup';
 import { MetaTags } from '@/components/seo';
 
 /** Restores the top of the page on navigation, but leaves hash links alone. */
@@ -30,6 +31,12 @@ export function PublicLayout() {
         <Outlet />
       </main>
       <Footer />
+      {/*
+        Outside <main>, and last, so it is neither part of the page's content
+        outline nor in the way of the skip link. It renders nothing at all
+        unless a campaign is live and this visitor has not already seen it.
+      */}
+      <PromoPopup />
     </div>
   );
 }

@@ -108,6 +108,30 @@ const ASSETS = [
     ratio: 3 / 4,
     position: 'north',
   },
+
+  /*
+    THE TEAM PORTRAITS.
+
+    Six people, all at 4:5 to match the founder's frame on the About page, and
+    all cropped `north` — these are phone photographs of people, and centre-
+    cropping a standing figure to a portrait card takes the head off. One is a
+    landscape 16:9 selfie and one a 3024×4032 iPhone HEIC; north survives both.
+
+    The HEIC was decoded with `heic-convert` before it landed in
+    assets/source/team, because sharp's bundled libheif has no HEVC decoder —
+    the same reason server/src/services/image-variants.service.ts keeps that
+    fallback for uploads. The master committed here is the converted JPEG.
+
+    480 and 768 only: the cards render about 240 CSS px wide, so 768 already
+    covers a 3× phone and there is no larger step worth shipping.
+  */
+  ...['karthik', 'sanskrithi', 'mithilesh', 'poosan', 'thakarshi', 'vibhu'].map((slug) => ({
+    src: `team/${slug}.jpg`,
+    out: `team/${slug}`,
+    widths: [480, 768],
+    ratio: 4 / 5,
+    position: 'north',
+  })),
 ];
 
 const ensure = (dir) => {

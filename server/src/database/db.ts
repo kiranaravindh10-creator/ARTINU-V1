@@ -20,6 +20,7 @@ import type {
   Payout,
   Profile,
   RotationCycle,
+  SocialMediaCampaign,
   Space,
   SupportTicket,
   User,
@@ -122,6 +123,8 @@ export interface Database {
    * production, which is precisely where the question gets asked.
    */
   mailLog: Table<{ id: string } & Record<string, any>>;
+  /** Social media promotional popups - see database/migrations/016. */
+  socialMediaCampaigns: Table<SocialMediaCampaign>;
 }
 
 const TABLE_NAMES = [
@@ -157,6 +160,7 @@ const TABLE_NAMES = [
   'mailLog',
   'warnings',
   'removalRequests',
+  'socialMediaCampaigns',
 ] as const;
 
 type TableName = (typeof TABLE_NAMES)[number];

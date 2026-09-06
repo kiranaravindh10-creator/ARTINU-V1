@@ -33,6 +33,46 @@ function clearBootstrapMeta(): void {
 
 clearBootstrapMeta();
 
+/**
+ * Opens the connection to the API before anything asks for it.
+ *
+ * The API is on a different origin from the site — the React app is served by
+ * Vercel, the Express API from Render — so the first request has to pay a DNS
+ * lookup, a TCP handshake and a TLS negotiation before it can even send a byte.
+ * On a phone on mobile data that is a few hundred milliseconds spent doing
+ * nothing, and it lands squarely in front of the homepage's content request.
+ *
+ * `preconnect` gets the browser doing all three during module evaluation,
+ * in parallel with React booting, so the connection is already open and warm by
+ * the time the first fetch goes out.
+ *
+ * It is a hint, not a guarantee, and a wrong or same-origin value must not
+ * throw — hence the try/catch and the origin comparison. A dev build proxying
+ * `/api` through Vite is same-origin and correctly does nothing here.
+ */
+function preconnectToApi(): void {
+  try {
+    const configured = import.meta.env.VITE_API_URL ?? '/api';
+    const origin = new URL(configured, window.location.href).origin;
+    if (origin === window.location.origin) return;
+
+    for (const crossOrigin of [false, true]) {
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = origin;
+      // Two hints: one for the socket, one for the credentialed CORS
+      // connection the API is actually called over. Browsers keep those
+      // separate, so a single uncredentialed hint warms the wrong pool.
+      if (crossOrigin) link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+    }
+  } catch {
+    /* a malformed VITE_API_URL must not stop the app from booting */
+  }
+}
+
+preconnectToApi();
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element #root is missing from index.html');
 

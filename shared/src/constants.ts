@@ -9,9 +9,25 @@ export const ROLES = [
   'accounts',
   'operations',
   'it_team',
+  'social_media',
 ] as const;
 
-/** Internal staff roles — everything inside the ARTINU Console. */
+/**
+ * Internal staff roles — everything inside the ARTINU Console.
+ *
+ * ── social_media is deliberately NOT in this list ───────────────────────────
+ *
+ * It is staff, and it is still not internal, because this constant is not a
+ * description — it is a grant. `adminRouter.use(requireInternal)` gates the
+ * WHOLE admin API on membership here, and the client mirrors it: router.tsx
+ * admits INTERNAL_ROLES to every console route and AuthContext sends anyone in
+ * it to /console. Adding social_media would hand the social media team the
+ * users module, the payments module and system settings in one line, which is
+ * exactly what requirements §8 forbids.
+ *
+ * The role therefore stands outside the console and reaches its own area at
+ * /social-media, gated on the role itself and on the two modules below.
+ */
 export const INTERNAL_ROLES = ['ceo', 'manager', 'accounts', 'operations', 'it_team'] as const;
 
 export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
@@ -23,6 +39,7 @@ export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
   accounts: 'Accounts',
   operations: 'Operations',
   it_team: 'IT Team',
+  social_media: 'Social Media',
 };
 
 /**
@@ -45,6 +62,10 @@ export const ROLE_MODULES: Record<string, string[]> = {
     'content',
     'announcements',
     'system',
+    // Oversight of the social media team's work, not a second place to do it:
+    // this is what lets the CEO list every campaign and switch one off
+    // (requirements §10). The team's own two modules below are what create one.
+    'campaigns',
   ],
   // `content` is the homepage — the carousel, the collaborations, the featured
   // photographs. It used to sit inside `system`, which meant the two roles that
@@ -76,6 +97,21 @@ export const ROLE_MODULES: Record<string, string[]> = {
   accounts: ['overview', 'payments', 'accounts', 'reports'],
   operations: ['overview', 'orders', 'printing', 'spaces'],
   it_team: ['overview', 'users', 'content', 'announcements', 'system'],
+  /*
+    The social media team holds two modules and no others.
+
+    `campaigns` is the popup: create one, schedule it, switch it on and off.
+    `promotions` is read-only access to the artist and space material they build
+    a campaign out of (requirements §7) — enough to see what is on the site and
+    pick something to promote, and nothing that edits it.
+
+    Note what is absent, and that the absence is the point: no `users`, so the
+    account cannot reach anybody's record; no `overview`, because that is the
+    console's dashboard and this role has no console; no `orders`, `payments`,
+    `accounts`, `reports` or `system`. `requireModule` on the server is what
+    enforces this — the navigation simply agrees with it.
+  */
+  social_media: ['campaigns', 'promotions'],
 };
 
 /**

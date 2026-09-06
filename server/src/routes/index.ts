@@ -18,6 +18,8 @@ import { contentRouter } from '@/routes/content.routes';
 import { placesRouter } from '@/routes/places.routes';
 import { announcementRouter } from '@/routes/announcement.routes';
 import { contentManagerRouter } from '@/routes/contentManager.routes';
+import { campaignRouter } from '@/routes/campaign.routes';
+import { homepageRouter } from '@/routes/homepage.routes';
 
 /** API modules, one per SDD §17 entry. */
 export const apiRouter = Router();
@@ -40,6 +42,11 @@ apiRouter.use('/content', contentRouter);
 apiRouter.use('/places', placesRouter);
 apiRouter.use('/announcements', announcementRouter);
 apiRouter.use('/content-manager', contentManagerRouter);
+// Social media campaigns. `/campaigns/active` inside is public - the popup is
+// read by anonymous visitors; everything else is module-gated in the router.
+apiRouter.use('/campaigns', campaignRouter);
+// The whole homepage in one cached request - see the note in the router.
+apiRouter.use('/homepage', homepageRouter);
 
 // Public forms that do not belong to a single resource module:
 // /consultations, /applications, /support

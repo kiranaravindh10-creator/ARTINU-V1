@@ -12,6 +12,7 @@ import {
   Printer,
   ServerCog,
   SlidersHorizontal,
+  Tag,
   Truck,
   UserRound,
   Users,
@@ -39,6 +40,15 @@ interface ConsoleItem {
   icon: typeof LayoutDashboard;
   /** Any one of these modules is enough to see the section. */
   modules: string[];
+  /**
+   * Roles that may see it regardless of module.
+   *
+   * For a screen whose API names roles rather than a module — discount codes
+   * are CEO, manager and IT, and no single module is held by exactly those
+   * three. Listing them here keeps the nav agreeing with the endpoint instead
+   * of approximating it with the nearest module.
+   */
+  roles?: string[];
   end?: boolean;
 }
 
@@ -68,6 +78,8 @@ const GROUPS: { title?: string; items: ConsoleItem[] }[] = [
     title: 'Money',
     items: [
       { to: '/console/payments', label: 'Payments', icon: Banknote, modules: ['payments', 'accounts'] },
+      // Roles rather than a module — see the note on ConsoleItem.roles.
+      { to: '/console/coupons', label: 'Discount codes', icon: Tag, modules: [], roles: ['ceo', 'manager', 'it_team'] },
       { to: '/console/reports', label: 'Reports', icon: ChartNoAxesColumn, modules: ['reports'] },
     ],
   },
@@ -81,6 +93,12 @@ const GROUPS: { title?: string; items: ConsoleItem[] }[] = [
             modules: ['announcements'],
           },
           { to: '/console/users', label: 'People & access', icon: UserRound, modules: ['users'] },
+          {
+            to: '/console/users/artists',
+            label: 'Registered artists',
+            icon: UserRound,
+            modules: ['users'],
+          },
           { to: '/console/users/employees', label: 'Employees', icon: Users, modules: ['users'] },
           /*
             One homepage, one link.
@@ -129,8 +147,12 @@ export default function ConsoleLayout() {
   const groups: DashboardNavGroup[] = GROUPS.map((group) => ({
     title: group.title,
     items: group.items
-      .filter((item) => item.modules.some((module) => allowed.has(module)))
-      .map(({ modules, ...item }) => {
+      .filter(
+        (item) =>
+          item.modules.some((module) => allowed.has(module)) ||
+          (item.roles?.includes(user?.role ?? '') ?? false),
+      )
+      .map(({ modules, roles: _roles, ...item }) => {
         const options = SECTION_FALLBACK[item.to];
         const reachable = options?.find((option) => allowed.has(option.module));
         return reachable ? { ...item, to: reachable.to } : item;

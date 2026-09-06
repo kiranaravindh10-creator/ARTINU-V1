@@ -28,6 +28,9 @@ export function useContentSync(callbacks?: ContentSyncCallbacks) {
   const invalidateContent = useCallback((type: ContentType) => {
     queryClient.invalidateQueries({ queryKey: ['content-manager', type] });
     queryClient.invalidateQueries({ queryKey: ['content-manager', type, 'active'] });
+    // The homepage reads all of this from one aggregated payload — see the
+    // matching note in useContentSSE.ts.
+    queryClient.invalidateQueries({ queryKey: ['homepage'] });
 
     switch (type) {
       case 'heroSlides':

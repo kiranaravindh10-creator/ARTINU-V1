@@ -2,7 +2,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { useRef } from 'react';
 import { CONTACT } from '@artinu/shared';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
-import { Container, Section, SectionHeading } from '@/components/layout/primitives';
+import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { EASE, Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
 import { Typewriter } from '@/components/motion/typewriter';
 import { Photo } from '@/components/ui/photo';
@@ -54,6 +54,114 @@ const TEAM: TeamMember[] = [
   },
 ];
 
+/**
+ * THE REST OF THE TEAM.
+ *
+ * Same rule as the founder above: real people, their own photographs, their own
+ * words. Every name, role line and biography here is transcribed from what each
+ * person supplied — nothing is written on their behalf, and where somebody gave
+ * no job title the team they work in stands in for one rather than a title
+ * being invented for them.
+ *
+ * Photographs are 4:5 WebP at two widths, built from the masters in
+ * assets/source/team by scripts/generate-images.mjs. `blur` is the inlined 24px
+ * preview that holds the card's shape on first paint.
+ *
+ * `portfolio` is set for exactly the two people who have one. It is absent, not
+ * empty, for everybody else — the card then renders no link at all rather than
+ * a dead button.
+ */
+interface TeamGroupMember extends TeamMember {
+  /** Slug under /image/team, used to build the srcSet. */
+  slug: string;
+  /** Inline 24px WebP preview. */
+  blur: string;
+  portfolio?: string;
+}
+
+interface TeamGroup {
+  title: string;
+  members: TeamGroupMember[];
+}
+
+/** Both widths of a portrait, so a phone does not fetch the desktop file. */
+const teamSrcSet = (slug: string) =>
+  `/image/team/${slug}-480.webp 480w, /image/team/${slug}-768.webp 768w`;
+
+const TEAM_GROUPS: TeamGroup[] = [
+  {
+    title: 'Social media',
+    members: [
+      {
+        slug: 'karthik',
+        name: 'Karthik',
+        // No job title was supplied, so the team stands in for one.
+        role: 'Social Media Team',
+        photo: '/image/team/karthik-768.webp',
+        blur: 'data:image/webp;base64,UklGRrwAAABXRUJQVlA4ILAAAADwBACdASoYAB4APt1kp0+opSMiKAqpEBuJZwDBzDTxCWuwmQI9fQ741OJjS3fqJBQA/uE2qkb8tbCmPKixIi9XfM7TfoUbLiSaq09+soRNfbk0dNrdB8ZXbZP5nIdyOioZY9vLlQnSl/rgtEu453DY2/07+U9g75RB7BVkMTzhJ5zaTw5dA4ppFMgKNWwQWP9FO/mlZ2Yh5EPJ/abdLfBJDgbr4TvQD4JXC2ETTYUAAA==',
+        // His words, verbatim but for one obvious misspelling ("contatcs").
+        bio: 'Building reliable contacts - no extra noise.',
+      },
+      {
+        slug: 'sanskrithi',
+        name: 'Sanskrithi Raikote',
+        role: 'Social Media Team',
+        photo: '/image/team/sanskrithi-768.webp',
+        blur: 'data:image/webp;base64,UklGRhIBAABXRUJQVlA4IAYBAABQBgCdASoYAB4APt1cpUyopSOiMAgBEBuJZgC7BbRlGxr4g79rmLxOIQ51pnAwAvWLSn4uLTiPcMCeAAD+22pdKFf62bgYkW+w/3glqidM5i6rXtgD4DZxz3WZ2kSeXnlF5BO1yzKWqJAY0aVLKNmBkAQfD2G3MuSA/Nq1/wy9bSq0L2/4Pn+JENH3SrLjfljkCi0a5t8PQWYfaj/LyBUlDE4PuQBuEgbGhDyDTadYlmwrexAw4mXchsZG9hb5Dp7An9gElbHlQxR0+rAgeXOd2U2oqIuKIxF2AkRmNwJBLZF9XIq185zJP+2rCXUc82V1b6IyJfXiYB2QlauX+D87lClHhpAA',
+        bio: 'Working with the Social Media & Digital team at ARTINU, contributing to content creation, website updates, digital presence, and creative brand communication. I focus on presenting ARTINU’s vision and work effectively across digital platforms while helping build a strong and engaging online presence.',
+        // Verified: the page is headed "Meet Sanskrithi — Business Developer,
+        // Bengaluru". Supplied by her after the first two portfolios went up.
+        portfolio: 'https://sanskrithiraikote.framer.website/',
+      },
+    ],
+  },
+  {
+    title: 'Technology',
+    members: [
+      {
+        slug: 'mithilesh',
+        name: 'Mithilesh BM',
+        role: 'IT Team',
+        photo: '/image/team/mithilesh-768.webp',
+        blur: 'data:image/webp;base64,UklGRggBAABXRUJQVlA4IPwAAAAQBgCdASoYAB4APt1ep0yopSOiMAgBEBuJQBhWW03r5ooVzL2/NqX2YUdXx3BCVrBRE2Ii4u9qCMAA/p7o6HqDaXuwNC9FpWiI+9SVw+eD79PZ91hqphKa9CK4V2E/HbCJglFIvoY6rWBVKrMnG6I8p0wK1dclN6L7UbMb38uGCs0xD8pPdVYev7EHyjIiQgHH2u4cshk4TqyN7f8nBK7T+SA3g69hMr5BNM3qoiZC/izVZDco6sM8s9VX6xo2MEMv2eRBg9b5riDlBF6KXbXISwBENoKtIxNCtHAxb/4hTrvCytbSzTXZmP1y/AsaTWjuSyujZLl84zSoAAA=',
+        // Opens "Mithilesh BM, a technology-driven builder…" in the source; the
+        // name is dropped here because the card prints it directly above.
+        bio: 'A technology-driven builder and entrepreneur focused on turning ideas into meaningful digital products. At Artinu, I work across technology, innovation, and product development, with a passion for solving real-world problems through practical and scalable solutions. I’m driven by curiosity, continuous learning, and a vision to build technology that creates lasting impact.',
+      },
+      {
+        slug: 'poosan',
+        name: 'Poosan Kumar S',
+        role: 'Head of Technical Operations',
+        photo: '/image/team/poosan-768.webp',
+        blur: 'data:image/webp;base64,UklGRiQBAABXRUJQVlA4IBgBAADwBQCdASoYAB4APtFWpUyoJKOiMAwBABoJZACdMySw2mqAeQlZdKoCnrjJP/4cnqAb6yLV/J29AAD+x+JIgZpbTSYnNSHQfJhWCZNHmLUhQ2mbmB7sdCuJ0etTdQSJPgLR4dK8gPaFQrYUyrWbwna5zVC31G82afQyUdiKm4LTmLMkJMLy/t8IyR458mYwcmkvBU3aGYbDAJdPNKs6SUyxPqB6UfXI+xjh2OhnNH76cXtxte41UYWFmRvtX6dCV7yhOqrzFdMrVXAx+nbaDtWIJMHki0UWmy+JjnFhAUgLJZhrptP9o7OMtkrEFEzDLTc6+/6/83hxQWpIsMGEFL6utnYPTbxj7JFSZjBGglWGfHdxC3HnXVgA',
+        bio: 'Poosan works as web developer at Artinu, working closely with the team on project execution, technical coordination, and turning ideas into practical digital solutions. He is involved in planning and managing technical workflows, solving challenges, and making sure projects move smoothly from concept to implementation.',
+      },
+      {
+        slug: 'thakarshi',
+        name: 'A. Thakarshi Anand',
+        role: 'Technical & Development Lead',
+        photo: '/image/team/thakarshi-768.webp',
+        blur: 'data:image/webp;base64,UklGRjABAABXRUJQVlA4ICQBAACQBgCdASoYAB4APt1cp06opKMiMBgIARAbiWwAnTMKaQGtFYaKOovfi5U6SEZJ1lEY2QzRg+L0WCiibFSwAP5krH+bGM9O+cPJb6qXMbO7q7NMjvWAp+sXXwgkfEYZ4mqgoU3bP7tLhREVBVWgUU6GO2H9jk+kKQXeaiC6as4VLwO9O6TeTJ/focP8uZ0FI5YMGyY3SWFKA3ARkOYMTprwL71G7IpTmGgpPtKL8ydV0V22PpaQTocM4XN8Te7KmrCLWBZ7Sbq4SeK2vNCYvQuDx0WomwGPtPm3vO7WgyEVOR4dYtPnqTJ6Q3G9QAfAwNjIGuxamrWZBapyEQ2j3QHSNL2e5Tp3OoAY6BdVzUmzE6tWHhz4DocX3IJtULyfNArYAAAA',
+        bio: 'Where crazy ideas meet clean execution. I don’t just think outside the box. I redesign the box.',
+        // Verified: the page at zeta-black.github.io is headed
+        // "Thakarshi Anand A — Computer Vision and Backend Engineering".
+        portfolio: 'https://zeta-black.github.io/',
+      },
+      {
+        slug: 'vibhu',
+        name: 'Vibhu Krishna S',
+        role: 'Head of Technical Operations',
+        photo: '/image/team/vibhu-768.webp',
+        blur: 'data:image/webp;base64,UklGRjgBAABXRUJQVlA4ICwBAABwBgCdASoYAB4APt1eqE0opSQiKA1REBuJZgCdBXuF9kG+aBC9P7dU7gPQHBjJvyBOdstC8eiMKhvclgAA/vQrQJxbBqUxVtEL2RxzxaObYIcTBIgjkZoFQCId11OGpcvuSJPjzk4c4kG+co4/FOpHeSrE0AkYwk4nUUKucgfVRVJvFECnjZQufahkEXybyjVB1kN3VF4jsXtoPWI6z0f2PCJCwenQPVhRWMrJL/S+N5IO3AUJzZTUlIagzMSbr0RKM1nj+Wyl4Hop8sE/NMrPnmlZRsVbRoPlOaop2SKxIBxkh78W6lng8Zsz4eKgr7vYsXvvzunn683TF3PjfgcOK4BKCTy7gCp3XK8l/SFnFzg+CEElKLuumIyZ41GgVQ2p4G3Bez5QQ6VhgAA=',
+        bio: 'Vibhu leads technical operations at Artinu, working closely with the team on project execution, technical coordination, and turning ideas into practical digital solutions. He is involved in planning and managing technical workflows, solving challenges, and making sure projects move smoothly from concept to implementation.',
+        // Verified: vktechfolio.vercel.app is headed "Vibhu Krishna S |
+        // Full-Stack Developer" — "vk" in the domain is his initials.
+        portfolio: 'https://vktechfolio.vercel.app',
+      },
+    ],
+  },
+];
+
 function AboutBeginningHero() {
   const reduced = useReducedMotion();
   const ref = useRef<HTMLElement | null>(null);
@@ -78,10 +186,29 @@ function AboutBeginningHero() {
        beginning-wall-image   → the same photograph, now in an ARTINU frame
        beginning-space-image  → a real interior with the framed ARTINU photograph
      Until then, real photography is used so the story reads immediately. */
+  /*
+    THE THIRD STAGE IS A REAL PHOTOGRAPH OF A REAL WALL NOW.
+
+    `beginning-space-image.webp` was AI-generated, and looked it: a café that
+    exists nowhere, lit perfectly, with a "COFFEE" menu board and shelves of
+    bottles whose labels dissolve into noise when you look at them. It was
+    standing in for the one thing this whole page is arguing is real — that an
+    ARTINU photograph ends up on an actual wall, in an actual room, where actual
+    people sit.
+
+    Nib & Nosh in Rajajinagar is that room, and photographs of it were already
+    in this repository, shot for the homepage collaboration section:
+    `/image/partners/nib-and-nosh-interior-1-*.webp`. The frames on that wall are
+    ARTINU frames holding ARTINU photographers' work. Nothing needed generating;
+    the honest picture was already here.
+
+    The synthetic frame that used to be composited over this slot has gone with
+    it — see the note where stage 03 renders.
+  */
   const IMG = {
     'beginning-screen-image': '/image/beginning-screen-image.webp',
     'beginning-wall-image': '/image/beginning-wall-image.webp',
-    'beginning-space-image': '/image/beginning-space-image.webp',
+    'beginning-space-image': '/image/partners/nib-and-nosh-interior-1-1024.webp',
   } as const;
 
   return (
@@ -211,31 +338,28 @@ function AboutBeginningHero() {
                   className="absolute left-[46%] top-[68%] z-0 w-[50%]"
                 >
                   <div className="relative rounded-[2px] border border-line bg-sand-soft shadow-card photo-edge">
+                    {/*
+                      No composited frame over this one any more.
+
+                      The old image was an invented café, so a frame had to be
+                      pasted onto its blank wall to make the point. This is a
+                      photograph of Nib & Nosh in Rajajinagar and the frames on
+                      that wall are real ARTINU frames holding real
+                      photographers' work — adding a synthetic fourth one on top
+                      would be both redundant and, on a page arguing that this
+                      actually happens, faintly dishonest.
+
+                      The source is 4:5 and this slot is 4:3, so `object-cover`
+                      crops to the middle band: the wall, the light and the
+                      hung photographs. The layout is untouched.
+                    */}
                     <Photo
                       src={IMG['beginning-space-image']}
-                      alt="The photograph becomes part of a real café interior"
+                      alt="ARTINU photographs framed on the wall at Nib &amp; Nosh café in Rajajinagar, Bengaluru"
                       ratio="aspect-[4/3]"
                       className="size-full"
                       imgClassName="object-cover"
                     />
-                    {/* the same framed photograph, hung on the café wall */}
-                    <span className="absolute left-[12%] top-[8%] z-10 w-[34%]">
-                      <span
-                        className="absolute -top-4 left-1/2 h-4 w-px -translate-x-1/2 bg-ink/45"
-                        aria-hidden
-                      />
-                      <span className="block rounded-[2px] border border-ink bg-surface p-1 pb-1.5 shadow-frame">
-                        <span className="block border border-line/80 bg-sand-soft p-1">
-                          <Photo
-                            src={IMG['beginning-wall-image']}
-                            alt=""
-                            ratio="aspect-[4/5]"
-                            className="rounded-none"
-                            imgClassName="object-cover"
-                          />
-                        </span>
-                      </span>
-                    </span>
                   </div>
                 </motion.figure>
 
@@ -404,9 +528,33 @@ function MissionSection() {
           <Reveal delay={0.1} className="lg:sticky lg:top-28">
             <div className="overflow-hidden rounded-lg">
               <motion.div style={{ y: photoY, scale: photoScale }} className="will-change-transform">
+                {/*
+                  A REAL ROOM WITH REAL ARTINU WORK ON THE WALL.
+
+                  This was `IMAGES.installing`, and it was wrong twice over. The
+                  photograph is a staged American living room — a fireplace, a
+                  bay window, cushions squared off by an estate agent — which is
+                  nobody's café and nothing to do with ARTINU. And its alt text
+                  claimed "a member of the ARTINU team hanging a framed
+                  photograph", describing a person who is not in the picture;
+                  the note at the top of lib/images.ts warns that the names in
+                  that map are not to be trusted, and this was one of them.
+
+                  The copy beside it says walls should start doing something and
+                  that people notice the room they are sitting in. Nib & Nosh in
+                  Rajajinagar is a room where that is literally true, and the
+                  photograph was already in the repository. `interior-2` rather
+                  than `interior-1` because the hero at the top of this same page
+                  already uses `interior-1`.
+
+                  The master is 1024×1280 — exactly the 4:5 this slot reserves —
+                  so nothing is cropped, and generated-images.ts already carries
+                  its blur placeholder and srcSet, which `Photo` resolves from
+                  the filename on its own.
+                */}
                 <Photo
-                  src={IMAGES.installing}
-                  alt="A member of the ARTINU team hanging a framed photograph"
+                  src="/image/partners/nib-and-nosh-interior-2-1024.webp"
+                  alt="ARTINU photographs framed on the wall at Nib &amp; Nosh café in Rajajinagar, Bengaluru"
                   ratio="aspect-[4/5]"
                 />
               </motion.div>
@@ -443,9 +591,28 @@ function PhotographersSection() {
               style={{ y: imageY }}
               className="absolute inset-0 -top-6 -bottom-6 will-change-transform"
             >
+              {/*
+                A PHONE, NOT A FULL-FRAME BODY.
+
+                This slot held `IMAGES.prints` — prints spread on a brown table
+                beside a DSLR. A real photograph, and the wrong argument: the
+                section beside it is addressed to anyone who takes pictures, and
+                the picture said "you need this equipment". A photographer
+                reading it on the phone they actually shoot with was being shown
+                the gear they do not own.
+
+                `photographersHero` is an ARTINU asset already in the repository
+                (used on the Artists page): somebody photographing an evening
+                street in India, an auto-rickshaw in the frame, holding up a
+                phone. Same message the copy makes — the eye is the equipment.
+
+                Reused rather than sourced anew, deliberately. The alternative
+                was generating one, and an invented photograph of "authentic
+                photographers" on a page about real people would defeat itself.
+              */}
               <Photo
-                src={IMAGES.prints}
-                alt="Printed photographs scattered on a table beside a camera"
+                src={IMAGES.photographersHero}
+                alt="A photographer shooting an evening street in India on a phone"
                 className="size-full"
                 imgClassName="object-cover"
               />
@@ -523,6 +690,94 @@ function PhotographersSection() {
       </Container>
     </Section>
     </div>
+  );
+}
+
+/**
+ * The teams behind the founder.
+ *
+ * Sits below the existing "Small team" section and deliberately does not touch
+ * it: the founder keeps his own frame, his own paragraph and his position on
+ * the page. This is the rest of the people, grouped by the team they work in.
+ *
+ * Everything here is borrowed from what the page already uses — `Section`,
+ * `Container`, `SectionHeading`, `Stagger`, `Photo`, `ArrowLink` and the same
+ * type scale as the founder card — so it reads as another passage of the same
+ * page rather than a component that arrived from somewhere else.
+ */
+function TeamSection() {
+  return (
+    <Section>
+      <Container>
+        <SectionHeading
+          eyebrow="Our team"
+          title={
+            <>
+              The people behind the <em className="editorial-italic">walls</em>.
+            </>
+          }
+          className="max-w-2xl"
+        />
+
+        <div className="mt-14 space-y-14">
+          {TEAM_GROUPS.map((group) => (
+            <section key={group.title}>
+              {/* Same hairline-and-eyebrow rhythm the rest of the site uses. */}
+              <div className="flex flex-wrap items-baseline gap-x-4 border-b border-line pb-2.5">
+                <h3 className="eyebrow eyebrow-muted">{group.title}</h3>
+              </div>
+
+              <Stagger className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                {group.members.map((member) => (
+                  <StaggerItem key={member.slug}>
+                    <Photo
+                      src={member.photo}
+                      srcSet={teamSrcSet(member.slug)}
+                      /* Four across on a desktop, two on a tablet, one on a
+                         phone — the widths the srcSet above actually ships. */
+                      sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 90vw"
+                      blurPlaceholder={member.blur}
+                      alt={`${member.name}, ${member.role} at ARTINU`}
+                      ratio="aspect-[4/5]"
+                      className="rounded-sm photo-edge"
+                      imgClassName="object-cover object-top"
+                    />
+
+                    <h4 className="mt-3 text-base font-medium text-ink">{member.name}</h4>
+                    <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
+                      {member.role}
+                    </p>
+                    {member.bio && (
+                      <p className="mt-2 text-xs leading-relaxed text-muted">{member.bio}</p>
+                    )}
+
+                    {/*
+                      Only rendered for the two people who supplied one, so
+                      nobody else gets an empty control. External, so it opens
+                      in its own tab and does not navigate the visitor off
+                      ARTINU mid-read.
+                    */}
+                    {member.portfolio && (
+                      <ArrowLink
+                        href={member.portfolio}
+                        external
+                        className="mt-3 text-[0.8125rem]"
+                      >
+                        {/* Names the destination rather than saying "click
+                            here", so it still makes sense read out of context
+                            by a screen reader's link list. */}
+                        <span className="sr-only">{member.name}&rsquo;s </span>
+                        Portfolio
+                      </ArrowLink>
+                    )}
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            </section>
+          ))}
+        </div>
+      </Container>
+    </Section>
   );
 }
 
@@ -620,6 +875,11 @@ export default function AboutPage() {
           </div>
         </Container>
       </Section>
+
+      {/* ── The rest of the team ───────────────────────────────────────── */}
+      {/* Directly below the founder, before the contact band, so the page
+          still reads founder → team → how to reach us. */}
+      <TeamSection />
 
       {/* ── Contact / trust ────────────────────────────────────────────── */}
       <Section size="compact">

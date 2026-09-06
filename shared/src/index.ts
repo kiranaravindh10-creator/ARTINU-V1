@@ -13,3 +13,4 @@ export * from './pricing.js';
 export * from './format.js';
 export * from './media.js';
 export * from './rotation.js';
+export * from './campaigns.js';

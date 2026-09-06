@@ -114,7 +114,34 @@ async function loadSharp(): Promise<Sharp | null> {
  * Returns an empty array if anything at all goes wrong, or if the source is
  * smaller than the smallest variant and there is nothing to gain.
  */
-export async function generateVariants(
+export function generateVariants(
+  source: Buffer,
+  contentType: string,
+): Promise<GeneratedVariant[]> {
+  /*
+    ONE DECODE AT A TIME, PROCESS-WIDE.
+
+    `sharp.concurrency(1)` above does NOT do this, which is the trap. It sets
+    the size of libvips' thread pool *within* one operation; it places no limit
+    at all on how many sharp pipelines run at once. Four concurrent uploads ran
+    four simultaneous decodes, and a decode is the largest allocation in the
+    request - a 19-megapixel JPEG is ~75 MB of raw pixels before any resizing.
+
+    Measured against the 512 MB Render instance the API runs on: four uploads in
+    flight peaked at 615 MB and the process was OOM-killed, which is not a
+    handled error - every open connection dies with no response and the artist
+    is told their photographs could not be reached. Serialising here takes the
+    same batch to ~437 MB.
+
+    This shares the queue with the HEIC transcode below deliberately: both are
+    the same scarce resource, and the two must not run together either. The
+    calls are sequential rather than nested (storeBase64 transcodes, returns,
+    and only then does storeImageSet ask for variants), so there is no deadlock.
+  */
+  return serialise(() => buildVariants(source, contentType));
+}
+
+async function buildVariants(
   source: Buffer,
   contentType: string,
 ): Promise<GeneratedVariant[]> {
@@ -289,23 +316,28 @@ async function transcodeWithSharp(source: Buffer): Promise<Transcoded | null> {
 }
 
 /**
- * One HEIC conversion at a time.
+ * One image-processing operation at a time, across the whole process.
+ *
+ * Shared by the HEIC transcode below and by `generateVariants` above, because
+ * they compete for the same thing and neither may run beside the other.
  *
  * The WASM decoder expands the image to raw RGBA in memory - a 12-megapixel
  * photograph is ~48MB of pixels before the JPEG encoder even starts, and the
- * measured resident set for a 1.1MP file was already 133MB. The API runs on a
- * 512MB instance. Two of these at once is an out-of-memory kill, which on
- * Render looks like the whole API vanishing mid-upload.
+ * measured resident set for a 1.1MP file was already 133MB. A sharp decode for
+ * the variants is the same order of cost. The API runs on a 512MB instance.
+ * Two of these at once is an out-of-memory kill, which on Render looks like the
+ * whole API vanishing mid-upload - and to the artist looks like every file in
+ * the batch failing with "We could not reach the ARTINU service".
  *
  * A promise chain is enough: uploads queue rather than run together, and a
- * batch of ten HEICs takes ten times as long instead of taking the server down.
+ * batch of ten takes ten times as long instead of taking the server down.
  */
-let heicQueue: Promise<unknown> = Promise.resolve();
+let imageQueue: Promise<unknown> = Promise.resolve();
 
 function serialise<T>(work: () => Promise<T>): Promise<T> {
-  const next = heicQueue.then(work, work);
+  const next = imageQueue.then(work, work);
   // Keep the chain alive even when a link rejects.
-  heicQueue = next.then(
+  imageQueue = next.then(
     () => undefined,
     () => undefined,
   );
