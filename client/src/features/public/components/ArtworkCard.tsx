@@ -48,7 +48,7 @@ export function ArtworkCard({
   const media = (
     <Photo
       src={artwork.thumbnailUrl || artwork.imageUrl}
-      alt={artwork.title}
+      alt={artwork.artist?.name ? `${artwork.title} by ${artwork.artist.name}` : artwork.title}
       ratio={RATIO[artwork.orientation] ?? RATIO.landscape}
       priority={priority}
       thumbnail

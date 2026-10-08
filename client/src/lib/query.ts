@@ -114,6 +114,8 @@ export const qk = {
   supportTickets: ['support-tickets'] as const,
 
   myArtworks: (params?: Record<string, unknown>) => ['my-artworks', params ?? {}] as const,
+  // Under 'my-artworks' so every invalidation of the artist's own work refreshes it too.
+  recentlyDeleted: ['my-artworks', 'recently-deleted'] as const,
   payouts: ['payouts'] as const,
 
   analytics: (scope: string) => ['analytics', scope] as const,

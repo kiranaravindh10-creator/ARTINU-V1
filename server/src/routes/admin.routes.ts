@@ -585,6 +585,10 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const artwork = await db.artworks.byId(req.params.id);
     if (!artwork) throw notFound('That photograph');
+    // Approving would put back on the site a photograph its photographer deleted.
+    if (artwork.status === 'deleted') {
+      throw conflict('The photographer has deleted this photograph, so there is nothing to review.');
+    }
 
     const { decision, note } = req.valid as { decision: 'approve' | 'reject'; note?: string | null };
     const approved = decision === 'approve';

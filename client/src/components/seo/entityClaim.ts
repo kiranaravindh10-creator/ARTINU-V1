@@ -14,41 +14,62 @@ import { useEffect, useSyncExternalStore } from 'react';
  * components settle it between themselves here: while an `EntityMeta` is
  * mounted, `MetaTags` stands down from the tags they both write.
  *
+ * The same arrangement carries one more fact MetaTags cannot see from the URL:
+ * that the page turned out to be empty. See ./NoIndex.
+ *
  * A counter rather than a boolean because StrictMode mounts twice, and because
  * a route change can briefly overlap the outgoing and incoming page.
  */
-let claims = 0;
-const listeners = new Set<() => void>();
+function createClaim() {
+  let claims = 0;
+  const listeners = new Set<() => void>();
 
-function emit(): void {
-  for (const listener of listeners) listener();
-}
+  const emit = (): void => {
+    for (const listener of listeners) listener();
+  };
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
+  const subscribe = (listener: () => void): (() => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+
+  return {
+    /** Claims for as long as the caller is mounted. */
+    useClaim(): void {
+      useEffect(() => {
+        claims += 1;
+        emit();
+        return () => {
+          claims -= 1;
+          emit();
+        };
+      }, []);
+    },
+    /** True while anything holds the claim. */
+    useClaimed(): boolean {
+      return useSyncExternalStore(
+        subscribe,
+        () => claims > 0,
+        // Nothing has mounted during a server render, so nothing has claimed.
+        () => false,
+      );
+    },
   };
 }
 
-/** Claims ownership for as long as the caller is mounted. */
-export function useClaimEntityMeta(): void {
-  useEffect(() => {
-    claims += 1;
-    emit();
-    return () => {
-      claims -= 1;
-      emit();
-    };
-  }, []);
-}
+const entityMeta = createClaim();
+const noindex = createClaim();
+
+/** Claims ownership of the social tags for as long as the caller is mounted. */
+export const useClaimEntityMeta = entityMeta.useClaim;
 
 /** True while some `EntityMeta` on the page owns the social tags. */
-export function useEntityMetaClaimed(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => claims > 0,
-    // Nothing has mounted during a server render, so nothing has claimed.
-    () => false,
-  );
-}
+export const useEntityMetaClaimed = entityMeta.useClaimed;
+
+/** Marks the page noindex for as long as the caller is mounted. */
+export const useClaimNoindex = noindex.useClaim;
+
+/** True while something on the page has marked it noindex. */
+export const useNoindexClaimed = noindex.useClaimed;

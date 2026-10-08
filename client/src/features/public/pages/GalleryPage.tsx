@@ -59,6 +59,18 @@ import { cn } from '@/lib/utils';
 */
 const GALLERY_FIRST_PAGE_CACHE = 'gallery.firstPage';
 
+/*
+  Production builds only.
+
+  The cache exists to paint over a sleeping dyno. Locally the API answers in
+  about a second, and the same origin (localhost:5173) serves the demo store
+  under `npm run dev:demo` and the real database under `npm run dev` - so a
+  first page saved under one was painted under the other, and while it was
+  under a minute old it was not even re-requested. That is how seeded demo
+  photographs sat in the grid beneath a photographer list that was already real.
+*/
+const PERSIST_FIRST_PAGE = !import.meta.env.DEV;
+
 /**
  * The public view of a page of results - per-user state removed.
  *
@@ -168,7 +180,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   */
   const cacheKey = `${GALLERY_FIRST_PAGE_CACHE}.${sortBy}`;
   const cachedFirstPage = React.useMemo(
-    () => (searchQuery ? null : readCached<Paginated<ArtworkWithArtist>>(cacheKey)),
+    () => (searchQuery || !PERSIST_FIRST_PAGE ? null : readCached<Paginated<ArtworkWithArtist>>(cacheKey)),
     [cacheKey, searchQuery],
   );
 
@@ -225,7 +237,7 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
   */
   const firstPage = data?.pages[0];
   React.useEffect(() => {
-    if (searchQuery || !firstPage) return;
+    if (!PERSIST_FIRST_PAGE || searchQuery || !firstPage) return;
     if (cachedFirstPage && dataUpdatedAt === cachedFirstPage.at) return;
     writeCached(cacheKey, withoutUserState(firstPage));
   }, [cacheKey, searchQuery, firstPage, dataUpdatedAt, cachedFirstPage]);

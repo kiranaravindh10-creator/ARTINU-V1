@@ -108,6 +108,24 @@ const ASSETS = [
     ratio: 3 / 4,
     position: 'north',
   },
+  {
+    // Alen Peter's framed coastal print under a wall light at Putikam
+    // Ravindranath's home decor space. The frame is the subject and sits in the
+    // middle; the 4:5 master loses only a sliver from each side at 3:4.
+    src: 'testimonials/putikamravindranath.png',
+    out: 'testimonials/putikamravindranath',
+    widths: [360, 720],
+    ratio: 3 / 4,
+    position: 'centre',
+  },
+  {
+    // Alen Peter beside his framed lighthouse photograph at Nib & Nosh.
+    src: 'testimonials/alenpeter.png',
+    out: 'testimonials/alenpeter',
+    widths: [360, 720],
+    ratio: 3 / 4,
+    position: 'north',
+  },
 ];
 
 const ensure = (dir) => {

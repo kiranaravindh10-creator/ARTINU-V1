@@ -4,6 +4,7 @@ import {
   Images,
   LayoutDashboard,
   MapPin,
+  Trash2,
   Upload,
   UserRound,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ const groups: DashboardNavGroup[] = [
       { to: '/studio/upload', label: 'Upload Work', icon: Upload },
       { to: '/studio/submissions', label: 'Uploaded Works', icon: ClipboardCheck },
       { to: '/studio/portfolio', label: 'Portfolio', icon: Images },
+      { to: '/studio/recently-deleted', label: 'Recently Deleted', icon: Trash2 },
     ],
   },
   {

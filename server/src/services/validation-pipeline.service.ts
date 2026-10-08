@@ -155,7 +155,10 @@ export async function runValidationPipeline(
   // this artist's existing work. It catches accidental re-uploads, not visually
   // similar frames.
   const normalisedTitle = input.title.trim().toLowerCase().replace(/\s+/g, ' ');
-  const existing = await db.artworks.find({ where: { artistId: input.artistId } });
+  // Deleted work is no longer "in your portfolio", so it cannot be what this matches.
+  const existing = (await db.artworks.find({ where: { artistId: input.artistId } })).filter(
+    (artwork) => artwork.status !== 'deleted',
+  );
 
   const duplicate = existing.find((artwork) => {
     const sameTitle = artwork.title.trim().toLowerCase().replace(/\s+/g, ' ') === normalisedTitle;

@@ -245,8 +245,35 @@ export interface Artwork {
   /** Cheapest complete configuration — the "Starting price" on the detail screen. */
   priceFrom: number;
   featured: boolean;
+  /**
+   * Set while `status` is 'deleted': when the photographer deleted it, who did,
+   * and the status a recovery puts back. All three are written by the server
+   * only, and cleared again on recovery.
+   */
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  deletedFromStatus?: ArtworkStatus | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * One photograph in the photographer's Recently Deleted list.
+ *
+ * `recoverableUntil` and `remainingMs` are computed by the server at the
+ * moment of the request, so the countdown never depends on the visitor's
+ * clock; the client only formats them.
+ */
+export interface RecentlyDeletedArtwork {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  photoId?: string | null;
+  artistName: string;
+  deletedAt: string;
+  recoverableUntil: string;
+  remainingMs: number;
 }
 
 /** Artwork joined with the artist's public profile — what the gallery renders. */

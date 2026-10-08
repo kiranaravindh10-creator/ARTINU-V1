@@ -24,10 +24,16 @@ declare global {
  * Removing them here, before the first render, leaves exactly one set: whatever
  * the current route decided. The server-rendered fallback is untouched for
  * anyone who never runs this file.
+ *
+ * The fallback <title> goes too. Each route renders its own, which is added
+ * beside the static one rather than replacing it, so every page carried two
+ * titles - its own, then the homepage's.
  */
 function clearBootstrapMeta(): void {
   document
-    .querySelectorAll('head > meta[data-rh="true"], head > link[data-rh="true"]')
+    .querySelectorAll(
+      'head > meta[data-rh="true"], head > link[data-rh="true"], head > title[data-rh="true"]',
+    )
     .forEach((node) => node.remove());
 }
 

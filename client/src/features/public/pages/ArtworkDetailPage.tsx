@@ -30,8 +30,8 @@ import { ShareButton, ShareSheet } from '@/features/public/components/ShareSheet
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { qk } from '@/lib/query';
-import { SITE_URL } from '@/lib/seo';
-import { EntityMeta } from '@/components/seo';
+import { clampDescription, ORGANIZATION_ID, SITE_URL } from '@/lib/seo';
+import { EntityMeta, NoIndex } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 import { resizedUpload } from '@/lib/imageOptimization';
@@ -97,6 +97,8 @@ export default function ArtworkDetailPage() {
   if (isError || !artwork) {
     return (
       <Container className="py-24">
+        {/* Deleted or never existed: keep it out of search either way. */}
+        <NoIndex />
         <EmptyState
           icon={<ImageOff />}
           title="We couldn't find that photograph."
@@ -132,32 +134,42 @@ export default function ArtworkDetailPage() {
     them as connected entities rather than two unrelated URLs.
   */
   const artworkPath = `/gallery/${artwork.id}`;
-  const artworkTitle = `${artwork.title} by ${artwork.artist.name} - ARTINU`;
-  const artworkDescription =
-    artwork.description?.trim().slice(0, 155) ||
-    `"${artwork.title}", a ${GALLERY_CATEGORY_LABELS[artwork.category] ?? artwork.category} ` +
-      `photograph by ${artwork.artist.name}${artwork.location ? ` shot in ${artwork.location}` : ''}. ` +
-      `Printed, framed and installed by ARTINU for cafés, restaurants and offices.`;
+  const credit = `${artwork.title} by ${artwork.artist.name}`;
+  const artworkTitle = `${credit} | ARTINU`;
+  // Whichever text is used, the snippet names the photograph and the photographer.
+  const artworkDescription = clampDescription(
+    artwork.description?.trim()
+      ? `${credit}. ${artwork.description.trim()}`
+      : `"${artwork.title}", a ${GALLERY_CATEGORY_LABELS[artwork.category] ?? artwork.category} ` +
+          `photograph by ${artwork.artist.name}${artwork.location ? ` shot in ${artwork.location}` : ''}. ` +
+          `Printed, framed and installed by ARTINU for cafés, restaurants and offices in Bengaluru.`,
+  );
+  const artistUrl = `${SITE_URL}/artists/${artwork.artist.slug}`;
 
   const artworkJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'ImageObject',
     name: artwork.title,
     contentUrl: artwork.imageUrl,
+    ...(artwork.thumbnailUrl ? { thumbnailUrl: artwork.thumbnailUrl } : {}),
     url: `${SITE_URL}${artworkPath}`,
     ...(artwork.description ? { description: artwork.description } : {}),
     ...(artwork.width ? { width: artwork.width } : {}),
     ...(artwork.height ? { height: artwork.height } : {}),
     ...(artwork.location ? { contentLocation: { '@type': 'Place', name: artwork.location } } : {}),
     ...(artwork.tags?.length ? { keywords: artwork.tags.join(', ') } : {}),
+    // The same id as the Person on the photographer's own page, so the two are one entity.
     creator: {
       '@type': 'Person',
+      '@id': `${artistUrl}#person`,
       name: artwork.artist.name,
-      url: `${SITE_URL}/artists/${artwork.artist.slug}`,
+      url: artistUrl,
     },
+    // The credit line Google Images shows beside the photograph.
+    creditText: artwork.artist.name,
     // The photographer keeps copyright; ARTINU licenses and installs the print.
     copyrightHolder: { '@type': 'Person', name: artwork.artist.name },
-    provider: { '@type': 'Organization', name: 'ARTINU', url: SITE_URL },
+    provider: { '@type': 'Organization', '@id': ORGANIZATION_ID, name: 'ARTINU', url: SITE_URL },
   };
 
   return (
@@ -169,8 +181,14 @@ export default function ArtworkDetailPage() {
         /* WhatsApp and Facebook refuse preview images past a few megabytes,
            so a shared photograph must unfurl from a resized copy. */
         image={resizedUpload(artwork.imageUrl, 1200)}
-        imageAlt={`${artwork.title} by ${artwork.artist.name}`}
+        imageAlt={credit}
         jsonLd={artworkJsonLd}
+        ogType="article"
+        breadcrumbs={[
+          { name: 'Home', url: SITE_URL },
+          { name: 'Gallery', url: `${SITE_URL}/gallery` },
+          { name: artwork.title, url: `${SITE_URL}${artworkPath}` },
+        ]}
       />
       <Container size="wide" className="pt-8">
         <div className="flex items-center justify-between gap-4">
@@ -220,7 +238,7 @@ export default function ArtworkDetailPage() {
           <div className="min-w-0">
             <Photo
               src={artwork.imageUrl}
-              alt={artwork.title}
+              alt={credit}
               ratio={ratio}
               priority
               className="photo-edge rounded-sm"
@@ -240,7 +258,11 @@ export default function ArtworkDetailPage() {
                         : 'opacity-70 hover:opacity-100',
                     )}
                   >
-                    <Photo src={entry.thumbnailUrl} alt={entry.title} ratio="aspect-square" />
+                    <Photo
+                      src={entry.thumbnailUrl}
+                      alt={entry.artist?.name ? `${entry.title} by ${entry.artist.name}` : entry.title}
+                      ratio="aspect-square"
+                    />
                   </Link>
                 ))}
               </div>

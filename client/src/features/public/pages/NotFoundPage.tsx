@@ -1,10 +1,13 @@
 import { ArrowLink, Container, Section } from '@/components/layout/primitives';
+import { NoIndex } from '@/components/seo';
 import { Photo } from '@/components/ui/photo';
 import { IMAGES } from '@/lib/images';
 
 export default function NotFoundPage() {
   return (
     <Section>
+      {/* Served with HTTP 200 like every route, so the tag is the only signal. */}
+      <NoIndex />
       <Container>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>

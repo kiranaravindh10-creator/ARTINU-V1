@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { getPageSEO, PAGE_SEO, DEFAULT_SEO, generateCanonical, buildBreadcrumbs } from '@/lib/seo';
-import { useEntityMetaClaimed } from './entityClaim';
+import { useEntityMetaClaimed, useNoindexClaimed } from './entityClaim';
 
 interface MetaTagsProps {
   seoOverride?: Partial<import('@/lib/seo').SEOProps>;
@@ -12,6 +12,8 @@ export function MetaTags({ seoOverride }: MetaTagsProps) {
   const location = useLocation();
   // An EntityMeta on this page knows the real subject; see ./entityClaim.
   const claimed = useEntityMetaClaimed();
+  // A page that found nothing to show is never indexed; see ./NoIndex.
+  const emptyPage = useNoindexClaimed();
   const pageSEO = getPageSEO(location.pathname);
   const seo = { ...pageSEO, ...seoOverride };
 
@@ -32,13 +34,15 @@ export function MetaTags({ seoOverride }: MetaTagsProps) {
       {!claimed && <meta name="description" content={seo.description} />}
       {!claimed && <link rel="canonical" href={absoluteCanonical} />}
 
-      <meta name="robots" content={`${seo.noindex ? 'noindex' : 'index'},${seo.nofollow ? 'nofollow' : 'follow'}`} />
+      <meta name="robots" content={`${seo.noindex || emptyPage ? 'noindex' : 'index'},${seo.nofollow ? 'nofollow' : 'follow'}`} />
 
       {!claimed && <meta property="og:title" content={seo.ogTitle || seo.title} />}
       {!claimed && <meta property="og:description" content={seo.ogDescription || seo.description} />}
       {!claimed && <meta property="og:url" content={absoluteCanonical} />}
       {!claimed && <meta property="og:type" content={seo.ogType || 'website'} />}
       {!claimed && <meta property="og:site_name" content="ARTINU" />}
+      {/* The same on every page and written nowhere else, so never stood down. */}
+      <meta property="og:locale" content="en_IN" />
       {!claimed && <meta property="og:image" content={ogImage.url} />}
       {!claimed && <meta property="og:image:width" content={String(ogImage.width || 1200)} />}
       {!claimed && <meta property="og:image:height" content={String(ogImage.height || 630)} />}

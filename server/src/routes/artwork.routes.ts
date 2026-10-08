@@ -18,10 +18,15 @@ import {
   uploadLimiter,
   validate,
 } from '@/middleware/index';
-import { badRequest, forbidden, notFound } from '@/utils/errors';
+import { badRequest, conflict, forbidden, notFound } from '@/utils/errors';
 import { now } from '@/utils/ids';
 import { logger } from '@/utils/logger';
 import { recordAudit } from '@/services/audit.service';
+import {
+  deleteArtwork,
+  listRecentlyDeleted,
+  recoverArtwork,
+} from '@/services/artwork-recovery.service';
 import { notify, notifyRole } from '@/services/notification.service';
 import { sendModerationDecision, sendUploadReceived } from '@/services/email.service';
 import { profileFor } from '@/services/auth.service';
@@ -185,11 +190,29 @@ artworkRouter.get(
 
     const artworks = await db.artworks.find({
       where: { artistId: req.user!.id },
-      filter: status && status !== 'all' ? (artwork) => artwork.status === status : undefined,
+      // Deleted work is listed by /recently-deleted, with its countdown, and nowhere else.
+      filter: (artwork) =>
+        artwork.status !== 'deleted' && (!status || status === 'all' || artwork.status === status),
       orderBy: { field: 'createdAt', direction: 'desc' },
     });
 
     res.json(paginate(artworks, page, pageSize));
+  }),
+);
+
+/*
+  The photographer's own deleted photographs, still inside the 17 days.
+
+  Only ever the signed-in artist's: the id comes from the session, and there is
+  no parameter that could name anybody else. Registered before '/:id' so the
+  path is not read as a photograph id.
+*/
+artworkRouter.get(
+  '/recently-deleted',
+  requireAuth,
+  requireRole('artist'),
+  asyncHandler(async (req, res) => {
+    res.json({ items: await listRecentlyDeleted(req.user!.id) });
   }),
 );
 
@@ -204,7 +227,7 @@ artworkRouter.get(
 
     const artworks = (
       await Promise.all(entries.map((entry) => db.artworks.byId(entry.artworkId)))
-    ).filter((artwork): artwork is Artwork => Boolean(artwork));
+    ).filter((artwork): artwork is Artwork => Boolean(artwork) && artwork!.status !== 'deleted');
 
     res.json(await withArtists(artworks, req.user!.id));
   }),
@@ -215,7 +238,7 @@ artworkRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const artwork = await db.artworks.byId(req.params.id);
-    if (!artwork) throw notFound('That photograph');
+    if (!artwork || artwork.status === 'deleted') throw notFound('That photograph');
 
     const existing = await db.wishlists.findOne({ userId: req.user!.id, artworkId: artwork.id });
     if (existing) {
@@ -442,6 +465,12 @@ artworkRouter.get(
       throw notFound('That photograph');
     }
 
+    // Deleted work is gone from the public site, its photographer's view
+    // included - Recently Deleted is the one place it is shown. Staff still see it.
+    if (artwork.status === 'deleted' && !(viewer && isInternal(viewer.role))) {
+      throw notFound('That photograph');
+    }
+
     // Counting a view should never delay or fail the response.
     void db.artworks.update(artwork.id, { views: artwork.views + 1 }).catch(() => undefined);
 
@@ -454,7 +483,7 @@ artworkRouter.get(
   '/:id/related',
   asyncHandler(async (req, res) => {
     const artwork = await db.artworks.byId(req.params.id);
-    if (!artwork) throw notFound('That photograph');
+    if (!artwork || artwork.status === 'deleted') throw notFound('That photograph');
 
     const limit = Math.min(24, Number(req.query.limit ?? 8));
     const pool = await db.artworks.find({ where: { status: 'approved' } });
@@ -506,6 +535,9 @@ artworkRouter.patch(
     const artwork = await db.artworks.byId(req.params.id);
     if (!artwork) throw notFound('That photograph');
     if (artwork.artistId !== req.user!.id) throw forbidden('That is not your photograph.');
+    if (artwork.status === 'deleted') {
+      throw conflict('That photograph is in Recently Deleted. Recover it before editing it.');
+    }
 
     const patch = req.valid as Record<string, unknown>;
 
@@ -526,17 +558,34 @@ artworkRouter.patch(
   }),
 );
 
+/*
+  Delete your own photograph: it leaves the public site at once and waits in
+  Recently Deleted for 17 days. Nothing is destroyed here - the row and its
+  files stay, because a recovery must bring back the original, and the piece
+  may already appear on an invoice. The nightly purge does the rest.
+
+  The photograph is identified by the URL and the photographer by the session.
+  There is no body: no date, expiry or artist id is read from the client.
+*/
 artworkRouter.delete(
   '/:id',
   requireAuth,
   requireRole('artist'),
   asyncHandler(async (req, res) => {
-    const artwork = await db.artworks.byId(req.params.id);
-    if (!artwork) throw notFound('That photograph');
-    if (artwork.artistId !== req.user!.id) throw forbidden('That is not your photograph.');
+    const { artwork, recoverableUntil } = await deleteArtwork(req.params.id, {
+      id: req.user!.id,
+      email: req.user!.email,
+    });
+    res.json({ ok: true, id: artwork.id, status: artwork.status, deletedAt: artwork.deletedAt, recoverableUntil });
+  }),
+);
 
-    // Archive rather than delete: the piece may already appear on an invoice.
-    await db.artworks.update(artwork.id, { status: 'archived', updatedAt: now() });
-    res.json({ ok: true });
+artworkRouter.post(
+  '/:id/recover',
+  requireAuth,
+  requireRole('artist'),
+  asyncHandler(async (req, res) => {
+    const artwork = await recoverArtwork(req.params.id, { id: req.user!.id, email: req.user!.email });
+    res.json(artwork);
   }),
 );

@@ -58,8 +58,10 @@ export interface DeletionSummary {
  * and `removeStored` wants `{bucket}/{name}`, refusing anything that still
  * looks like an http URL. Convert rather than widen removeStored, which other
  * callers depend on.
+ *
+ * Exported for the 17-day artwork purge, which deletes the same kinds of file.
  */
-function storagePathFromUrl(url: string | null | undefined): string | null {
+export function storagePathFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const marker = '/storage/v1/object/public/';
   const at = url.indexOf(marker);

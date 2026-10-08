@@ -1,8 +1,8 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { CONTACT } from '@artinu/shared';
-import { Mail, MessageCircle, Phone } from 'lucide-react';
-import { Container, Section, SectionHeading } from '@/components/layout/primitives';
+import { ChevronDown, Mail, MessageCircle, Phone } from 'lucide-react';
+import { ArrowLink, Container, Section, SectionHeading } from '@/components/layout/primitives';
 import { EASE, Reveal, Stagger, StaggerItem } from '@/components/motion/reveal';
 import { Typewriter } from '@/components/motion/typewriter';
 import { Photo } from '@/components/ui/photo';
@@ -51,6 +51,158 @@ const TEAM: TeamMember[] = [
     // no history and no credentials, because none were given. Replace it with
     // Kiran's own words whenever he wants to.
     bio: 'Kiran started ARTINU on a simple frustration - photographs live and die on screens while the walls around us stay blank. He works on every part of it, from reading a room to turning up on installation day.',
+  },
+];
+
+/**
+ * THE REST OF THE TEAM.
+ *
+ * Same rule as the founder above: real people, their own photographs, their own
+ * words. Every name, role line and biography here is transcribed from what each
+ * person supplied — nothing is written on their behalf, and where somebody gave
+ * no job title the team they work in stands in for one rather than a title
+ * being invented for them.
+ *
+ * Photographs are 4:5 WebP at two widths, built from the masters in
+ * assets/source/team by scripts/generate-images.mjs. `blur` is the inlined 24px
+ * preview that holds the card's shape on first paint.
+ *
+ * `portfolio` is set for exactly the two people who have one. It is absent, not
+ * empty, for everybody else — the card then renders no link at all rather than
+ * a dead button.
+ */
+interface TeamGroupMember extends TeamMember {
+  /** Slug under /image/team, used to build the srcSet. */
+  slug: string;
+  /**
+   * Inline 24px WebP preview.
+   *
+   * Optional, because it is generated from the portrait by
+   * scripts/generate-images.mjs — a member added before their photograph has
+   * been through that script has no preview to show, and inventing one or
+   * borrowing a colleague's would be worse than going without.
+   */
+  blur?: string;
+  portfolio?: string;
+  /**
+   * The generated widths for this portrait. Defaults to both.
+   *
+   * Set it when the master is too small for the larger step, so the srcSet
+   * never offers a file `npm run images` decided not to write.
+   */
+  widths?: readonly number[];
+}
+
+interface TeamGroup {
+  title: string;
+  members: TeamGroupMember[];
+}
+
+/**
+ * The widths of a portrait that actually exist, so a phone does not fetch the
+ * desktop file and no candidate is a 404.
+ *
+ * `npm run images` skips a width larger than the master rather than upscaling
+ * it, so a portrait supplied at 720px wide has a 480 and no 768. Listing a 768
+ * for those people put a url in the srcSet that does not resolve. It mostly
+ * went unnoticed because at these card sizes the browser picks the 480
+ * candidate anyway, but it is the `src` fallback too, which is what loads when
+ * no candidate matches.
+ */
+const teamSrcSet = (slug: string, widths: readonly number[] = [480, 768]) =>
+  widths.map((w) => `/image/team/${slug}-${w}.webp ${w}w`).join(', ');
+
+const TEAM_GROUPS: TeamGroup[] = [
+  {
+    title: 'Social media',
+    members: [
+      {
+        slug: 'karthik',
+        name: 'Karthik',
+        // No job title was supplied, so the team stands in for one.
+        role: 'Social Media Team',
+        photo: '/image/team/karthik-768.webp',
+        blur: 'data:image/webp;base64,UklGRrwAAABXRUJQVlA4ILAAAADwBACdASoYAB4APt1kp0+opSMiKAqpEBuJZwDBzDTxCWuwmQI9fQ741OJjS3fqJBQA/uE2qkb8tbCmPKixIi9XfM7TfoUbLiSaq09+soRNfbk0dNrdB8ZXbZP5nIdyOioZY9vLlQnSl/rgtEu453DY2/07+U9g75RB7BVkMTzhJ5zaTw5dA4ppFMgKNWwQWP9FO/mlZ2Yh5EPJ/abdLfBJDgbr4TvQD4JXC2ETTYUAAA==',
+        // His words, verbatim but for one obvious misspelling ("contatcs").
+        bio: 'Building reliable contacts - no extra noise.',
+      },
+      {
+        slug: 'sanskrithi',
+        name: 'Sanskrithi Raikote',
+        role: 'Social Media Team',
+        photo: '/image/team/sanskrithi-768.webp',
+        blur: 'data:image/webp;base64,UklGRhIBAABXRUJQVlA4IAYBAABQBgCdASoYAB4APt1cpUyopSOiMAgBEBuJZgC7BbRlGxr4g79rmLxOIQ51pnAwAvWLSn4uLTiPcMCeAAD+22pdKFf62bgYkW+w/3glqidM5i6rXtgD4DZxz3WZ2kSeXnlF5BO1yzKWqJAY0aVLKNmBkAQfD2G3MuSA/Nq1/wy9bSq0L2/4Pn+JENH3SrLjfljkCi0a5t8PQWYfaj/LyBUlDE4PuQBuEgbGhDyDTadYlmwrexAw4mXchsZG9hb5Dp7An9gElbHlQxR0+rAgeXOd2U2oqIuKIxF2AkRmNwJBLZF9XIq185zJP+2rCXUc82V1b6IyJfXiYB2QlauX+D87lClHhpAA',
+        bio: 'Working with the Social Media & Digital team at ARTINU, contributing to content creation, website updates, digital presence, and creative brand communication. I focus on presenting ARTINU’s vision and work effectively across digital platforms while helping build a strong and engaging online presence.',
+        // Verified: the page is headed "Meet Sanskrithi — Business Developer,
+        // Bengaluru". Supplied by her after the first two portfolios went up.
+        portfolio: 'https://sanskrithiraikote.framer.website/',
+      },
+      {
+        slug: 'alen',
+        name: 'Alen Peter',
+        role: 'Social Media Team',
+        // Master is 720px wide, so 768 was never generated.
+        photo: '/image/team/alen-480.webp',
+        widths: [480],
+        blur: 'data:image/webp;base64,UklGRhwBAABXRUJQVlA4IBABAACQBQCdASoYAB4APt1eqE0opSQiKA1REBuJbACdMoMulH5TNfWT4c/e6A00Eg2j2SCbIt3aYADKZg44K/S6QUOiWIxjrvGEQla45vqgNNBwMCF4R5cL0J/fhPqH43N2FuTugN/Nj9PU86YPh9wTmmC0f+CTYJoq4bc47VPbtzRJVdPZJ80pWX0lH2f/jBEsNpyzSItZFUviGSIwHd6FUzQlbBccoE538CTb9RzUNtnxboHy0wM7m7T1iSEyaR14wuCtoPNH70wEIkKgMyUTD6AHt5mQdLgGi67loZcpwkgu5JNdPSKRR4rZXBwLuAmc03WulXo4hOwJl79+nZkuD2AmQ4TBFzSa6427Qe6hazAAAA==',
+        // Supplied by the team, used as written.
+        bio: 'Alen Peter is a constant editor and cinematographer who brings ARTINU\u2019s stories to life. With every reel, he captures moments that connect art, emotion, and people. His creative vision turns simple frames into stories that stay with the heart. Through his work, Alen continues to steal hearts and make ARTINU unforgettable.',
+      },
+    ],
+  },
+  {
+    title: 'Technology',
+    members: [
+      {
+        slug: 'mithilesh',
+        name: 'Mithilesh BM',
+        role: 'TECHNICAL OPERATIONS',
+        photo: '/image/team/mithilesh-768.webp',
+        blur: 'data:image/webp;base64,UklGRggBAABXRUJQVlA4IPwAAAAQBgCdASoYAB4APt1ep0yopSOiMAgBEBuJQBhWW03r5ooVzL2/NqX2YUdXx3BCVrBRE2Ii4u9qCMAA/p7o6HqDaXuwNC9FpWiI+9SVw+eD79PZ91hqphKa9CK4V2E/HbCJglFIvoY6rWBVKrMnG6I8p0wK1dclN6L7UbMb38uGCs0xD8pPdVYev7EHyjIiQgHH2u4cshk4TqyN7f8nBK7T+SA3g69hMr5BNM3qoiZC/izVZDco6sM8s9VX6xo2MEMv2eRBg9b5riDlBF6KXbXISwBENoKtIxNCtHAxb/4hTrvCytbSzTXZmP1y/AsaTWjuSyujZLl84zSoAAA=',
+        // Opens "Mithilesh BM, a technology-driven builder…" in the source; the
+        // name is dropped here because the card prints it directly above.
+        bio: 'A technology-driven builder and entrepreneur focused on turning ideas into meaningful digital products. At Artinu, I work across technology, innovation, and product development, with a passion for solving real-world problems through practical and scalable solutions. I’m driven by curiosity, continuous learning, and a vision to build technology that creates lasting impact.',
+      },
+      {
+        slug: 'poosan',
+        name: 'Poosan Kumar S',
+        role: 'TECHNICAL OPERATIONS',
+        photo: '/image/team/poosan-768.webp',
+        blur: 'data:image/webp;base64,UklGRiQBAABXRUJQVlA4IBgBAADwBQCdASoYAB4APtFWpUyoJKOiMAwBABoJZACdMySw2mqAeQlZdKoCnrjJP/4cnqAb6yLV/J29AAD+x+JIgZpbTSYnNSHQfJhWCZNHmLUhQ2mbmB7sdCuJ0etTdQSJPgLR4dK8gPaFQrYUyrWbwna5zVC31G82afQyUdiKm4LTmLMkJMLy/t8IyR458mYwcmkvBU3aGYbDAJdPNKs6SUyxPqB6UfXI+xjh2OhnNH76cXtxte41UYWFmRvtX6dCV7yhOqrzFdMrVXAx+nbaDtWIJMHki0UWmy+JjnFhAUgLJZhrptP9o7OMtkrEFEzDLTc6+/6/83hxQWpIsMGEFL6utnYPTbxj7JFSZjBGglWGfHdxC3HnXVgA',
+        bio: 'Poosan works as web developer at Artinu, working closely with the team on project execution, technical coordination, and turning ideas into practical digital solutions. He is involved in planning and managing technical workflows, solving challenges, and making sure projects move smoothly from concept to implementation.',
+      },
+    ],
+  },
+];
+
+/**
+ * Former members of the technology team, shown behind the "Ex Team Members"
+ * button under the current teams rather than alongside them.
+ */
+const EX_TEAM: TeamGroupMember[] = [
+  {
+    slug: 'thakarshi',
+    name: 'A. Thakarshi Anand',
+    role: 'EX-IT TEAM',
+    // Master is 576px wide, so 768 was never generated.
+    photo: '/image/team/thakarshi-480.webp',
+    widths: [480],
+    blur: 'data:image/webp;base64,UklGRjABAABXRUJQVlA4ICQBAACQBgCdASoYAB4APt1cp06opKMiMBgIARAbiWwAnTMKaQGtFYaKOovfi5U6SEZJ1lEY2QzRg+L0WCiibFSwAP5krH+bGM9O+cPJb6qXMbO7q7NMjvWAp+sXXwgkfEYZ4mqgoU3bP7tLhREVBVWgUU6GO2H9jk+kKQXeaiC6as4VLwO9O6TeTJ/focP8uZ0FI5YMGyY3SWFKA3ARkOYMTprwL71G7IpTmGgpPtKL8ydV0V22PpaQTocM4XN8Te7KmrCLWBZ7Sbq4SeK2vNCYvQuDx0WomwGPtPm3vO7WgyEVOR4dYtPnqTJ6Q3G9QAfAwNjIGuxamrWZBapyEQ2j3QHSNL2e5Tp3OoAY6BdVzUmzE6tWHhz4DocX3IJtULyfNArYAAAA',
+    bio: 'Worked with the ARTINU team from the first week of August to the first week of September 2026, contributing to the development of the first five versions of the platform. He played an active role in shaping the early system and helping establish the initial sign-in and login operations.',
+    // Verified: the page at zeta-black.github.io is headed
+    // "Thakarshi Anand A — Computer Vision and Backend Engineering".
+    portfolio: 'https://zeta-black.github.io/',
+  },
+  {
+    slug: 'vibhu',
+    name: 'Vibhu Krishna S',
+    role: 'EX-IT TEAM',
+    photo: '/image/team/vibhu-768.webp',
+    blur: 'data:image/webp;base64,UklGRjgBAABXRUJQVlA4ICwBAABwBgCdASoYAB4APt1eqE0opSQiKA1REBuJZgCdBXuF9kG+aBC9P7dU7gPQHBjJvyBOdstC8eiMKhvclgAA/vQrQJxbBqUxVtEL2RxzxaObYIcTBIgjkZoFQCId11OGpcvuSJPjzk4c4kG+co4/FOpHeSrE0AkYwk4nUUKucgfVRVJvFECnjZQufahkEXybyjVB1kN3VF4jsXtoPWI6z0f2PCJCwenQPVhRWMrJL/S+N5IO3AUJzZTUlIagzMSbr0RKM1nj+Wyl4Hop8sE/NMrPnmlZRsVbRoPlOaop2SKxIBxkh78W6lng8Zsz4eKgr7vYsXvvzunn683TF3PjfgcOK4BKCTy7gCp3XK8l/SFnFzg+CEElKLuumIyZ41GgVQ2p4G3Bez5QQ6VhgAA=',
+    bio: 'Worked closely with the ARTINU team from the first week of August to the first week of September 2026, helping turn the early concepts into working versions of the platform. His efforts contributed to building the first five versions of ARTINU and establishing the foundation for its sign-in and login operations.',
+    // Verified: vktechfolio.vercel.app is headed "Vibhu Krishna S |
+    // Full-Stack Developer" — "vk" in the domain is his initials.
+    portfolio: 'https://vktechfolio.vercel.app',
   },
 ];
 
@@ -526,6 +678,122 @@ function PhotographersSection() {
   );
 }
 
+/**
+ * One team's portrait cards, shared by the current teams and the ex-team list
+ * so a former member is shown on exactly the same card.
+ */
+function TeamMemberGrid({ members }: { members: TeamGroupMember[] }) {
+  return (
+    <Stagger className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+      {members.map((member) => (
+        <StaggerItem key={member.slug}>
+          <Photo
+            src={member.photo}
+            srcSet={teamSrcSet(member.slug, member.widths)}
+            /* Four across on a desktop, two on a tablet, one on a
+               phone — the widths the srcSet above actually ships. */
+            sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 90vw"
+            blurPlaceholder={member.blur}
+            alt={`${member.name}, ${member.role} at ARTINU`}
+            ratio="aspect-[4/5]"
+            className="rounded-sm photo-edge"
+            imgClassName="object-cover object-top"
+          />
+
+          <h4 className="mt-3 text-base font-medium text-ink">{member.name}</h4>
+          <p className="font-label text-[0.625rem] uppercase tracking-[0.14em] text-bronze">
+            {member.role}
+          </p>
+          {member.bio && (
+            <p className="mt-2 text-xs leading-relaxed text-muted">{member.bio}</p>
+          )}
+
+          {/*
+            Only rendered for the two people who supplied one, so
+            nobody else gets an empty control. External, so it opens
+            in its own tab and does not navigate the visitor off
+            ARTINU mid-read.
+          */}
+          {member.portfolio && (
+            <ArrowLink
+              href={member.portfolio}
+              external
+              className="mt-3 text-[0.8125rem]"
+            >
+              {/* Names the destination rather than saying "click
+                  here", so it still makes sense read out of context
+                  by a screen reader's link list. */}
+              <span className="sr-only">{member.name}&rsquo;s </span>
+              Portfolio
+            </ArrowLink>
+          )}
+        </StaggerItem>
+      ))}
+    </Stagger>
+  );
+}
+
+/**
+ * The teams behind the founder.
+ *
+ * Sits below the existing "Small team" section and deliberately does not touch
+ * it: the founder keeps his own frame, his own paragraph and his position on
+ * the page. This is the rest of the people, grouped by the team they work in.
+ *
+ * Everything here is borrowed from what the page already uses — `Section`,
+ * `Container`, `SectionHeading`, `Stagger`, `Photo`, `ArrowLink` and the same
+ * type scale as the founder card — so it reads as another passage of the same
+ * page rather than a component that arrived from somewhere else.
+ */
+function TeamSection() {
+  const [exTeamOpen, setExTeamOpen] = useState(false);
+
+  return (
+    <Section>
+      <Container>
+        <SectionHeading
+          eyebrow="Our team"
+          title={
+            <>
+              The people behind the <em className="editorial-italic">walls</em>.
+            </>
+          }
+          className="max-w-2xl"
+        />
+
+        <div className="mt-14 space-y-14">
+          {TEAM_GROUPS.map((group) => (
+            <section key={group.title}>
+              {/* Same hairline-and-eyebrow rhythm the rest of the site uses. */}
+              <div className="flex flex-wrap items-baseline gap-x-4 border-b border-line pb-2.5">
+                <h3 className="eyebrow eyebrow-muted">{group.title}</h3>
+              </div>
+
+              <TeamMemberGrid members={group.members} />
+            </section>
+          ))}
+        </div>
+
+        {/* The same small disclosure the Join page uses for its guidelines. */}
+        <button
+          type="button"
+          onClick={() => setExTeamOpen((value) => !value)}
+          aria-expanded={exTeamOpen}
+          className="mt-14 inline-flex items-center gap-1.5 font-label text-[0.6875rem] uppercase tracking-[0.14em] text-ink transition-colors hover:text-bronze"
+        >
+          Ex Team Members
+          <ChevronDown
+            className={cn('size-3.5 transition-transform', exTeamOpen && 'rotate-180')}
+            aria-hidden
+          />
+        </button>
+
+        {exTeamOpen && <TeamMemberGrid members={EX_TEAM} />}
+      </Container>
+    </Section>
+  );
+}
+
 export default function AboutPage() {
   const whatsapp = `https://wa.me/${CONTACT.phoneRaw}?text=${encodeURIComponent(
     "Hi ARTINU - I'd like to know more about art for my space.",
@@ -620,6 +888,11 @@ export default function AboutPage() {
           </div>
         </Container>
       </Section>
+
+      {/* ── The rest of the team ───────────────────────────────────────── */}
+      {/* Directly below the founder, before the contact band, so the page
+          still reads founder → team → how to reach us. */}
+      <TeamSection />
 
       {/* ── Contact / trust ────────────────────────────────────────────── */}
       <Section size="compact">

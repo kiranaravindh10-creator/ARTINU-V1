@@ -48,9 +48,15 @@ const TIMEOUT_MS = 2500;
  * treated as a person, and people get the real application. Being wrong in that
  * direction costs a preview image; being wrong the other way would serve a
  * stub page to a reader.
+ *
+ * Search engines are deliberately absent. Googlebot, Bingbot and Applebot run
+ * JavaScript, so the real page — its photograph, breadcrumbs, structured data
+ * and links into the rest of the site — is what they should index. The stub
+ * gave them none of that, and its instant refresh points back at the URL being
+ * crawled, which a search engine reads as a redirect to itself.
  */
 const CRAWLERS =
-  /facebookexternalhit|facebookcatalog|WhatsApp|Instagram|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|SkypeUriPreview|vkShare|W3C_Validator|Googlebot|bingbot|Applebot|Iframely|Embedly|nuzzel|outbrain|quora link preview|developers\.google\.com\/\+\/web\/snippet/i;
+  /facebookexternalhit|facebookcatalog|WhatsApp|Instagram|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|SkypeUriPreview|vkShare|W3C_Validator|Iframely|Embedly|nuzzel|outbrain|quora link preview|developers\.google\.com\/\+\/web\/snippet/i;
 
 export function isCrawler(userAgent: string | null | undefined): boolean {
   return !!userAgent && CRAWLERS.test(userAgent);

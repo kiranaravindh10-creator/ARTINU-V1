@@ -12,15 +12,22 @@ Disallow: /signin
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /register
+Disallow: /verify-email
 Disallow: /account/
+Disallow: /account$
 
 # ── Signed-in areas ─────────────────────────────────────────────────────────
 # Trailing slashes matter. `Disallow: /space` (no slash) is a prefix match, so
 # it also blocked /spaces — the main landing page for space owners, and one of
-# the most commercially important URLs on the site.
+# the most commercially important URLs on the site. The `$` lines cover each
+# dashboard's own root, which the slash rules miss; `$` anchors the end, so
+# /space$ blocks /space and nothing else.
 Disallow: /space/
+Disallow: /space$
 Disallow: /studio/
+Disallow: /studio$
 Disallow: /console/
+Disallow: /console$
 
 # ── API ─────────────────────────────────────────────────────────────────────
 Disallow: /api/

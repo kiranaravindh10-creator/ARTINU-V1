@@ -1,8 +1,8 @@
-import { formatNumber, type Artwork } from '@artinu/shared';
+import { ARTWORK_RECOVERY_DAYS, formatNumber, type Artwork } from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Eye, Fingerprint, Heart, Images, MoreVertical, SquarePen, Upload } from 'lucide-react';
+import { Eye, Fingerprint, Heart, Images, MoreVertical, SquarePen, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { PanelHeader } from '@/components/layout/DashboardShell';
 import { Images as ImagesIcon } from 'lucide-react';
@@ -43,8 +43,9 @@ export default function ArtistPortfolioPage() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [sort, setSort] = React.useState('newest');
+  const navigate = useNavigate();
   const [editing, setEditing] = React.useState<Artwork | null>(null);
-  const [archiving, setArchiving] = React.useState<Artwork | null>(null);
+  const [deleting, setDeleting] = React.useState<Artwork | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: qk.myArtworks({ status: 'approved' }),
@@ -72,12 +73,17 @@ export default function ArtistPortfolioPage() {
     onError: (error) => toast.error(errorMessage(error)),
   });
 
-  const archive = useMutation({
+  const remove = useMutation({
     mutationFn: (id: string) => catalogService.deleteArtwork(id),
     onSuccess: () => {
       invalidate();
-      setArchiving(null);
-      toast.success('Archived - it will no longer appear in the gallery');
+      // It has left the public gallery and profile too; drop any cached copy of those.
+      void queryClient.invalidateQueries({ queryKey: ['gallery'] });
+      void queryClient.invalidateQueries({ queryKey: ['artists'] });
+      setDeleting(null);
+      toast.success(`Moved to Recently Deleted. You can recover it for ${ARTWORK_RECOVERY_DAYS} days.`, {
+        action: { label: 'Recently Deleted', onClick: () => navigate('/studio/recently-deleted') },
+      });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -203,8 +209,8 @@ export default function ArtistPortfolioPage() {
                   <DropdownMenuItem onSelect={() => setEditing(artwork)}>
                     <SquarePen /> Edit details
                   </DropdownMenuItem>
-                  <DropdownMenuItem destructive onSelect={() => setArchiving(artwork)}>
-                    <Archive /> Archive
+                  <DropdownMenuItem destructive onSelect={() => setDeleting(artwork)}>
+                    <Trash2 /> Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -233,25 +239,25 @@ export default function ArtistPortfolioPage() {
         />
       )}
 
-      <Dialog open={Boolean(archiving)} onOpenChange={(open) => !open && setArchiving(null)}>
+      <Dialog open={Boolean(deleting)} onOpenChange={(open) => !open && setDeleting(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Archive this photograph?</DialogTitle>
+            <DialogTitle>Delete this photograph?</DialogTitle>
             <DialogDescription>
-              &ldquo;{archiving?.title}&rdquo; will be removed from the gallery. Existing orders and
-              invoices keep their record of it.
+              This photograph will be removed from your public ARTINU profile and gallery. You can
+              recover it for {ARTWORK_RECOVERY_DAYS} days.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setArchiving(null)}>
-              Keep it
+            <Button variant="ghost" onClick={() => setDeleting(null)}>
+              Cancel
             </Button>
             <Button
               variant="danger"
-              loading={archive.isPending}
-              onClick={() => archive.mutate(archiving!.id)}
+              loading={remove.isPending}
+              onClick={() => remove.mutate(deleting!.id)}
             >
-              Archive
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

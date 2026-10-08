@@ -1,5 +1,5 @@
 import { Helmet } from 'react-helmet-async';
-import { generateCanonical, SITE_NAME, DEFAULT_SEO } from '@/lib/seo';
+import { buildBreadcrumbs, generateCanonical, SITE_NAME, DEFAULT_SEO, type BreadcrumbItem } from '@/lib/seo';
 import { useClaimEntityMeta } from './entityClaim';
 
 /**
@@ -21,6 +21,8 @@ export function EntityMeta({
   image,
   imageAlt,
   jsonLd,
+  ogType = 'website',
+  breadcrumbs,
 }: {
   title: string;
   description: string;
@@ -28,6 +30,10 @@ export function EntityMeta({
   image?: string | null;
   imageAlt?: string;
   jsonLd?: Record<string, unknown> | null;
+  /** MetaTags stands down from og:type too, so without this the page had none. */
+  ogType?: 'website' | 'article' | 'profile';
+  /** The trail to this page, Home first, written as BreadcrumbList structured data. */
+  breadcrumbs?: BreadcrumbItem[];
 }) {
   // Tells the route-level MetaTags to stand down; see ./entityClaim.
   useClaimEntityMeta();
@@ -46,6 +52,7 @@ export function EntityMeta({
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
+      <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:image" content={imageUrl} />
       <meta property="og:image:alt" content={alt} />
@@ -60,6 +67,9 @@ export function EntityMeta({
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       ) : (
         <meta name="artinu:entity" content="true" />
+      )}
+      {breadcrumbs && breadcrumbs.length > 1 && (
+        <script type="application/ld+json">{JSON.stringify(buildBreadcrumbs(breadcrumbs))}</script>
       )}
     </Helmet>
   );

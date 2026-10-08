@@ -56,6 +56,10 @@ const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes' | 'users'; column: str
   { table: 'users', column: 'inactivityWarnedAt' },
   { table: 'artworks', column: 'photoId' },
   { table: 'artworks', column: 'photoNumber' },
+  // Added by 016_artwork_recovery.sql
+  { table: 'artworks', column: 'deletedAt' },
+  { table: 'artworks', column: 'deletedBy' },
+  { table: 'artworks', column: 'deletedFromStatus' },
 ];
 
 async function run() {

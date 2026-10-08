@@ -179,7 +179,7 @@ export function Lightbox({
             undefined
           }
           sizes="100vw"
-          alt={artwork.title}
+          alt={artwork.artist?.name ? `${artwork.title} by ${artwork.artist.name}` : artwork.title}
           loading="eager"
           decoding="async"
           onClick={(event) => event.stopPropagation()}

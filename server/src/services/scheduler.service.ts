@@ -1,6 +1,7 @@
 import { env } from '@/config/env';
 import { runBirthdayGreetings } from '@/services/birthday-email.service';
 import { runLifecycleSweeps } from '@/services/lifecycle.service';
+import { purgeExpiredArtworks } from '@/services/artwork-recovery.service';
 import { logger } from '@/utils/logger';
 
 /**
@@ -101,6 +102,23 @@ async function sweep(reason: string): Promise<void> {
   if (env.LIFECYCLE_SWEEPS_ENABLED) {
     await runLifecycleSweeps(today);
   }
+
+  // Photographs deleted more than 17 days ago. The window is measured from the
+  // exact deletion time, so this needs the real clock, not the local "today".
+  if (env.DELETED_ARTWORK_PURGE_ENABLED) {
+    try {
+      const summary = await purgeExpiredArtworks(new Date());
+      if (summary.expired > 0 || summary.failed > 0) {
+        logger.info(
+          `Deleted-artwork purge (${reason}): ${summary.purged} removed, ${summary.retained} kept as records, ` +
+            `${summary.filesRemoved} files removed, ${summary.filesKept} shared files kept, ${summary.failed} failed.`,
+        );
+      }
+    } catch (error) {
+      // Never let a purge failure take the server, or the next night's sweep, with it.
+      logger.error('Deleted-artwork purge failed', error);
+    }
+  }
 }
 
 function scheduleNextMidnight(): void {
@@ -132,9 +150,12 @@ export function startScheduler(): void {
   if (!env.LIFECYCLE_SWEEPS_ENABLED) {
     logger.info('Guideline lifecycle sweeps are disabled (LIFECYCLE_SWEEPS_ENABLED=false).');
   }
+  if (!env.DELETED_ARTWORK_PURGE_ENABLED) {
+    logger.info('The deleted-artwork purge is disabled (DELETED_ARTWORK_PURGE_ENABLED=false).');
+  }
 
   // Nothing to do at all — do not hold a timer for it.
-  if (!env.BIRTHDAY_EMAILS_ENABLED && !env.LIFECYCLE_SWEEPS_ENABLED) return;
+  if (!env.BIRTHDAY_EMAILS_ENABLED && !env.LIFECYCLE_SWEEPS_ENABLED && !env.DELETED_ARTWORK_PURGE_ENABLED) return;
 
   bootTimer = setTimeout(() => void sweep('catch-up'), BOOT_DELAY);
   bootTimer.unref?.();

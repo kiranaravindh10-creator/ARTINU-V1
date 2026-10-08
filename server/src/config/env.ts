@@ -139,6 +139,19 @@ const schema = z.object({
     .transform((value) => value === 'true'),
 
   /**
+   * The nightly purge of photographs deleted more than 17 days ago.
+   *
+   * On by default: it is what makes "permanently deleted after 17 days" true.
+   * Gated separately from the other two sweeps for the same reason they are.
+   * Set false wherever this server is pointed at a database it must only read,
+   * such as a local copy running against production.
+   */
+  DELETED_ARTWORK_PURGE_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /**
    * Anthropic API key for the upload image-safety check (requirements §28).
    * Unset means the visual check does not run — uploads are then published on
    * the text and dimension checks alone, which cannot see the photograph.

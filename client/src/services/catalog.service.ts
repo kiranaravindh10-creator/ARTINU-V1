@@ -5,6 +5,7 @@ import type {
   GalleryQuery,
   Paginated,
   PublicArtist,
+  RecentlyDeletedArtwork,
 } from '@artinu/shared';
 import { api } from '@/lib/api';
 
@@ -141,7 +142,20 @@ export const catalogService = {
     return data;
   },
 
+  /** Moves your own photograph to Recently Deleted. Recoverable for 17 days. */
   async deleteArtwork(id: string) {
-    await api.delete(`/artworks/${id}`);
+    const { data } = await api.delete<{ ok: true; id: string; recoverableUntil: string }>(`/artworks/${id}`);
+    return data;
+  },
+
+  /** Your own deleted photographs still inside the recovery window. */
+  async recentlyDeleted() {
+    const { data } = await api.get<{ items: RecentlyDeletedArtwork[] }>('/artworks/recently-deleted');
+    return data.items;
+  },
+
+  async recoverArtwork(id: string) {
+    const { data } = await api.post<Artwork>(`/artworks/${id}/recover`);
+    return data;
   },
 };

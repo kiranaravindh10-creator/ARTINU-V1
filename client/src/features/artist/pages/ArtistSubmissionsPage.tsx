@@ -37,6 +37,8 @@ const STATUS: Record<ArtworkStatus, { label: string; variant: StatusTone }> = {
   approved: { label: 'Live', variant: 'success' },
   rejected: { label: 'Not published', variant: 'neutral' },
   archived: { label: 'Archived', variant: 'neutral' },
+  // Never listed here (it lives in Recently Deleted); present so the map stays complete.
+  deleted: { label: 'Deleted', variant: 'neutral' },
 };
 
 export default function ArtistSubmissionsPage() {

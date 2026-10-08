@@ -20,6 +20,8 @@ export const BLUR: Record<string, string> = {
   'partners/nib-and-nosh-frame-6': 'data:image/webp;base64,UklGRuYAAABXRUJQVlA4INoAAADwBQCdASoYAB4APt1YpE2opKMiMBgMARAbiWMArAHcC4aSHeI+1HxfCmPFx4u9IejUNZnKMNNwAAD+8Getv9hBUcBqkSUrgI00ZRPZPbeMfDi+fTl4EStBolGLQXf5MB777uP/PX2qVWUjQArFTm41/EQQ7T4PlZQ3+8FhdBAztqATDIQjD0II0kT2XrJ/GsQtqvmrRt/JVROqwmlUWloqEcCGSVUx2qYcTzKhMwdYlsEH7z0X9cV0/8IxGdneC/4zzeBjvJ6EsayBGRYyCQLjNOHKtcM0VhMgAA==',
   'testimonials/oummishra': 'data:image/webp;base64,UklGRvQAAABXRUJQVlA4IOgAAAAQBgCdASoYACAAPt1YpE2opKMiMBgMARAbiWMArDMhpckk/X0EOE8FrkziE4luoVB6DLCsTzyNpIAA/uqA19SJLR2Rm77R0YFFHfkd0oeui+VVUJfEZPg20aoz6SJX5WSz0HcVVhTSl0zDJlobvsIVWHpzy9ifVTBEjb+YSRse9MzdSVBC9VtkcwnTvNmsSk4ux7jHMFJfJXmwwNaKHWCuqEX8Zb8cZeJf3WDFKKIqwRGzvqL8cqHePqoxyPuAB8ug8w4pJM6qLEegZoyLiAmlgWirOBX1wHT3TehmeX1Qeco78FWtAAAA',
   'testimonials/sachin': 'data:image/webp;base64,UklGRuoAAABXRUJQVlA4IN4AAACQBQCdASoYACAAPt1gqE4opaOiMBgIARAbiWIAnTM5Zc0JztTg2rM4luRTM3NQaa3MbXU5AAD8iQueFYeOP30291R9EsynbVBfpRmQ29EdJMFyMWd6KZ7lDP5eFbQDdzSmhEO9fC623Z8QDq5lb6CHVe3tkXX0QU+oz19BRCBNvlbP62IzXFRrRdseu/KlVtK72sppgbrHjqFqnCX/fJ30LiP1V6d+rlprKUIQlRZRiHPHPz0JUZ87Bhc1fU6UuNhUvetalKIWzU8xj9sIm8ElexNa4t86ex3hhD5OgAA=',
+  'testimonials/putikamravindranath': 'data:image/webp;base64,UklGRtYAAABXRUJQVlA4IMoAAABQBQCdASoYACAAPt1mrFEopSQiqAgBEBuJZACdMtpBZCYEU/TG+1l/hJt+gnbcV/MH+WgA/tlSpTQkq4WRZZ0vEYIyvPMQOw7MzJWX+7sNkmBs67MbD4NLOR/8M/gGrBky5qW1HDNc3osIdAB2HhvHanKCZPRzuL4pT7joU2hTNnA4z7cVT8aHqJymgtPTQlHeEY9PPEEvHG0UOr5qpxYkUDiEhZxpVNT3ADVbTQsALwpBHT8v06jnI12F1elSHkzF4slhzawUiQAA',
+  'testimonials/alenpeter': 'data:image/webp;base64,UklGRuoAAABXRUJQVlA4IN4AAACQBQCdASoYACAAPt1cqUyopSQiKA1REBuJYwAD5zwTz6fVX1V3dJYhnKTQq543MRphrx7YAAD+9/FYqllrRfOclaiA1tYhc34xKI8+pktt5XZspIco07/prayBAhQ4weG3x6vIeGd9sbh0zVMUwdS9OI8cNFLj5HS7vEGRnnZbrX9Elh5AYvOBCH9DNi7+Jgj9/zu+8lnEYLqMW7AAmBCyiniW5G98XeQya6wnHO85MzZJl1QvcQolhkMD3y2754DRJ64Tp+hoi9M81P0oQh4/RuD7wEs4ZHbmiWzAAAA=',
 };
 
 /** Which widths actually exist on disk, so a srcSet never points at a 404. */
@@ -35,6 +37,8 @@ export const WIDTHS: Record<string, number[]> = {
   'partners/nib-and-nosh-frame-6': [480, 768, 1024],
   'testimonials/oummishra': [360, 720],
   'testimonials/sachin': [360, 720],
+  'testimonials/putikamravindranath': [360, 720],
+  'testimonials/alenpeter': [360, 720],
 };
 
 /**

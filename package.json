@@ -20,7 +20,7 @@
     "dev:client": "npm run dev --workspace client",
     "dev:demo": "node scripts/dev-demo.mjs",
     "prebuild": "npm run preflight",
-    "build": "npm run typecheck && npm run sitemap && npm run build --workspace client",
+    "build": "npm run typecheck && npm run build --workspace client && npm run sitemap",
     "start": "npm run start --workspace server",
     "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client && tsc -p tsconfig.edge.json",
     "seed": "npm run seed --workspace server",

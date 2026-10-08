@@ -89,6 +89,12 @@ rotationRouter.post(
 
     const { artworkIds } = req.valid as { artworkIds: string[] };
 
+    // A space must never be offered a photograph its photographer has deleted.
+    const proposed = await Promise.all(artworkIds.map((id) => db.artworks.byId(id)));
+    if (proposed.some((artwork) => artwork?.status === 'deleted')) {
+      throw badRequest('One of these photographs has been deleted by its photographer. Choose another.');
+    }
+
     const updated = await db.rotations.update(cycle.id, {
       proposedArtworkIds: artworkIds,
       status: 'awaiting_approval',

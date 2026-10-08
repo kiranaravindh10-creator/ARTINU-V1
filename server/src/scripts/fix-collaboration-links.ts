@@ -5,7 +5,7 @@
  *
  * Two things, both of which live in the database rather than in the source: the
  * link on the Nib & Nosh collaboration, and the testimonials ARTINU has
- * received from the people in them.
+ * received from the people whose walls and photographs it has framed.
  *
  * ── Why this is a script and not a code change ──────────────────────────────
  *
@@ -54,11 +54,15 @@ const NIB_AND_NOSH = /nib\s*(&|and)\s*nosh/i;
 /**
  * The real testimonials, in the order they were given.
  *
- * `business` is absent on both. Neither speaks for a company — one is a father
- * standing beside his daughter's exhibited photograph, the other a photographer
- * standing beside his own. The homepage builds the attribution from whichever
- * of `role`/`business` exist, so omitting it says "there is none" rather than
- * leaving a gap to fill in later.
+ * `business` is absent on all of them. The first two do not speak for a
+ * company — one is a father standing beside his daughter's exhibited
+ * photograph, the other a photographer standing beside his own — and the home
+ * decor owner who added the third (Oct 2026) gave no business name to credit.
+ * The homepage builds the attribution from whichever of `role`/`business`
+ * exist, so omitting it says "there is none" rather than leaving a gap to fill
+ * in later.
+ *
+ * Quotes are word for word as given, "Artinu" included.
  */
 const TESTIMONIALS = [
   {
@@ -78,6 +82,22 @@ const TESTIMONIALS = [
     photo: '/image/testimonials/oummishra-720.webp',
     photoAlt:
       'Oum Mishra standing beside his framed photograph on the wall at Nib & Nosh Café',
+  },
+  {
+    name: 'Putikam Ravindranath',
+    role: 'Home Decor owner',
+    quote: 'Wild coastlines have a way of feeling like home.',
+    photo: '/image/testimonials/putikamravindranath-720.webp',
+    photoAlt:
+      "Alen Peter's framed photograph of a palm leaning over turquoise waves and dark rocks, lit by a wall light",
+  },
+  {
+    name: 'Alen Peter',
+    role: 'Photographer',
+    quote:
+      'Seeing my photograph framed for the first time felt really special. It was different from just looking at it on my phone, it felt more personal and made the memory feel real. I’ve always loved photography, especially capturing people and everyday moments, and Artinu gave me a new way to appreciate those photographs. My friends also liked it when they saw the framed picture. They said it looked beautiful and made the photograph feel more meaningful. A few other customers noticed it too, which was a nice surprise. Nib & Nosh made the experience feel comfortable and relaxed, so it didn’t feel like just a regular framing service. Overall, it was a simple but memorable experience, and I’m really happy with how it turned out.',
+    photo: '/image/testimonials/alenpeter-720.webp',
+    photoAlt: 'Alen Peter standing beside his framed photograph of a lighthouse on the wall at Nib & Nosh',
   },
 ];
 

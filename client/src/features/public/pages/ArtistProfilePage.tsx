@@ -32,8 +32,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/api';
 import { IMAGES } from '@/lib/images';
 import { qk } from '@/lib/query';
-import { SITE_URL } from '@/lib/seo';
-import { EntityMeta } from '@/components/seo';
+import { absoluteUrl, clampDescription, instagramUrl, ORGANIZATION_ID, SITE_URL } from '@/lib/seo';
+import { EntityMeta, NoIndex } from '@/components/seo';
 import { catalogService } from '@/services/catalog.service';
 import { cn } from '@/lib/utils';
 
@@ -105,6 +105,8 @@ export default function ArtistProfilePage() {
   if (isError || !artist) {
     return (
       <Container className="py-24">
+        {/* No such photographer: never index the empty page under their URL. */}
+        <NoIndex />
         <EmptyState
           icon={<UserX />}
           title="We couldn't find that artist."
@@ -139,16 +141,26 @@ export default function ArtistProfilePage() {
   */
   const artistPath = `/artists/${artist.slug}`;
   const artistLocation = [artist.city, artist.country].filter(Boolean).join(', ');
-  const artistMetaDescription =
-    (artist.bio?.trim().slice(0, 155) || null) ??
-    `Photography by ${artist.name}${artistLocation ? ` from ${artistLocation}` : ''} on ARTINU. ` +
-      `Available as framed prints for cafés, restaurants and offices in Bangalore.`;
+  const photographyBy = `Photography by ${artist.name}${artistLocation ? ` from ${artistLocation}` : ''} on ARTINU`;
+  // The bio alone never said whose page this was, or where.
+  const artistMetaDescription = clampDescription(
+    artist.bio?.trim()
+      ? `${photographyBy}. ${artist.bio.trim()}`
+      : `${photographyBy}, curated for cafés, restaurants and offices in Bengaluru.`,
+  );
+  // sameAs is a claim of ownership, so only links the photographer gave us,
+  // and only in a form that is actually a URL (a bare "@handle" is not).
+  const profileLinks = [absoluteUrl(artist.website), instagramUrl(artist.instagram)].filter(
+    (link): link is string => Boolean(link),
+  );
 
   const artistJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
     mainEntity: {
       '@type': 'Person',
+      // Artwork pages name the same id as their creator, linking the two.
+      '@id': `${SITE_URL}${artistPath}#person`,
       name: artist.name,
       url: `${SITE_URL}${artistPath}`,
       jobTitle: 'Photographer',
@@ -158,11 +170,10 @@ export default function ArtistProfilePage() {
       ...(artistLocation
         ? { homeLocation: { '@type': 'Place', name: artistLocation } }
         : {}),
-      // sameAs is a claim of ownership, so only links the photographer gave us.
-      ...(([artist.website, artist.instagram].filter(Boolean) as string[]).length
-        ? { sameAs: [artist.website, artist.instagram].filter(Boolean) }
-        : {}),
-      worksFor: { '@type': 'Organization', name: 'ARTINU', url: SITE_URL },
+      ...(profileLinks.length ? { sameAs: profileLinks } : {}),
+      // A member of the ARTINU community, not an employee: `worksFor` claimed
+      // a job for every photographer with a profile.
+      memberOf: { '@type': 'Organization', '@id': ORGANIZATION_ID, name: 'ARTINU', url: SITE_URL },
     },
   };
 
@@ -188,12 +199,18 @@ export default function ArtistProfilePage() {
   return (
     <>
       <EntityMeta
-        title={`${artist.name} - Photographer on ARTINU`}
+        title={`${artist.name} - Photographer${artist.city ? `, ${artist.city}` : ''} | ARTINU`}
         description={artistMetaDescription}
         path={artistPath}
         image={artist.coverUrl || artist.avatarUrl}
         imageAlt={`Photography by ${artist.name}`}
         jsonLd={artistJsonLd}
+        ogType="profile"
+        breadcrumbs={[
+          { name: 'Home', url: SITE_URL },
+          { name: 'Artists', url: `${SITE_URL}/artists` },
+          { name: artist.name, url: `${SITE_URL}${artistPath}` },
+        ]}
       />
       <Container size="wide" className="pt-8">
         <div className="flex items-center justify-between gap-4">

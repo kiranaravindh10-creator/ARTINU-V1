@@ -101,9 +101,9 @@
       tag back along with a variable that actually exists.
     -->
 
-    <!-- Fallback title/description (replaced by React Helmet) -->
-    <title>ARTINU - Photography that brings spaces to life</title>
-    <meta data-rh="true" name="description" content="ARTINU curates museum-grade photography for cafés, restaurants, hotels and workspaces - curated, framed, installed and rotated every month. Zero upfront cost." />
+    <!-- Fallback title/description, cleared with the tags below once the app starts -->
+    <title data-rh="true">ARTINU | Photography &amp; Art Curation for Cafés in Bengaluru</title>
+    <meta data-rh="true" name="description" content="Curated photography for cafés, restaurants and offices in Bengaluru (Bangalore). ARTINU prints, frames, installs and rotates artists' work every month." />
 
     <!--
       Static social + canonical fallback.
@@ -127,22 +127,33 @@
       For a crawler that never runs JavaScript these are the whole preview, and
       for a shared photograph they are the wrong one — middleware.ts answers
       those requests with the photograph's own tags instead.
+
+      Deliberately absent: rel="canonical" and og:url. This one file is served
+      for every route, so any address written here is wrong for all but one of
+      them. The canonical that used to sit here pointed every page at the
+      homepage in the HTML search engines read first, contradicting the
+      per-route canonical written once JavaScript runs, and og:url told every
+      network that any shared link was the homepage. Left out, each page is
+      identified by its own address until the app writes the real tags.
+
+      The image is a JPEG copy of image/artinu-model.png at its true size. The
+      PNG is 2.2 MB, more than WhatsApp will fetch for a preview, and was
+      declared as 1200x630 when it is a 1122x1402 portrait.
     -->
-    <link data-rh="true" rel="canonical" href="https://artinu.in/" />
     <meta data-rh="true" property="og:site_name" content="ARTINU" />
     <meta data-rh="true" property="og:type" content="website" />
-    <meta data-rh="true" property="og:url" content="https://artinu.in/" />
     <meta data-rh="true" property="og:title" content="ARTINU - Photography that brings spaces to life" />
     <meta data-rh="true" property="og:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore. We print, frame, install and rotate the work." />
-    <meta data-rh="true" property="og:image" content="https://artinu.in/image/artinu-model.png" />
-    <meta data-rh="true" property="og:image:width" content="1200" />
-    <meta data-rh="true" property="og:image:height" content="630" />
-    <meta data-rh="true" property="og:image:alt" content="A framed photograph curated by ARTINU in a real space" />
+    <meta data-rh="true" property="og:image" content="https://artinu.in/image/artinu-share.jpg" />
+    <meta data-rh="true" property="og:image:width" content="1122" />
+    <meta data-rh="true" property="og:image:height" content="1402" />
+    <meta data-rh="true" property="og:image:alt" content="A framed ARTINU print of Mahajala, a photograph of a tiger by S R Kiran Aravindh" />
     <meta data-rh="true" property="og:locale" content="en_IN" />
     <meta data-rh="true" name="twitter:card" content="summary_large_image" />
     <meta data-rh="true" name="twitter:title" content="ARTINU - Photography that brings spaces to life" />
     <meta data-rh="true" name="twitter:description" content="Curated photography on rotation for cafés, restaurants, offices and hotels in Bangalore." />
-    <meta data-rh="true" name="twitter:image" content="https://artinu.in/image/artinu-model.png" />
+    <meta data-rh="true" name="twitter:image" content="https://artinu.in/image/artinu-share.jpg" />
+    <meta data-rh="true" name="twitter:image:alt" content="A framed ARTINU print of Mahajala, a photograph of a tiger by S R Kiran Aravindh" />
 
     <style>
       /* Boot diagnostics only. React replaces #root on its first commit, so
@@ -339,8 +350,12 @@
 
         var bootPoll = setInterval(function () {
           if (appIsUp()) {
-            // It came up. Retract the panel if it was shown while we waited.
-            if (bootPanel) bootPanel.className = '';
+            // It came up. Retract the panel if it was shown while we waited,
+            // and take it out of the page altogether: once this poll stops it
+            // can never show again, and left in place its hidden heading
+            // ("The app didn't start.") was a second <h1> on every page that
+            // search engines read. record() already tolerates its absence.
+            if (bootPanel) bootPanel.remove();
             clearInterval(bootPoll);
             return;
           }

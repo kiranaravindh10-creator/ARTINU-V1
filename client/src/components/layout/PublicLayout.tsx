@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { SiteAssistant } from '@/components/assistant/SiteAssistant';
 import { Footer } from '@/components/layout/Footer';
 import { PublicNav } from '@/components/layout/PublicNav';
 import { MetaTags } from '@/components/seo';
@@ -30,6 +31,11 @@ export function PublicLayout() {
         <Outlet />
       </main>
       <Footer />
+      {/*
+        The help desk. Outside <main>, and last, so it is neither part of the
+        page's content outline nor in the way of the skip link.
+      */}
+      <SiteAssistant />
     </div>
   );
 }

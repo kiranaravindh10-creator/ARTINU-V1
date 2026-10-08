@@ -1166,7 +1166,7 @@ export default function HomePage() {
               </div>
               <Photo
                 src="/image/what-is-artinu.webp"
-                alt="A framed artwork curated by Artinu"
+                alt="A framed artwork curated by ARTINU"
                 ratio="aspect-square"
                 className="rounded-xl photo-edge"
               />

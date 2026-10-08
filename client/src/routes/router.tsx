@@ -170,6 +170,10 @@ const artistRoutes: RouteObject = {
           element: lazyPage(() => import('@/features/artist/pages/ArtistPortfolioPage')),
         },
         {
+          path: 'recently-deleted',
+          element: lazyPage(() => import('@/features/artist/pages/ArtistRecentlyDeletedPage')),
+        },
+        {
           path: 'installations',
           element: lazyPage(() => import('@/features/artist/pages/ArtistInstallationsPage')),
         },

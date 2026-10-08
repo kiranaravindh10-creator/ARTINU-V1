@@ -179,7 +179,25 @@ export const ARTWORK_STATUSES = [
   'approved',
   'rejected',
   'archived',
+  /*
+    Deleted by the photographer and waiting out the recovery window.
+
+    A status rather than a separate flag on purpose: every public read already
+    asks for `approved`, so a deleted photograph leaves the gallery, the
+    profile, search and every curated list without each of them having to know
+    deletion exists. `deletedFromStatus` remembers what to go back to.
+  */
+  'deleted',
 ] as const;
+
+/**
+ * How long a photographer can recover a photograph they deleted, in days.
+ *
+ * Counted from the exact `deletedAt` timestamp, not from calendar dates: a
+ * photograph deleted at 9pm on the 7th is recoverable until 9pm on the 24th.
+ * The server alone applies it; the client only ever displays what it was told.
+ */
+export const ARTWORK_RECOVERY_DAYS = 17;
 
 /** Automated checks every upload passes through (requirements §5). */
 export const VALIDATION_CHECKS = [
