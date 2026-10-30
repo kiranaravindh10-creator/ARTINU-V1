@@ -3,6 +3,7 @@ import path from 'node:path';
 import { slugify } from '@artinu/shared';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/config/env';
+import { exifOrientation } from '@/services/exif.service';
 import { badRequest, serverError } from '@/utils/errors';
 import { uuid } from '@/utils/ids';
 import {
@@ -463,7 +464,17 @@ export function imageDimensions(
       const marker = buffer[offset + 1]!;
       // SOF0–SOF15 hold the dimensions; C4/C8/CC are tables, not frames.
       if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-        return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
+        const height = buffer.readUInt16BE(offset + 5);
+        const width = buffer.readUInt16BE(offset + 7);
+        /*
+          The size it is SHOWN at. A phone often stores a portrait photograph's
+          pixels sideways with an EXIF Orientation of 5-8 (a quarter turn), and
+          every browser and the resizer turn it upright. Recorded as stored, a
+          4000x3000 portrait became "landscape", and the gallery and its page
+          framed it at 3:2 - cutting away half the photograph.
+        */
+        const turn = exifOrientation(buffer);
+        return turn !== null && turn >= 5 ? { width: height, height: width } : { width, height };
       }
       if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
         offset += 2; // standalone marker, no payload

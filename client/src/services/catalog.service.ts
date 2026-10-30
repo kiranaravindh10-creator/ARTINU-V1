@@ -1,6 +1,7 @@
 import type {
   Artwork,
   ArtworkUploadInput,
+  CaptureDateSuggestion,
   ArtworkWithArtist,
   GalleryQuery,
   Paginated,
@@ -139,6 +140,12 @@ export const catalogService = {
 
   async updateArtwork(id: string, patch: Partial<Artwork>) {
     const { data } = await api.patch<Artwork>(`/artworks/${id}`, patch);
+    return data;
+  },
+
+  /** What the camera recorded about when one of your photographs was taken - a suggestion only. */
+  async captureDateSuggestion(id: string) {
+    const { data } = await api.get<CaptureDateSuggestion>(`/artworks/${id}/capture-date`);
     return data;
   },
 

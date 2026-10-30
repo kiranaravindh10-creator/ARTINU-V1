@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Space } from './types.js';
+import { isValidCaptureDate, STORY_MIN_LENGTH } from './artwork-metadata.js';
 import {
   ANNOUNCEMENT_AUDIENCES,
   ANNOUNCEMENT_LIMITS,
@@ -99,7 +100,7 @@ export const signInSchema = z.object({
 
 export const signUpSchema = z
   .object({
-    fullName: z.string().min(2, 'Enter your full name').max(120),
+    fullName: z.string().trim().min(2, 'Enter your full name').max(120),
     email: z.string().email('Enter a valid email address'),
     phone: phoneSchema,
     dateOfBirth: dateOfBirthSchema,
@@ -136,7 +137,7 @@ export const forgotPasswordSchema = z.object({
 
 export const registerStep1Schema = z
   .object({
-    fullName: z.string().min(2, 'Enter your full name').max(120),
+    fullName: z.string().trim().min(2, 'Enter your full name').max(120),
     email: z.string().email('Enter a valid email address'),
     phone: phoneSchema,
     dateOfBirth: dateOfBirthSchema,
@@ -145,7 +146,7 @@ export const registerStep1Schema = z
   .describe('Create your account');
 
 export const registerStep2Schema = z.object({
-  artistName: z.string().min(2, 'Enter your professional name').max(120),
+  artistName: z.string().trim().min(2, 'Enter your professional name').max(120),
   location: z.string().min(2, 'Enter your city and country').max(160),
   website: z.string().url('Enter a valid URL').optional().nullable().or(z.literal('')),
   artStyle: enumOf(ART_STYLES),
@@ -199,7 +200,7 @@ export const artistRegistrationSchema = registerStep1Schema
  */
 export const spaceOwnerRegistrationSchema = z
   .object({
-    fullName: z.string().min(2, 'Enter your full name').max(120),
+    fullName: z.string().trim().min(2, 'Enter your full name').max(120),
     email: z.string().email('Enter a valid email address'),
     spaceName: z.string().min(2, 'Enter your space name').max(160),
     spaceType: enumOf(SPACE_TYPES),
@@ -231,8 +232,8 @@ export const resetPasswordSchema = z
 // ── Profile ─────────────────────────────────────────────────────────────────
 
 export const profileUpdateSchema = z.object({
-  fullName: z.string().min(2).max(120),
-  displayName: z.string().max(120).optional().nullable(),
+  fullName: z.string().trim().min(2).max(120),
+  displayName: z.string().trim().max(120).optional().nullable(),
   phone: z
     .string()
     .regex(/^[+0-9 ()-]{7,20}$/, 'Enter a valid phone number')
@@ -336,9 +337,18 @@ export const artworkUploadSchema = z.object({
  *
  * The same rules as `artworkUploadSchema` for the fields a photographer may
  * revise, but every one optional — a PATCH carries whatever changed and nothing
- * else. The photograph itself, its category and its Photo ID are deliberately
- * absent: the image is what was reviewed and what may already be printed and
- * hanging on a wall, so replacing it is a new upload rather than an edit.
+ * else. The photograph itself and its Photo ID are deliberately absent: the
+ * image is what was reviewed and what may already be printed and hanging on a
+ * wall, so replacing it is a new upload rather than an edit.
+ *
+ * Category and capture date used to be absent too, and that left photographs
+ * nobody could correct: work carried over from an artist application was filed
+ * under the category of the photographer's first genre (a sunset under
+ * "People") and had no date, because the application never asked. Both are the
+ * photographer's to state, so both are editable. A capture date is a calendar
+ * day, `YYYY-MM-DD`; the route stores it as midnight UTC like every other.
+ *
+ * A story, when one is given, needs the same twenty characters an upload does.
  *
  * `PATCH /artworks/:id` used to take `req.body` straight from the request and
  * filter it against an array of allowed key *names* only, so the names were
@@ -350,9 +360,23 @@ export const artworkUploadSchema = z.object({
  */
 export const artworkEditSchema = z
   .object({
-    title: z.string().min(2, 'Give this photograph a title').max(160),
+    title: z.string().trim().min(2, 'Give this photograph a title').max(160),
     description: z.string().max(600).nullable(),
-    story: z.string().max(1500).nullable(),
+    story: z
+      .string()
+      .trim()
+      .max(1500)
+      .refine((value) => value.length === 0 || value.length >= STORY_MIN_LENGTH, {
+        message: `Tell us what this photograph is about in at least ${STORY_MIN_LENGTH} characters`,
+      })
+      .nullable(),
+    category: enumOf(GALLERY_CATEGORIES),
+    capturedAt: z
+      .string()
+      .refine((value) => isValidCaptureDate(value), {
+        message: 'Enter the day it was taken - a real date, not in the future',
+      })
+      .nullable(),
     mood: z.array(enumOf(MOODS)).max(3, 'Choose up to 3 moods'),
     colors: z.array(z.enum(values(ARTWORK_COLORS))).max(3),
     tags: z.array(z.string().min(2).max(30)).max(10, 'Up to 10 tags'),
@@ -624,7 +648,7 @@ export const consultationSchema = z.object({
 });
 
 export const artistApplicationSchema = z.object({
-  fullName: z.string().min(2, 'Enter your full name').max(120),
+  fullName: z.string().trim().min(2, 'Enter your full name').max(120),
   email: z.string().email('Enter a valid email address'),
   location: z.string().min(2, 'Enter your city, state or country').max(160),
   website: z.string().url('Enter a valid URL').optional().nullable().or(z.literal('')),

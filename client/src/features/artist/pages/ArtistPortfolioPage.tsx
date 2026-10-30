@@ -1,11 +1,36 @@
-import { ARTWORK_RECOVERY_DAYS, formatNumber, type Artwork } from '@artinu/shared';
+import {
+  ARTWORK_RECOVERY_DAYS,
+  artworkMetadataStatus,
+  formatCalendarDate,
+  formatNumber,
+  GALLERY_CATEGORIES,
+  GALLERY_CATEGORY_LABELS,
+  isPlaceholderTitle,
+  isValidCaptureDate,
+  STORY_MIN_LENGTH,
+  type Artwork,
+  type GalleryCategory,
+  type MetadataGap,
+} from '@artinu/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Fingerprint, Heart, Images, MoreVertical, SquarePen, Trash2, Upload } from 'lucide-react';
+import {
+  Camera,
+  CircleAlert,
+  Eye,
+  Fingerprint,
+  Heart,
+  Images,
+  MoreVertical,
+  SquarePen,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { PanelHeader } from '@/components/layout/DashboardShell';
 import { Images as ImagesIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -60,13 +85,23 @@ export default function ArtistPortfolioPage() {
     return list;
   }, [data, sort]);
 
+  // Photographs still missing the title or story a visitor reads. Work carried
+  // over from an artist application arrives without either.
+  const incomplete = items.filter((artwork) => !artworkMetadataStatus(artwork).complete);
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['my-artworks'] });
 
   const update = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Artwork> }) =>
       catalogService.updateArtwork(id, patch),
-    onSuccess: () => {
+    onSuccess: (_updated, { id }) => {
       invalidate();
+      // The gallery, the photograph's page and the profile show the same
+      // fields; without this they kept the old title until a reload.
+      void queryClient.invalidateQueries({ queryKey: ['gallery'] });
+      void queryClient.invalidateQueries({ queryKey: ['artwork', id] });
+      void queryClient.invalidateQueries({ queryKey: ['artists'] });
+      void queryClient.invalidateQueries({ queryKey: ['artist'] });
       setEditing(null);
       toast.success('Details updated');
     },
@@ -147,6 +182,38 @@ export default function ArtistPortfolioPage() {
         <SimpleSelect value={sort} onValueChange={setSort} options={SORTS} className="h-10 w-48" />
       </div>
 
+      {items.length > 0 && (
+        <div
+          role="status"
+          className={
+            incomplete.length > 0
+              ? 'mb-9 flex flex-wrap items-center justify-between gap-4 rounded-sm border border-warning/30 bg-warning-soft px-5 py-4'
+              : 'mb-9 flex items-center gap-2 text-sm text-muted'
+          }
+        >
+          {incomplete.length > 0 ? (
+            <>
+              <div className="min-w-0 max-w-[62ch]">
+                <p className="flex items-center gap-2 font-medium text-ink">
+                  <CircleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+                  {incomplete.length} of {items.length}{' '}
+                  {items.length === 1 ? 'photograph needs' : 'photographs need'} details
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Each needs a real title and a story of at least {STORY_MIN_LENGTH} characters,
+                  in your own words. Until then visitors see a placeholder title and no story.
+                </p>
+              </div>
+              <Button onClick={() => setEditing(incomplete[0])}>
+                <SquarePen /> Complete details
+              </Button>
+            </>
+          ) : (
+            <>Every photograph has a title and a story.</>
+          )}
+        </div>
+      )}
+
       {isError ? (
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : isLoading ? (
@@ -214,6 +281,8 @@ export default function ArtistPortfolioPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <MetadataStatusRow artwork={artwork} onComplete={() => setEditing(artwork)} />
             </article>
           ))}
         </ArtworkMasonry>
@@ -312,6 +381,13 @@ function parseTags(value: string): string[] {
  * at upload had no way to correct it and no way to know why searches missed
  * their work. They are here now.
  *
+ * Category and the date taken followed. Photographs carried over from an
+ * artist application arrived as "Untitled 3", with no story or date and filed
+ * under the category of the photographer's first genre, and nothing here could
+ * put any of that right. The dialog says what the photograph still needs, and
+ * offers the camera's own date from the original file - offers, because only
+ * the photographer can say it is right.
+ *
  * ── Why Save can be disabled ────────────────────────────────────────────────
  *
  * The form sends only what actually changed, and the schema rejects an empty
@@ -339,6 +415,11 @@ function EditDialog({
   const [story, setStory] = React.useState(artwork.story ?? '');
   const [location, setLocation] = React.useState(artwork.location ?? '');
   const [tags, setTags] = React.useState((artwork.tags ?? []).join(', '));
+  const [category, setCategory] = React.useState<GalleryCategory>(artwork.category);
+  // Capture dates are stored as midnight UTC of the day, so the first ten
+  // characters are the day itself - what a date input wants.
+  const recordedDay = artwork.capturedAt ? artwork.capturedAt.slice(0, 10) : '';
+  const [capturedAt, setCapturedAt] = React.useState(recordedDay);
 
   const trimmedTitle = title.trim();
   const parsedTags = parseTags(tags);
@@ -350,6 +431,8 @@ function EditDialog({
   if (story.trim() !== (artwork.story ?? '')) patch.story = story.trim();
   if (location.trim() !== (artwork.location ?? '')) patch.location = location.trim();
   if (!sameTags(parsedTags, artwork.tags ?? [])) patch.tags = parsedTags;
+  if (category !== artwork.category) patch.category = category;
+  if (capturedAt !== recordedDay) patch.capturedAt = capturedAt || null;
 
   const changedCount = Object.keys(patch).length;
 
@@ -362,12 +445,32 @@ function EditDialog({
         ? 'Titles are limited to 160 characters'
         : undefined;
 
+  // A location can be corrected but not removed: the server requires one, as
+  // the upload did, so clearing it would only fail after the round trip.
   const locationError =
-    location.trim().length > 0 && location.trim().length < 2
+    (location.trim().length > 0 && location.trim().length < 2) ||
+    (location.trim().length === 0 && Boolean(artwork.location))
       ? 'Enter the location where this was photographed'
       : undefined;
 
-  const blocked = Boolean(titleError || locationError) || changedCount === 0;
+  const trimmedStory = story.trim();
+  const storyError =
+    'story' in patch && trimmedStory.length > 0 && trimmedStory.length < STORY_MIN_LENGTH
+      ? `A story needs at least ${STORY_MIN_LENGTH} characters - it is printed beside the photograph`
+      : undefined;
+
+  const dateError =
+    capturedAt && !isValidCaptureDate(capturedAt) ? 'Enter a real date, not in the future' : undefined;
+
+  const blocked =
+    Boolean(titleError || locationError || storyError || dateError) || changedCount === 0;
+
+  // What the photograph will still need if it is saved as the form stands.
+  const status = artworkMetadataStatus({
+    title: trimmedTitle,
+    story: trimmedStory,
+    capturedAt: capturedAt || null,
+  });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -380,8 +483,32 @@ function EditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <Field label="Title" htmlFor="edit-title" required error={titleError}>
+        <p
+          role="status"
+          className={
+            status.complete
+              ? 'flex items-center gap-2 text-sm text-success'
+              : 'flex items-center gap-2 text-sm text-warning'
+          }
+        >
+          <CircleAlert className="size-4 shrink-0" aria-hidden />
+          {status.complete
+            ? 'Title and story complete.'
+            : `Still needed: ${describeGaps(status.missing)}.`}
+        </p>
+
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+          <Field
+            label="Title"
+            htmlFor="edit-title"
+            required
+            error={titleError}
+            hint={
+              !titleError && isPlaceholderTitle(trimmedTitle)
+                ? 'This is a placeholder. Give the photograph the title you want beside it.'
+                : undefined
+            }
+          >
             <Input
               id="edit-title"
               value={title}
@@ -398,15 +525,48 @@ function EditDialog({
               onChange={(event) => setDescription(event.target.value)}
             />
           </Field>
-          <Field label="Story" htmlFor="edit-story">
+          <Field
+            label="Story"
+            htmlFor="edit-story"
+            error={storyError}
+            hint={`In your own words, at least ${STORY_MIN_LENGTH} characters - it is printed on the plate beside the photograph. ${trimmedStory.length} so far.`}
+          >
             <Textarea
               id="edit-story"
               rows={4}
               maxLength={1500}
               value={story}
+              invalid={Boolean(storyError)}
               onChange={(event) => setStory(event.target.value)}
             />
           </Field>
+          <Field label="Category" htmlFor="edit-category">
+            <SimpleSelect
+              id="edit-category"
+              value={category}
+              onValueChange={(value) => setCategory(value as GalleryCategory)}
+              options={GALLERY_CATEGORIES.map((value) => ({
+                value,
+                label: GALLERY_CATEGORY_LABELS[value],
+              }))}
+            />
+          </Field>
+          <Field
+            label="Date taken"
+            htmlFor="edit-captured"
+            error={dateError}
+            hint={capturedAt ? undefined : 'Leave it empty if you do not know it.'}
+          >
+            <Input
+              id="edit-captured"
+              type="date"
+              max={localToday()}
+              value={capturedAt}
+              invalid={Boolean(dateError)}
+              onChange={(event) => setCapturedAt(event.target.value)}
+            />
+          </Field>
+          <CaptureDateHint artworkId={artwork.id} value={capturedAt} onUse={setCapturedAt} />
           <Field label="Location" htmlFor="edit-location" error={locationError}>
             <Input
               id="edit-location"
@@ -442,5 +602,102 @@ function EditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const GAP_LABELS: Record<MetadataGap, string> = { title: 'a title', story: 'a story' };
+
+function describeGaps(gaps: MetadataGap[]): string {
+  return gaps.map((gap) => GAP_LABELS[gap]).join(' and ');
+}
+
+/** Today on the photographer's own calendar, as a date input writes it. */
+function localToday(): string {
+  const today = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+}
+
+/**
+ * Under a tile: what the photograph still needs, and the way to add it. A
+ * complete photograph shows nothing here - the note above the grid says so.
+ */
+function MetadataStatusRow({ artwork, onComplete }: { artwork: Artwork; onComplete: () => void }) {
+  const status = artworkMetadataStatus(artwork);
+  if (status.complete) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+      <Badge variant="warning">
+        <CircleAlert /> Needs {describeGaps(status.missing)}
+      </Badge>
+      <Button size="sm" variant="outline" onClick={onComplete}>
+        Complete details
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The camera's date for this photograph, offered beside the date field.
+ *
+ * Read from the original file's EXIF each time the dialog opens, and only ever
+ * offered: it reaches the photograph when the photographer presses "Use" and
+ * then saves. A camera's clock can be wrong, an edited copy can carry the
+ * editing day, and a date on the public page reads as a fact - so it is the
+ * photographer who confirms it. When there is nothing usable in the file the
+ * reason is shown instead.
+ */
+function CaptureDateHint({
+  artworkId,
+  value,
+  onUse,
+}: {
+  artworkId: string;
+  value: string;
+  onUse: (day: string) => void;
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['my-artworks', artworkId, 'capture-date'],
+    queryFn: () => catalogService.captureDateSuggestion(artworkId),
+    staleTime: Infinity,
+  });
+
+  if (isLoading) {
+    return <p className="text-xs text-subtle">Checking your original file for the camera&apos;s date…</p>;
+  }
+  if (isError || !data) {
+    return (
+      <p className="text-xs text-subtle">
+        We could not check your original file for a date just now. If you know the day it was
+        taken, enter it.
+      </p>
+    );
+  }
+
+  const days =
+    data.status === 'found' && data.date ? [data.date] : data.status === 'ambiguous' ? data.candidates : [];
+
+  return (
+    <div className="rounded-sm border border-line bg-sand/40 px-3 py-2.5 text-xs text-muted">
+      <p className="flex gap-2">
+        <Camera className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>{data.message}</span>
+      </p>
+      {days.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2 pl-5">
+          {days.map((day) =>
+            day === value ? (
+              <span key={day} className="inline-flex h-9 items-center text-success">
+                {formatCalendarDate(day, 'long')} is entered
+              </span>
+            ) : (
+              <Button key={day} size="sm" variant="outline" onClick={() => onUse(day)}>
+                Use {formatCalendarDate(day, 'long')}
+              </Button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
   );
 }

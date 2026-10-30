@@ -1,6 +1,6 @@
 import {
   type ArtworkWithArtist,
-  formatDate,
+  formatCalendarDate,
   GALLERY_CATEGORY_LABELS,
   ORIENTATION_LABELS,
   SPACE_TYPE_LABELS,
@@ -50,6 +50,8 @@ export default function ArtworkDetailPage() {
     phone this stays null and the panel at the bottom never renders.
   */
   const [sharing, setSharing] = React.useState<ArtworkWithArtist | null>(null);
+  // The size the main image was decoded at, for the photograph it belongs to.
+  const [decoded, setDecoded] = React.useState<{ id: string; width: number; height: number } | null>(null);
 
   const {
     data: artwork,
@@ -119,6 +121,31 @@ export default function ArtworkDetailPage() {
       : artwork.orientation === 'square'
         ? 'aspect-square'
         : 'aspect-[3/2]';
+
+  /*
+    This page frames the photograph at its own proportions.
+
+    Gallery tiles keep to three shapes so a grid reads evenly, and may trim an
+    edge to do it. This is the page where someone decides whether to put the
+    photograph on a wall, so it shows all of it: in the 3:4 frame a 9:16 phone
+    photograph lost two-fifths of its height. The height is capped to the
+    viewport so a tall photograph is seen whole without scrolling, and the
+    width follows from the ratio, so there are no bars. `ratio` remains the
+    fallback for a record whose dimensions were never measured.
+
+    The stored size sets the frame before the image arrives; once it has, the
+    size the browser decoded takes over. The two differ for a photograph stored
+    sideways with an EXIF rotation flag: recorded 4000x3000, shown 3000x4000.
+  */
+  const size =
+    decoded?.id === artwork.id ? decoded : { width: artwork.width, height: artwork.height };
+  const frame: React.CSSProperties | undefined =
+    size.width > 0 && size.height > 0
+      ? {
+          aspectRatio: `${size.width} / ${size.height}`,
+          maxWidth: `calc(80vh * ${size.width / size.height})`,
+        }
+      : undefined;
 
   const strip = [artwork, ...related].slice(0, 8);
   const index = related.findIndex((entry) => entry.id === artworkId);
@@ -236,13 +263,16 @@ export default function ArtworkDetailPage() {
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] lg:gap-14">
           {/* ── Main column ────────────────────────────────────────────── */}
           <div className="min-w-0">
-            <Photo
-              src={artwork.imageUrl}
-              alt={credit}
-              ratio={ratio}
-              priority
-              className="photo-edge rounded-sm"
-            />
+            <div className="mx-auto w-full" style={frame}>
+              <Photo
+                src={artwork.imageUrl}
+                alt={credit}
+                ratio={frame ? 'size-full' : ratio}
+                priority
+                className="photo-edge rounded-sm"
+                onNaturalSize={(width, height) => setDecoded({ id: artwork.id, width, height })}
+              />
+            </div>
 
             {strip.length > 1 && (
               <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -294,7 +324,7 @@ export default function ArtworkDetailPage() {
               <Meta
                 icon={Calendar}
                 label="Captured"
-                value={artwork.capturedAt ? formatDate(artwork.capturedAt, 'long') : '-'}
+                value={artwork.capturedAt ? formatCalendarDate(artwork.capturedAt, 'long') : '-'}
               />
               <Meta icon={Tag} label="Category" value={GALLERY_CATEGORY_LABELS[artwork.category]} />
               <Meta

@@ -14,6 +14,20 @@ const RATIO: Record<string, string> = {
 };
 
 /**
+ * Which of the three tile shapes a photograph is, by the size it is shown at -
+ * the same rule the server's `orientationOf` uses.
+ *
+ * A tile starts from the stored orientation and checks it against what the
+ * browser decoded. They differ for a photograph stored sideways with an EXIF
+ * rotation flag, recorded as "landscape" while it is shown upright: framed at
+ * 3:2, a portrait photograph lost half its height.
+ */
+export function shapeOf(width: number, height: number): 'portrait' | 'square' | 'landscape' {
+  if (Math.abs(width - height) / Math.max(width, height) < 0.05) return 'square';
+  return width > height ? 'landscape' : 'portrait';
+}
+
+/**
  * A gallery tile is a photograph, not a product card.
  *
  * Clicking it opens the image (via `onOpen`); "View details" is the deliberate
@@ -44,15 +58,17 @@ export function ArtworkCard({
   action?: React.ReactNode;
 }) {
   const saved = wishlisted ?? artwork.wishlisted ?? false;
+  const [shape, setShape] = React.useState<string>(artwork.orientation);
 
   const media = (
     <Photo
       src={artwork.thumbnailUrl || artwork.imageUrl}
       alt={artwork.artist?.name ? `${artwork.title} by ${artwork.artist.name}` : artwork.title}
-      ratio={RATIO[artwork.orientation] ?? RATIO.landscape}
+      ratio={RATIO[shape] ?? RATIO.landscape}
       priority={priority}
       thumbnail
       variants={artwork.imageVariants}
+      onNaturalSize={(width, height) => setShape(shapeOf(width, height))}
       className="photo-edge"
       imgClassName="transition-transform duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
     >

@@ -83,9 +83,24 @@ export function buildSeededSrcSet(
   NOTE: image transformations are a paid Supabase feature. If the plan is
   downgraded these URLs stop resolving, which is why `looksLikeSupabaseStorage`
   is deliberately narrow and everything else falls through to the original.
+
+  ── Why every resize says `resize=contain` ─────────────────────────────────
+
+  Given a width and no height, Supabase keeps the original height and CROPS to
+  the width - its default mode is `cover`. Measured on the live files: a
+  4608x2592 sunset asked for at width=400 came back 400x2592, the middle 9% of
+  the frame, and a tile showed nothing but sky. Every photograph without stored
+  variants was being cut down to a strip in the gallery, and every one wider
+  than 1600px on its own page.
+
+  `contain` fits the whole frame inside that box instead: the same request
+  returns 400x225. Measured across portrait, landscape and square files it
+  keeps the aspect ratio exactly and never enlarges - a 551px file asked for at
+  800 comes back at 551.
 */
 const SUPABASE_OBJECT = '/storage/v1/object/public/';
 const SUPABASE_RENDER = '/storage/v1/render/image/public/';
+const WHOLE_FRAME = 'resize=contain';
 
 /** Widths served for a gallery tile. Matches the stored-variant widths. */
 const SUPABASE_THUMB_WIDTHS = [400, 800, 1600];
@@ -103,7 +118,7 @@ const looksLikeSupabaseStorage = (url: string) =>
  */
 export function supabaseResized(url: string, width: number, quality = 75): string {
   if (!looksLikeSupabaseStorage(url)) return url;
-  return `${url.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}`;
+  return `${url.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}&${WHOLE_FRAME}`;
 }
 
 /**
@@ -166,7 +181,7 @@ export function isSupabaseUpload(url: string): boolean {
 export function resizedUpload(url: string, width: number, quality = 72): string {
   if (!isSupabaseUpload(url)) return url;
   const [base] = url.split('?');
-  return `${base.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}`;
+  return `${base.replace(SUPABASE_OBJECT, SUPABASE_RENDER)}?width=${width}&quality=${quality}&${WHOLE_FRAME}`;
 }
 
 function buildUploadSrcSet(url: string, widths: readonly number[]): string {

@@ -12,4 +12,5 @@ export * from './schemas.js';
 export * from './pricing.js';
 export * from './format.js';
 export * from './media.js';
+export * from './artwork-metadata.js';
 export * from './rotation.js';

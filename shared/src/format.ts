@@ -28,6 +28,26 @@ export function formatDate(value: string | Date, style: 'short' | 'long' = 'shor
   }).format(date);
 }
 
+/**
+ * A calendar day - a capture date - rather than a moment.
+ *
+ * Capture dates are stored as midnight UTC of the day (`2026-10-02T00:00:00+00:00`,
+ * which is also what a bare `2026-10-02` parses as). `formatDate` renders in
+ * the reader's time zone, and anywhere west of Greenwich that midnight is still
+ * the evening before, so a photograph taken on 2 October read "1 October".
+ * Formatting in UTC shows the day the photographer gave, wherever it is read.
+ */
+export function formatCalendarDate(value: string | Date, style: 'short' | 'long' = 'short'): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: style === 'long' ? 'long' : 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
 export function formatDateTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return '-';

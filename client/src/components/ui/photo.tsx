@@ -33,6 +33,13 @@ export interface PhotoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElemen
   variants?: ImageVariants | null;
   /** Pre-generated blur placeholder data URL. If not provided, a CSS gradient is used. */
   blurPlaceholder?: string;
+  /**
+   * The size the browser decoded, once the image has loaded. A frame chosen
+   * from stored dimensions is the wrong shape for a photograph stored sideways
+   * with an EXIF rotation flag - the browser shows it turned - and this is how
+   * a caller puts the frame right.
+   */
+  onNaturalSize?: (width: number, height: number) => void;
   className?: string;
   imgClassName?: string;
   /** Overlay content — captions, hover actions. */
@@ -57,6 +64,7 @@ export function Photo({
   srcSet,
   variants,
   blurPlaceholder,
+  onNaturalSize,
   className,
   imgClassName,
   children,
@@ -138,7 +146,10 @@ export function Photo({
             loading={loading}
             decoding={decoding}
             fetchPriority={fetchPriority}
-            onLoad={() => setState('loaded')}
+            onLoad={(event) => {
+              setState('loaded');
+              onNaturalSize?.(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
+            }}
             onError={() => setState('error')}
             className={cn(
               // 300ms, not 700. Forty tiles each taking most of a second to

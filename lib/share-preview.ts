@@ -97,6 +97,10 @@ export function clamp(value: string, max: number): string {
  * card that finally appears has no photograph in it. Supabase resizes on
  * request; 1200px is the width these cards are rendered at anyway.
  *
+ * `resize=contain` because a width on its own makes Supabase keep the original
+ * height and crop the sides (its default is `cover`): a portrait upload became
+ * a 1200px-wide strip of its middle. `contain` returns the whole frame, scaled.
+ *
  * Anything not stored in Supabase is returned unchanged.
  */
 const STORAGE_OBJECT = '/storage/v1/object/public/';
@@ -105,7 +109,7 @@ const STORAGE_RENDER = '/storage/v1/render/image/public/';
 export function previewSized(url: string, width = 1200): string {
   if (!url.includes(STORAGE_OBJECT)) return url;
   const [base] = url.split('?');
-  return `${base.replace(STORAGE_OBJECT, STORAGE_RENDER)}?width=${width}&quality=80`;
+  return `${base.replace(STORAGE_OBJECT, STORAGE_RENDER)}?width=${width}&quality=80&resize=contain`;
 }
 
 export interface Artwork {

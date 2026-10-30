@@ -38,6 +38,7 @@ import {
 } from '@/services/storage.service';
 import { withArtists } from '@/services/user.service';
 import { allocatePhotoId } from '@/services/photo-id.service';
+import { suggestCaptureDate } from '@/services/exif.service';
 import { moderateImage } from '@/services/image-moderation.service';
 import {
   advisories,
@@ -526,6 +527,24 @@ artworkRouter.get(
  * moderator objected to is exactly what a photographer should be able to do.
  * Only the image is fixed, and it is not a field here.
  */
+/*
+  The camera's own date for one of your photographs, read from the original
+  file's EXIF, for the Studio to offer as a suggestion. Nothing is stored: the
+  date only reaches `capturedAt` when the photographer saves it through PATCH
+  below. Same ownership rule as editing.
+*/
+artworkRouter.get(
+  '/:id/capture-date',
+  requireAuth,
+  requireRole('artist'),
+  asyncHandler(async (req, res) => {
+    const artwork = await db.artworks.byId(req.params.id);
+    if (!artwork) throw notFound('That photograph');
+    if (artwork.artistId !== req.user!.id) throw forbidden('That is not your photograph.');
+    res.json(await suggestCaptureDate(artwork.originalUrl || artwork.imageUrl));
+  }),
+);
+
 artworkRouter.patch(
   '/:id',
   requireAuth,
@@ -539,7 +558,14 @@ artworkRouter.patch(
       throw conflict('That photograph is in Recently Deleted. Recover it before editing it.');
     }
 
-    const patch = req.valid as Record<string, unknown>;
+    const patch = { ...(req.valid as Record<string, unknown>) };
+
+    /*
+      A capture date arrives as the day the photographer chose and is stored as
+      midnight UTC of that day - the form every existing capture date already
+      has - so Supabase and the in-memory store hand back the same thing.
+    */
+    if (typeof patch.capturedAt === 'string') patch.capturedAt = `${patch.capturedAt}T00:00:00.000Z`;
 
     const updated = await db.artworks.update(artwork.id, { ...patch, updatedAt: now() });
 

@@ -154,7 +154,9 @@ export async function buildPublicArtist(
 return {
     id: user.id,
     slug: artistSlug(profile, user.id),
-    name: profile.displayName || profile.fullName,
+    // Trimmed at this edge: some names were saved with a stray space, and
+    // "Suraj prasad " reached page titles and share cards as "prasad  | ARTINU".
+    name: (profile.displayName ?? '').trim() || (profile.fullName ?? '').trim(),
     city: profile.city,
     country: profile.country,
     avatarUrl: profile.avatarUrl,
