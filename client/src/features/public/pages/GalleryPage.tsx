@@ -133,10 +133,12 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
    * reset.
    */
   const observerRef = React.useRef<IntersectionObserver | null>(null);
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
   const pagingRef = React.useRef({ hasNextPage: false, isFetching: false, fetch: () => {} });
 
   const loadMoreRef = React.useCallback((node: HTMLDivElement | null) => {
     observerRef.current?.disconnect();
+    sentinelRef.current = node;
     if (!node) return;
 
     observerRef.current = new IntersectionObserver(
@@ -425,6 +427,27 @@ export default function GalleryPage({ variant = 'public' }: { variant?: 'public'
     isFetching: isFetchingNextPage || isFetchNextPageError,
     fetch: loadMore,
   };
+
+  /*
+   * Ask again once each page has landed.
+   *
+   * An IntersectionObserver reports changes, not states. When a page arrives
+   * without pushing the sentinel off screen - the usual case at the bottom of
+   * the grid - it stays "intersecting" throughout: the one report it made came
+   * while the previous page was still loading and was rightly ignored, and no
+   * second report ever comes. The gallery stopped after two or three pages and
+   * the rest of the collection could not be scrolled to (measured on the live
+   * site: pages 1-2 of 7, sentinel sitting in view). Observing it afresh makes
+   * the observer report its current state, so a sentinel still in view loads
+   * the next page and one out of view waits for the scroll, as before.
+   */
+  const pagesLoaded = data?.pages.length ?? 0;
+  React.useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || isFetchingNextPage || !hasNextPage) return;
+    observerRef.current?.unobserve(node);
+    observerRef.current?.observe(node);
+  }, [pagesLoaded, isFetchingNextPage, hasNextPage]);
 
   /* ── Inside the space dashboard ───────────────────────────────────────── */
   if (isSpace) {
