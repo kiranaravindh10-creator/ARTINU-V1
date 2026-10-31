@@ -45,7 +45,7 @@ export function PublicNav() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full transition-all duration-300 ease-[var(--ease-out-soft)]',
+        'sticky top-[var(--app-banner,0px)] z-40 w-full transition-all duration-300 ease-[var(--ease-out-soft)]',
         scrolled
           ? 'border-b border-line bg-canvas/85 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/70'
           : 'border-b border-transparent bg-transparent',

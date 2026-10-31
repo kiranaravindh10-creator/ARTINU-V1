@@ -2,6 +2,7 @@ import type {
   AdminCreateOrderInput,
   AdminProvisionSpaceInput,
   AdminProvisionSpaceResult,
+  ApplicationSetup,
   ArtistApplication,
   Artwork,
   AuditLogEntry,
@@ -135,16 +136,19 @@ export const adminService = {
     return data;
   },
 
+  /** Applications with the state of the account each one made - there is no accept or reject. */
   async applications(params: Query = {}) {
-    const { data } = await api.get<Paginated<ArtistApplication>>('/admin/applications', { params });
+    const { data } = await api.get<Paginated<ArtistApplication & { setup: ApplicationSetup }>>('/admin/applications', {
+      params,
+    });
     return data;
   },
 
-  async decideApplication(id: string, decision: 'accept' | 'reject', note?: string) {
-    const { data } = await api.post<ArtistApplication>(`/admin/applications/${id}`, {
-      decision,
-      note,
-    });
+  /** Finish an application's account setup - safe to repeat, never creates anything twice. */
+  async retryApplicationSetup(id: string) {
+    const { data } = await api.post<{ problem: string | null; photographs: { outcome: string }[] }>(
+      `/admin/applications/${id}/setup`,
+    );
     return data;
   },
 

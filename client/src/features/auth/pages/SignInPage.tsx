@@ -34,9 +34,21 @@ import {
 import { ChevronDown } from 'lucide-react';
 
 
+/**
+ * One sign-in page for every account - the role decides where it lands. The
+ * footer's "Artist", "Space" and "Staff" sign-in links arrive with ?as= and are
+ * greeted accordingly; the form itself is the same for all of them.
+ */
+const AUDIENCES: Record<string, { title: string; description: string }> = {
+  artist: { title: 'Photographer sign in', description: 'Sign in to your Studio' },
+  space: { title: 'Space sign in', description: 'Sign in to your spaces and orders' },
+  staff: { title: 'ARTINU staff sign in', description: 'Sign in with your work email to open the Console' },
+};
+
 export default function SignInPage() {
   const [params] = useSearchParams();
   const next = params.get('next') ?? undefined;
+  const audience = AUDIENCES[params.get('as') ?? ''] ?? null;
   const navigate = useNavigate();
   const { setSession } = useAuth();
 
@@ -101,8 +113,8 @@ export default function SignInPage() {
       </div>
 
       <AuthCard
-        title="Welcome back"
-        description="Sign in to your account"
+        title={audience?.title ?? 'Welcome back'}
+        description={audience?.description ?? 'Sign in to your account'}
         className="mt-8"
         footer={
           <div className="flex items-center gap-2 text-[0.8125rem]">
@@ -222,6 +234,10 @@ export default function SignInPage() {
           </TabsContent>
         </Tabs>
 
+        <p className="mt-5 text-center text-xs leading-relaxed text-subtle">
+          One sign-in for everyone: photographers go to their Studio, spaces to their dashboard, and ARTINU
+          staff to the Console.
+        </p>
       </AuthCard>
 
       <Dialog open={phoneComingSoon} onOpenChange={setPhoneComingSoon}>

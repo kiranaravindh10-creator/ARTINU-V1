@@ -2,7 +2,7 @@ import { formatCurrency } from '@artinu/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Receipt, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/layout/DashboardShell';
-import { SubNav } from '@/features/console/components/SubNav';
+import { MoneyNav } from '@/features/console/components/MoneyNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatGrid, StatTile } from '@/components/ui/stat';
@@ -84,12 +84,7 @@ export default function ConsoleAccountsPage() {
     <div>
       <PageHeader title="Accounts" description="Revenue in, and the tax held against it." />
 
-      <SubNav
-        items={[
-          { to: '/console/payments', label: 'Payments in' },
-          { to: '/console/accounts', label: 'Accounts' },
-        ]}
-      />
+      <MoneyNav />
 
       <StatGrid className="mb-8">
         <StatTile

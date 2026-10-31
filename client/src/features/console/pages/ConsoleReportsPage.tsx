@@ -122,13 +122,16 @@ export default function ConsoleReportsPage() {
         ]}
       />
 
-      <ReportTable
-        title="GST collected"
-        filename="ARTINU-gst.csv"
-        head={['Period', 'GST']}
-        rows={slice(data?.gst).map((entry) => [entry.period, entry.collected])}
-        render={(row) => [String(row[0]), formatCurrency(Number(row[1]))]}
-      />
+      {/* GST is off in this version: the server sends no series, and the table is not drawn. */}
+      {(data?.gst ?? []).length > 0 && (
+        <ReportTable
+          title="GST collected"
+          filename="ARTINU-gst.csv"
+          head={['Period', 'GST']}
+          rows={slice(data?.gst).map((entry) => [entry.period, entry.collected])}
+          render={(row) => [String(row[0]), formatCurrency(Number(row[1]))]}
+        />
+      )}
     </div>
   );
 }

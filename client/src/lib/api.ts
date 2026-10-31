@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import type { ApiError } from '@artinu/shared';
+import { activeSupportSession, endSupportSession } from '@/lib/support-session';
 
 const TOKEN_KEY = 'artinu.token';
 
@@ -60,6 +61,15 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     if (error.response?.status === 401 && tokenStore.get()) {
+      /*
+        A support credential that has expired or been revoked is not the
+        administrator being signed out. Their own session is restored and they
+        land back in the Console, rather than on the sign-in page.
+      */
+      if (activeSupportSession()) {
+        void endSupportSession('expired');
+        return Promise.reject(error);
+      }
       tokenStore.clear();
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     }

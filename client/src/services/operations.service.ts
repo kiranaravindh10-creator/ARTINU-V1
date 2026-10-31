@@ -199,6 +199,7 @@ export const operationsService = {
     jobTitle: string;
     role: string;
     department?: string | null;
+    branch?: string | null;
     personalEmail?: string | null;
     phone?: string | null;
   }) {

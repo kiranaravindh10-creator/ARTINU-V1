@@ -1,7 +1,7 @@
 import { Bell, ChevronLeft, LogOut, Menu, Settings, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, matchRoutes, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/dialog';
 import { Avatar } from '@/components/ui/display';
@@ -16,12 +16,18 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
+import { router } from '@/routes/router';
 
 export interface DashboardNavItem {
   to: string;
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /**
+   * The routes that select this row, in React Router's path syntax. Without
+   * it the row owns `to` and, unless `end` is set, everything below it.
+   */
+  match?: string[];
   /** Renders a count chip on the right of the row. */
   badgeKey?: 'notifications';
 }
@@ -29,6 +35,77 @@ export interface DashboardNavItem {
 export interface DashboardNavGroup {
   title?: string;
   items: DashboardNavItem[];
+}
+
+/**
+ * Which row the current address belongs to - at most one.
+ *
+ * Every row's patterns go to React Router's own matcher as one flat route
+ * list, so the most specific route wins the way it does in the router itself:
+ * `/console/users/employees` is Employees, not People & access, and
+ * `/console/content/manager` is Homepage, not Curated lists. Asking each link
+ * "is my address a prefix of this one?" - what NavLink does - lit both rows of
+ * every such pair, and two rows with the same address lit together.
+ */
+function useActiveRow(items: DashboardNavItem[], pathname: string): DashboardNavItem | null {
+  return React.useMemo(() => {
+    const routes = items.flatMap((item, index) =>
+      (item.match ?? [item.end ? item.to : `${item.to.replace(/\/$/, '')}/*`]).map((path) => ({
+        path,
+        id: String(index),
+      })),
+    );
+    const best = matchRoutes(routes, pathname)?.[0];
+    return best ? (items[Number(best.route.id)] ?? null) : null;
+  }, [items, pathname]);
+}
+
+/**
+ * The address the router is on, read the moment it changes.
+ *
+ * React Router renders every navigation as a React transition, and each screen
+ * is a lazily loaded component (router.tsx). When the next screen's code is
+ * not in the browser yet, React keeps the whole previous render on screen
+ * until it arrives - and `useLocation()` with it. A sidebar driven by
+ * `useLocation()` therefore kept the old row selected for as long as the
+ * download took (995 ms for Expenses, measured), which looked like the click
+ * had not registered.
+ *
+ * The router itself has moved on by then; only React's copy is waiting. Read
+ * through useSyncExternalStore, whose updates are never deferred, the sidebar
+ * follows every navigation - a click, a link in a page, Back, Forward - in the
+ * same frame, while the screen still swaps only once it is ready.
+ */
+const subscribeToRouter = (notify: () => void) => router.subscribe(() => notify());
+const routerPathname = () => router.state.location.pathname;
+
+function useRouterPathname(): string {
+  return React.useSyncExternalStore(subscribeToRouter, routerPathname);
+}
+
+/**
+ * A hairline across the top of the screen while the next one's code is still
+ * downloading - the only time the screen lags the sidebar. Held back briefly
+ * so that a quick navigation does not flash it.
+ */
+function ScreenLoading({ loading }: { loading: boolean }) {
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!loading) {
+      setVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => setVisible(true), 120);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  if (!visible) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-40 h-0.5 animate-pulse bg-bronze" role="status">
+      <span className="sr-only">Loading</span>
+    </div>
+  );
 }
 
 /**
@@ -72,16 +149,19 @@ export function DashboardShell({
   footer?: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
-  const location = useLocation();
+  const shown = useLocation().pathname;
+  const pathname = useRouterPathname();
 
-  React.useEffect(() => setOpen(false), [location.pathname]);
+  React.useEffect(() => setOpen(false), [pathname]);
 
-  const items = groups.flatMap((group) => group.items);
+  const items = React.useMemo(() => groups.flatMap((group) => group.items), [groups]);
+  const active = useActiveRow(items, pathname);
+  const loading = pathname !== shown;
 
   if (variant === 'sidebar') {
     return (
       <div className="flex min-h-dvh bg-canvas">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-canvas-soft lg:flex">
+        <aside className="sticky top-[var(--app-banner,0px)] hidden h-[calc(100dvh_-_var(--app-banner,0px))] w-60 shrink-0 flex-col border-r border-line bg-canvas-soft lg:flex">
           <Link to={basePath} className="flex items-baseline gap-2.5 px-6 py-7 leading-none">
             <span className="font-display text-xl tracking-[-0.02em] text-ink">ARTINU</span>
             <span className="font-label text-[0.5625rem] uppercase tracking-[0.2em] text-subtle">
@@ -90,7 +170,7 @@ export function DashboardShell({
           </Link>
 
           <div className="flex-1 overflow-y-auto px-3 pb-6">
-            <SidebarNav groups={groups} />
+            <SidebarNav groups={groups} active={active} />
           </div>
 
           <Link
@@ -103,6 +183,7 @@ export function DashboardShell({
         </aside>
 
         <div className="relative flex min-w-0 flex-1 flex-col">
+          <ScreenLoading loading={loading} />
           <div className="absolute right-4 top-4 z-30 flex items-center gap-2 rounded-full bg-canvas/85 py-1.5 pl-3.5 pr-1.5 shadow-subtle backdrop-blur-md sm:right-6 sm:top-5">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
@@ -122,7 +203,7 @@ export function DashboardShell({
                     {area}
                   </span>
                 </div>
-                <DrawerNav groups={groups} />
+                <DrawerNav groups={groups} active={active} />
               </SheetContent>
             </Sheet>
 
@@ -143,7 +224,7 @@ export function DashboardShell({
   return (
     <div className="flex min-h-dvh bg-canvas">
       {/* ── Icon rail ────────────────────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-dvh w-20 shrink-0 flex-col items-center border-r border-line-soft bg-canvas py-6 lg:flex">
+      <aside className="sticky top-[var(--app-banner,0px)] hidden h-[calc(100dvh_-_var(--app-banner,0px))] w-20 shrink-0 flex-col items-center border-r border-line-soft bg-canvas py-6 lg:flex">
         <Link
           to={basePath}
           className="flex flex-col items-center gap-1 leading-none transition-opacity hover:opacity-60"
@@ -156,7 +237,7 @@ export function DashboardShell({
 
         <nav className="mt-10 flex flex-1 flex-col items-center gap-1.5" aria-label="Dashboard">
           {items.map((item) => (
-            <RailLink key={item.to} item={item} />
+            <RailLink key={item.to} item={item} active={item === active} />
           ))}
         </nav>
 
@@ -171,6 +252,7 @@ export function DashboardShell({
       </aside>
 
       <div className="relative flex min-w-0 flex-1 flex-col">
+        <ScreenLoading loading={loading} />
         {/* ── Floating account controls ──────────────────────────────────── */}
         <div className="absolute right-4 top-4 z-30 flex items-center gap-2 rounded-full bg-canvas/85 py-1.5 pl-3.5 pr-1.5 shadow-subtle backdrop-blur-md sm:right-6 sm:top-5">
           <Sheet open={open} onOpenChange={setOpen}>
@@ -191,7 +273,7 @@ export function DashboardShell({
                   {area}
                 </span>
               </div>
-              <DrawerNav groups={groups} />
+              <DrawerNav groups={groups} active={active} />
             </SheetContent>
           </Sheet>
 
@@ -210,11 +292,24 @@ export function DashboardShell({
 }
 
 /** Labelled, grouped navigation — the Console's shape. */
-function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
+function SidebarNav({ groups, active }: { groups: DashboardNavGroup[]; active: DashboardNavItem | null }) {
   const { count } = useUnreadNotifications();
+  const navRef = React.useRef<HTMLElement>(null);
+
+  // A deep link to a row near the bottom (Your account) opens with that row
+  // scrolled into the column, not hidden below it. Only the column moves.
+  React.useLayoutEffect(() => {
+    const row = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    const column = navRef.current?.parentElement;
+    if (!row || !column) return;
+    const rowBox = row.getBoundingClientRect();
+    const columnBox = column.getBoundingClientRect();
+    if (rowBox.top < columnBox.top) column.scrollTop -= columnBox.top - rowBox.top + 8;
+    else if (rowBox.bottom > columnBox.bottom) column.scrollTop += rowBox.bottom - columnBox.bottom + 8;
+  }, [active]);
 
   return (
-    <nav className="flex flex-col gap-7" aria-label="Console">
+    <nav ref={navRef} className="flex flex-col gap-7" aria-label="Console">
       {groups.map((group, index) => (
         <div key={group.title ?? index}>
           {group.title && (
@@ -223,43 +318,38 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
             </p>
           )}
           <div className="flex flex-col gap-0.5">
-            {group.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  cn(
+            {group.items.map((item) => {
+              const isActive = item === active;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
                     'group flex items-center gap-3 rounded-md px-3 py-2 text-[0.8125rem] transition-colors',
-                    isActive
-                      ? 'bg-ink font-medium text-canvas'
-                      : 'text-muted hover:bg-sand hover:text-ink',
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {/*
-                      The icon inherits currentColor when the row is filled.
-                      It used to stay bronze while the label went ink, so an
-                      active row carried two accent colours at once.
-                    */}
-                    <item.icon
-                      className={cn(
-                        'size-4 shrink-0',
-                        isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
-                      )}
-                    />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {item.badgeKey === 'notifications' && count > 0 && (
-                      <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
-                        {count > 99 ? '99+' : count}
-                      </span>
+                    isActive ? 'bg-ink font-medium text-canvas' : 'text-muted hover:bg-sand hover:text-ink',
+                  )}
+                >
+                  {/*
+                    The icon inherits currentColor when the row is filled.
+                    It used to stay bronze while the label went ink, so an
+                    active row carried two accent colours at once.
+                  */}
+                  <item.icon
+                    className={cn(
+                      'size-4 shrink-0',
+                      isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
                     )}
-                  </>
-                )}
-              </NavLink>
-            ))}
+                  />
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.badgeKey === 'notifications' && count > 0 && (
+                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -268,64 +358,56 @@ function SidebarNav({ groups }: { groups: DashboardNavGroup[] }) {
 }
 
 /** One icon in the rail. The label survives as the accessible name and tooltip. */
-function RailLink({ item }: { item: DashboardNavItem }) {
+function RailLink({ item, active: isActive }: { item: DashboardNavItem; active: boolean }) {
   const { count } = useUnreadNotifications();
   const badge = item.badgeKey === 'notifications' ? count : 0;
 
   return (
-    <NavLink
+    <Link
       to={item.to}
-      end={item.end}
       title={item.label}
       aria-label={item.label}
-      className={({ isActive }) =>
-        cn(
-          'relative flex size-10 items-center justify-center rounded-[0.625rem] transition-colors duration-200',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze/40',
-          /*
-            THE DULL ICONS.
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        'relative flex size-10 items-center justify-center rounded-[0.625rem] transition-colors duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze/40',
+        /*
+          THE DULL ICONS.
 
-            Measured against the tokens: the inactive icon was `text-subtle`,
-            #928a80 on the #f7f5f2 canvas, which is 3.13:1 - the bare floor for a
-            graphical object, and the state ten of the eleven rail icons are in
-            at any moment. That is what "these icons are really dull" was.
+          Measured against the tokens: the inactive icon was `text-subtle`,
+          #928a80 on the #f7f5f2 canvas, which is 3.13:1 - the bare floor for a
+          graphical object, and the state ten of the eleven rail icons are in
+          at any moment. That is what "these icons are really dull" was.
 
-            The selected one was barely better as a signal: bronze on
-            bronze-soft is a pale wash rather than a selection.
+          The selected one was barely better as a signal: bronze on
+          bronze-soft is a pale wash rather than a selection.
 
-            Now it is a filled chip with a white glyph - 6.67:1, and the "plain
-            white" the founder asked for - and the resting state moves up to
-            `text-muted` (#6b645c), 5.36:1. A heavier stroke on the active icon
-            because at 18px a 1.5 stroke disappears against a filled ground.
-          */
-          isActive
-            ? 'bg-bronze text-white shadow-subtle'
-            : 'text-muted hover:bg-sand-soft hover:text-ink',
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <item.icon className={cn('size-[1.125rem]', isActive ? 'stroke-[2]' : 'stroke-[1.5]')} />
-          {badge > 0 && (
-            <span
-              /* On a filled chip the bronze dot disappears into the ground, so
-                 it flips to the paper colour when the item is selected. */
-              className={cn(
-                'absolute right-1.5 top-1.5 size-1.5 rounded-full',
-                isActive ? 'bg-canvas' : 'bg-bronze',
-              )}
-              aria-hidden
-            />
-          )}
-        </>
+          Now it is a filled chip with a white glyph - 6.67:1, and the "plain
+          white" the founder asked for - and the resting state moves up to
+          `text-muted` (#6b645c), 5.36:1. A heavier stroke on the active icon
+          because at 18px a 1.5 stroke disappears against a filled ground.
+        */
+        isActive ? 'bg-bronze text-white shadow-subtle' : 'text-muted hover:bg-sand-soft hover:text-ink',
       )}
-    </NavLink>
+    >
+      <item.icon className={cn('size-[1.125rem]', isActive ? 'stroke-[2]' : 'stroke-[1.5]')} />
+      {badge > 0 && (
+        <span
+          /* On a filled chip the bronze dot disappears into the ground, so
+             it flips to the paper colour when the item is selected. */
+          className={cn(
+            'absolute right-1.5 top-1.5 size-1.5 rounded-full',
+            isActive ? 'bg-canvas' : 'bg-bronze',
+          )}
+          aria-hidden
+        />
+      )}
+    </Link>
   );
 }
 
 /** Mobile drawer keeps the labels — there is room for them there. */
-function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
+function DrawerNav({ groups, active }: { groups: DashboardNavGroup[]; active: DashboardNavItem | null }) {
   const { count } = useUnreadNotifications();
 
   return (
@@ -337,38 +419,33 @@ function DrawerNav({ groups }: { groups: DashboardNavGroup[] }) {
               {group.title}
             </p>
           )}
-          {group.items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
+          {group.items.map((item) => {
+            const isActive = item === active;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
                   'group flex items-center gap-3 rounded-md px-3 py-2 text-[0.8125rem] transition-colors',
-                  isActive
-                    ? 'bg-ink font-medium text-canvas'
-                    : 'text-muted hover:bg-sand-soft hover:text-ink',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon
-                    className={cn(
-                      'size-[1.0625rem] shrink-0',
-                      isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
-                    )}
-                  />
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.badgeKey === 'notifications' && count > 0 && (
-                    <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
-                      {count > 99 ? '99+' : count}
-                    </span>
+                  isActive ? 'bg-ink font-medium text-canvas' : 'text-muted hover:bg-sand-soft hover:text-ink',
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    'size-[1.0625rem] shrink-0',
+                    isActive ? 'stroke-[2]' : 'stroke-[1.5] text-muted group-hover:text-ink',
                   )}
-                </>
-              )}
-            </NavLink>
-          ))}
+                />
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.badgeKey === 'notifications' && count > 0 && (
+                  <span className="flex min-w-5 items-center justify-center rounded-full bg-bronze px-1.5 font-label tabular-nums text-[0.5625rem] text-white">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       ))}
 

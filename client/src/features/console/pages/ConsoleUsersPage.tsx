@@ -1,46 +1,34 @@
 import {
+  ACCESS_STATE_LABELS,
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
+  ASSISTABLE_ROLES,
   formatDate,
   formatRelative,
-  INTERNAL_ROLES,
   ROLE_LABELS,
-  ROLE_MODULES,
   ROLES,
   USER_STATUSES,
-  type Role,
+  type AccountAccess,
 } from '@artinu/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, ShieldAlert, Trash2, UserRound } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Camera, ChevronLeft, ChevronRight, LifeBuoy, Search, UserPlus, UserRound } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/DashboardShell';
-import { SubNav } from '@/features/console/components/SubNav';
+import { AssistUserDialog } from '@/components/support/AssistUserDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Avatar, EmptyState, ErrorState, Skeleton } from '@/components/ui/display';
 import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { DateInput, Input } from '@/components/ui/input';
 import { SimpleSelect } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { useAuth } from '@/contexts/AuthContext';
-import { errorMessage } from '@/lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { InviteAccessDialog } from '@/features/console/components/InviteAccessDialog';
+import { SubNav } from '@/features/console/components/SubNav';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
-import { adminService, type AdminUser } from '@/services/admin.service';
+import { peopleService, type ManagedUser } from '@/services/people.service';
 
 const ROLE_BADGE: Record<string, 'neutral' | 'bronze' | 'info' | 'success'> = {
   ceo: 'bronze',
@@ -53,162 +41,239 @@ const ROLE_BADGE: Record<string, 'neutral' | 'bronze' | 'info' | 'success'> = {
   guest: 'neutral',
 };
 
+/** The four states People & access speaks in, mapped from the stored ones. */
+export function accountStatus(status: string): { label: string; tone: 'success' | 'danger' | 'warning' | 'neutral' } {
+  if (status === 'verified') return { label: 'Active', tone: 'success' };
+  if (status === 'suspended') return { label: 'Suspended', tone: 'danger' };
+  if (status === 'banned') return { label: 'Disabled', tone: 'neutral' };
+  return { label: 'Pending', tone: 'warning' };
+}
+
+const STATUS_FILTER: Record<string, string> = {
+  verified: 'Active',
+  suspended: 'Suspended',
+  banned: 'Disabled',
+  pending_verification: 'Pending - email',
+  pending_ceo_approval: 'Pending - CEO approval',
+};
+
+const PAGE_SIZE = 25;
+
+/** The sign-in states in People & access's own colours. */
+const ACCESS_TONE: Record<AccountAccess['state'], 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
+  active: 'success',
+  invited: 'info',
+  invitation_expired: 'warning',
+  awaiting_approval: 'warning',
+  blocked: 'danger',
+};
+
+/** Where an account stands on signing in, in one line. */
+export function AccessSummary({ access }: { access: AccountAccess }) {
+  const detail =
+    access.state === 'invited' && access.inviteExpiresAt
+      ? `Link valid until ${formatDate(access.inviteExpiresAt)}`
+      : access.state === 'invitation_expired' && access.inviteSentAt
+        ? `Sent ${formatDate(access.inviteSentAt)}, never used`
+        : access.lastSignInAt
+          ? `Signed in ${formatRelative(access.lastSignInAt)}`
+          : 'Not signed in since created';
+  return (
+    <span className="flex flex-col items-start gap-1">
+      <Badge variant={ACCESS_TONE[access.state]}>{ACCESS_STATE_LABELS[access.state]}</Badge>
+      <span className="text-[0.6875rem] text-subtle">{detail}</span>
+    </span>
+  );
+}
+
+/** The quick views, each a preset of the filters below. */
+const VIEWS = [
+  { key: 'all', label: 'Everyone', type: 'all', role: 'all' },
+  { key: 'photographers', label: 'Photographers', type: 'all', role: 'artist' },
+  { key: 'staff', label: 'Staff', type: 'staff', role: 'all' },
+  { key: 'customers', label: 'Customers', type: 'customer', role: 'all' },
+] as const;
+
+/**
+ * Administration → People & access → User Management.
+ *
+ * One table for every account - customers, photographers and staff -
+ * searchable by name, email, id or business, and filterable the ways support
+ * actually looks for someone. Photographers and staff are given access from
+ * here: "Invite photographer" and "Create staff account" both make an account
+ * in the right role and email a single-use link to choose a password. Each row
+ * opens the full record - sign-in state, role, password reset, suspension;
+ * "Assist" opens an audited support session from right here.
+ */
 export default function ConsoleUsersPage() {
-  const queryClient = useQueryClient();
-  const { user: me } = useAuth();
+  const { can } = usePermissions();
+  const [inviting, setInviting] = React.useState<'photographer' | 'staff' | null>(null);
 
   const [q, setQ] = React.useState('');
   const [search, setSearch] = React.useState('');
+  const [type, setType] = React.useState('all');
   const [role, setRole] = React.useState('all');
   const [status, setStatus] = React.useState('all');
-  const [editing, setEditing] = React.useState<AdminUser | null>(null);
-  const [nextRole, setNextRole] = React.useState<string>('');
-  const [nextStatus, setNextStatus] = React.useState<string>('');
-  /** Must equal the target's email before deletion is allowed. */
-  const [confirmEmail, setConfirmEmail] = React.useState('');
-  const [creating, setCreating] = React.useState(false);
-  const [newEmail, setNewEmail] = React.useState('');
-  const [newFullName, setNewFullName] = React.useState('');
-  const [newRole, setNewRole] = React.useState<string>('guest');
+  const [verified, setVerified] = React.useState('all');
+  const [from, setFrom] = React.useState('');
+  const [to, setTo] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [assisting, setAssisting] = React.useState<ManagedUser | null>(null);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: qk.admin.users({ q: search, role, status }),
-    queryFn: () =>
-      adminService.users({
-        q: search || undefined,
-        role: role === 'all' ? undefined : role,
-        status: status === 'all' ? undefined : status,
-        pageSize: 100,
-      }),
-  });
+  // Any change of filter starts again from the first page.
+  React.useEffect(() => setPage(1), [search, type, role, status, verified, from, to]);
 
-  const update = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { role?: string; status?: string } }) =>
-      adminService.updateUser(id, patch),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      setEditing(null);
-      toast.success('Account updated');
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  const createUser = useMutation({
-    mutationFn: (input: { email: string; role: string; fullName?: string }) =>
-      adminService.createUser(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      setCreating(false);
-      setNewEmail('');
-      setNewFullName('');
-      setNewRole('guest');
-      toast.success('Employee account created - they will receive a sign-in link');
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  /**
-   * Permanent deletion. The typed-email confirmation below is the only thing
-   * between a mis-click and an account that cannot be brought back, so the
-   * mutation deliberately has no "are you sure?" of its own — the button is
-   * not reachable until the address matches.
-   */
-  const deleteUser = useMutation({
-    mutationFn: (id: string) => adminService.deleteUser(id),
-    onSuccess: (summary) => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      setEditing(null);
-      setConfirmEmail('');
-      const removed = [
-        summary.artworks && `${summary.artworks} artworks`,
-        summary.spaces && `${summary.spaces} spaces`,
-        summary.orders && `${summary.orders} orders`,
-        summary.invoices && `${summary.invoices} invoices`,
-      ]
-        .filter(Boolean)
-        .join(', ');
-      toast.success(
-        `${summary.email} deleted${removed ? ` - along with ${removed}` : ''}`,
-      );
-      if (summary.filesFailed > 0) {
-        toast.warning(`${summary.filesFailed} stored file(s) could not be removed. See the server log.`);
-      }
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  const openEditor = (user: AdminUser) => {
-    setEditing(user);
-    setNextRole(user.role);
-    setNextStatus(user.status);
-    setConfirmEmail('');
+  const params = {
+    q: search || undefined,
+    type,
+    role,
+    status,
+    verified,
+    from: from || undefined,
+    to: to || undefined,
+    page,
+    pageSize: PAGE_SIZE,
   };
 
-  const grantsInternal =
-    editing &&
-    nextRole !== editing.role &&
-    (INTERNAL_ROLES as readonly string[]).includes(nextRole);
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: qk.admin.people(params),
+    queryFn: () => peopleService.users(params),
+    placeholderData: (previous) => previous,
+  });
+
+  const view = VIEWS.find((entry) => entry.type === type && entry.role === role)?.key ?? null;
+  const filtered = search || type !== 'all' || role !== 'all' || status !== 'all' || verified !== 'all' || from || to;
+  const clearFilters = () => {
+    setQ('');
+    setSearch('');
+    setType('all');
+    setRole('all');
+    setStatus('all');
+    setVerified('all');
+    setFrom('');
+    setTo('');
+  };
 
   return (
     <div>
-      <PageHeader title="Users &amp; roles" description="Who can reach what." />
+      <PageHeader
+        title="People &amp; access"
+        description="Every account - customers, photographers and staff - who can sign in, and what each can reach."
+        actions={
+          can('users.invite') ? (
+            <>
+              <Button variant="outline" onClick={() => setInviting('photographer')}>
+                <Camera /> Invite photographer
+              </Button>
+              <Button onClick={() => setInviting('staff')}>
+                <UserPlus /> Create staff account
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       <SubNav
         items={[
-          { to: '/console/users', label: 'People', end: true },
+          { to: '/console/users', label: 'Accounts', end: true },
+          { to: '/console/users/employees', label: 'Employees' },
           { to: '/console/users/audit', label: 'Audit log' },
         ]}
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Show">
+        {VIEWS.map((entry) => (
+          <Button
+            key={entry.key}
+            size="sm"
+            variant={view === entry.key ? 'primary' : 'outline'}
+            aria-pressed={view === entry.key}
+            onClick={() => {
+              setType(entry.type);
+              setRole(entry.role);
+            }}
+          >
+            {entry.label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))]">
         <form
-          className="min-w-0 flex-1 max-w-sm"
+          className="min-w-0 sm:col-span-2 lg:col-span-1"
           onSubmit={(event) => {
             event.preventDefault();
-            setSearch(q);
+            setSearch(q.trim());
           }}
         >
           <Input
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            placeholder="Search by name or email…"
+            placeholder="Name, email, user ID or business…"
             icon={<Search />}
             aria-label="Search users"
           />
         </form>
-
+        <SimpleSelect
+          value={type}
+          onValueChange={setType}
+          className="h-11"
+          options={[
+            { value: 'all', label: 'All account types' },
+            { value: 'staff', label: 'Staff (every Console role)' },
+            ...ACCOUNT_TYPES.map((entry) => ({ value: entry, label: ACCOUNT_TYPE_LABELS[entry] })),
+          ]}
+        />
         <SimpleSelect
           value={role}
           onValueChange={setRole}
-          className="h-11 w-44"
-          options={[
-            { value: 'all', label: 'All roles' },
-            ...ROLES.map((entry) => ({ value: entry, label: ROLE_LABELS[entry] })),
-          ]}
+          className="h-11"
+          options={[{ value: 'all', label: 'All roles' }, ...ROLES.map((entry) => ({ value: entry, label: ROLE_LABELS[entry] }))]}
         />
-
         <SimpleSelect
           value={status}
           onValueChange={setStatus}
-          className="h-11 w-48"
+          className="h-11"
           options={[
             { value: 'all', label: 'All statuses' },
-            ...USER_STATUSES.map((entry) => ({
-              value: entry,
-              label: entry.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()),
-            })),
+            ...USER_STATUSES.map((entry) => ({ value: entry, label: STATUS_FILTER[entry] ?? entry })),
           ]}
         />
+        <SimpleSelect
+          value={verified}
+          onValueChange={setVerified}
+          className="h-11"
+          options={[
+            { value: 'all', label: 'Email: any' },
+            { value: 'yes', label: 'Email verified' },
+            { value: 'no', label: 'Email not verified' },
+          ]}
+        />
+      </div>
 
-        <Button onClick={() => setCreating(true)} className="ml-auto">
-          <UserRound className="size-4 mr-2" /> Add employee
-        </Button>
+      <div className="mb-6 flex flex-wrap items-end gap-3">
+        <Field label="Registered from" htmlFor="registered-from" className="w-44">
+          <DateInput id="registered-from" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} />
+        </Field>
+        <Field label="Registered to" htmlFor="registered-to" className="w-44">
+          <DateInput id="registered-to" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} />
+        </Field>
+        {filtered && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="mb-1">
+            Clear filters
+          </Button>
+        )}
+        {data && (
+          <p className="mb-2.5 ml-auto text-xs text-subtle" aria-live="polite">
+            {data.total} account{data.total === 1 ? '' : 's'}
+          </p>
+        )}
       </div>
 
       {isError ? (
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : isLoading ? (
-        <Skeleton className="h-72 w-full rounded-lg" />
+        <Skeleton className="h-96 w-full rounded-lg" />
       ) : data && data.items.length > 0 ? (
         <Card>
           <CardContent className="p-0 sm:p-2">
@@ -216,274 +281,150 @@ export default function ConsoleUsersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Account</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead>Type &amp; role</TableHead>
+                  <TableHead>Sign-in</TableHead>
+                  <TableHead>Photographer profile / business</TableHead>
+                  <TableHead>Registered</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Verified</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Last seen</TableHead>
-                  <TableHead />
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {data.items.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      <span className="flex items-center gap-3">
-                        <Avatar
-                          name={entry.profile?.fullName ?? entry.email}
-                          src={entry.profile?.avatarUrl}
-                          className="size-8"
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate text-ink">
-                            {entry.profile?.fullName ?? '-'}
+              <TableBody className={isFetching ? 'opacity-60 transition-opacity' : undefined}>
+                {data.items.map((entry) => {
+                  const state = accountStatus(entry.status);
+                  const name = entry.profile?.displayName || entry.profile?.fullName || entry.email;
+                  const assistable =
+                    can('users.assist') &&
+                    (ASSISTABLE_ROLES as readonly string[]).includes(entry.role) &&
+                    entry.status === 'verified';
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell>
+                        <Link to={`/console/users/${entry.id}`} className="group flex items-center gap-3">
+                          <Avatar name={name} src={entry.profile?.avatarUrl} className="size-8" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-ink group-hover:underline">{name}</span>
+                            <span className="block truncate text-xs text-subtle">{entry.email}</span>
                           </span>
-                          <span className="block truncate text-xs text-subtle">{entry.email}</span>
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={ROLE_BADGE[entry.role] ?? 'neutral'}>
-                        {ROLE_LABELS[entry.role]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={entry.status === 'verified' ? 'success' : entry.status === 'suspended' ? 'danger' : 'warning'}>
-                        {entry.status.replace(/_/g, ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted">
-                      {entry.emailVerified ? 'Yes' : 'No'}
-                    </TableCell>
-                    <TableCell className="text-xs text-subtle">
-                      {formatDate(entry.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-xs text-subtle">
-                      {entry.lastLoginAt ? formatRelative(entry.lastLoginAt) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEditor(entry)}>
-                        Manage
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="block text-xs text-muted">{ACCOUNT_TYPE_LABELS[entry.accountType]}</span>
+                        <Badge variant={ROLE_BADGE[entry.role] ?? 'neutral'} className="mt-1">
+                          {ROLE_LABELS[entry.role]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <AccessSummary access={entry.access} />
+                      </TableCell>
+                      <TableCell className="max-w-[12rem] text-xs text-muted">
+                        {entry.photographer ? (
+                          <span className="block">
+                            <span className="font-mono text-ink">{entry.photographer.photographerCode ?? 'No code yet'}</span>
+                            {' · '}
+                            {entry.photographer.photographs} photo{entry.photographer.photographs === 1 ? '' : 's'}
+                            {entry.photographer.slug && (
+                              <a
+                                href={`/artists/${entry.photographer.slug}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block text-bronze underline-offset-4 hover:underline"
+                              >
+                                Public profile
+                              </a>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="block truncate" title={entry.businesses.join(', ')}>
+                            {entry.businesses.length ? entry.businesses.join(', ') : '-'}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-subtle">{formatDate(entry.createdAt)}</TableCell>
+                      <TableCell>
+                        <Badge variant={state.tone}>{state.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted">{entry.emailVerified ? 'Verified' : 'Not verified'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5">
+                          {assistable && (
+                            <Button size="sm" variant="outline" onClick={() => setAssisting(entry)}>
+                              <LifeBuoy /> Assist user
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" asChild>
+                            <Link to={`/console/users/${entry.id}`}>Manage access</Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       ) : (
-        <EmptyState icon={<UserRound />} title="No accounts match those filters." />
+        <EmptyState
+          icon={<UserRound />}
+          title="No accounts match those filters."
+          description="Try a shorter search, or clear the filters."
+          action={
+            filtered ? (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
-      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Manage access</DialogTitle>
-            <DialogDescription>
-              {editing?.profile?.fullName ?? editing?.email}
-            </DialogDescription>
-          </DialogHeader>
+      {data && data.totalPages > 1 && (
+        <nav className="mt-5 flex items-center justify-end gap-3" aria-label="Pagination">
+          <span className="text-xs text-subtle">
+            Page {data.page} of {data.totalPages}
+          </span>
+          <Button
+            size="icon"
+            variant="outline"
+            aria-label="Previous page"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            aria-label="Next page"
+            disabled={page >= data.totalPages}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            <ChevronRight />
+          </Button>
+        </nav>
+      )}
 
-          <div className="space-y-4">
-            <Field
-              label="Role"
-              hint={
-                editing?.id === me?.id
-                  ? 'You cannot change your own role.'
-                  : undefined
+      <AssistUserDialog
+        open={Boolean(assisting)}
+        onOpenChange={(open) => !open && setAssisting(null)}
+        user={
+          assisting
+            ? {
+                id: assisting.id,
+                email: assisting.email,
+                name: assisting.profile?.displayName || assisting.profile?.fullName || assisting.email,
               }
-            >
-              <SimpleSelect
-                value={nextRole}
-                onValueChange={setNextRole}
-                disabled={editing?.id === me?.id}
-                options={ROLES.map((entry) => ({ value: entry, label: ROLE_LABELS[entry] }))}
-              />
-            </Field>
+            : null
+        }
+      />
 
-            {/* Show exactly what the chosen role can reach. */}
-            {(ROLE_MODULES[nextRole] ?? []).length > 0 && (
-              <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
-                  This role can reach
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(ROLE_MODULES[nextRole] ?? []).map((module) => (
-                    <Badge key={module} variant="outline" className="capitalize">
-                      {module}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Field label="Status">
-              <SimpleSelect
-                value={nextStatus}
-                onValueChange={setNextStatus}
-                options={USER_STATUSES.map((entry) => ({
-                  value: entry,
-                  label: entry.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()),
-                }))}
-              />
-            </Field>
-
-            {grantsInternal && (
-              <p className="flex items-start gap-2.5 rounded-md border border-warning/30 bg-warning-soft p-3 text-sm text-warning">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                This grants internal ARTINU Console access. Make sure that&rsquo;s intended.
-              </p>
-            )}
-
-            {/*
-              Delete account. Below role and status, separated by a rule, and
-              gated behind typing the address: this is the one control here that
-              cannot be undone by setting the field back.
-            */}
-            {editing?.id !== me?.id && (
-              <div className="mt-2 border-t border-line pt-4">
-                <p className="flex items-start gap-2.5 text-sm font-medium text-danger">
-                  <Trash2 className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  Delete this account
-                </p>
-                <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-                  Permanently removes the account and everything belonging to it - profile,
-                  photographs and their files, spaces, orders and invoices. This cannot be
-                  undone. To suspend access instead, set the status to{' '}
-                  <span className="font-medium">suspended</span> above.
-                </p>
-
-                <Field
-                  label={`Type ${editing?.email} to confirm`}
-                  htmlFor="confirm-delete"
-                  className="mt-3"
-                >
-                  <Input
-                    id="confirm-delete"
-                    value={confirmEmail}
-                    onChange={(event) => setConfirmEmail(event.target.value)}
-                    placeholder={editing?.email}
-                    autoComplete="off"
-                  />
-                </Field>
-
-                <Button
-                  variant="danger"
-                  className="mt-3 w-full"
-                  loading={deleteUser.isPending}
-                  disabled={confirmEmail.trim().toLowerCase() !== editing?.email.toLowerCase()}
-                  onClick={() => deleteUser.mutate(editing!.id)}
-                >
-                  Delete account permanently
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button
-              loading={update.isPending}
-              disabled={nextRole === editing?.role && nextStatus === editing?.status}
-              onClick={() =>
-                update.mutate({
-                  id: editing!.id,
-                  patch: {
-                    role: nextRole !== editing!.role ? nextRole : undefined,
-                    status: nextStatus !== editing!.status ? nextStatus : undefined,
-                  },
-                })
-              }
-            >
-              Save changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Create employee dialog ────────────────────────────────────────────── */}
-      <Dialog open={creating} onOpenChange={(open) => !open && setCreating(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add new employee</DialogTitle>
-            <DialogDescription>
-              Enter their email and choose their access level. They'll receive a sign-in link.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <Field label="Email" required>
-              <Input
-                type="email"
-                value={newEmail}
-                onChange={(event) => setNewEmail(event.target.value)}
-                placeholder="name@company.com"
-                autoFocus
-              />
-            </Field>
-
-            <Field label="Full name (optional)">
-              <Input
-                value={newFullName}
-                onChange={(event) => setNewFullName(event.target.value)}
-                placeholder="John Doe"
-              />
-            </Field>
-
-            <Field label="Role" hint="This determines what they can access in the Console.">
-              <SimpleSelect
-                value={newRole}
-                onValueChange={setNewRole}
-                options={ROLES.map((entry) => ({ value: entry, label: ROLE_LABELS[entry] }))}
-              />
-            </Field>
-
-            {(ROLE_MODULES[newRole] ?? []).length > 0 && (
-              <div className="rounded-md bg-sand-soft p-3">
-                <p className="font-label text-[0.625rem] uppercase tracking-[0.16em] text-subtle">
-                  This role can reach
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(ROLE_MODULES[newRole] ?? []).map((module) => (
-                    <Badge key={module} variant="outline" className="capitalize">
-                      {module}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(INTERNAL_ROLES as readonly string[]).includes(newRole) && (
-              <p className="flex items-start gap-2.5 rounded-md border border-warning/30 bg-warning-soft p-3 text-sm text-warning">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                This grants internal ARTINU Console access. Make sure that&rsquo;s intended.
-              </p>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setCreating(false)}>
-              Cancel
-            </Button>
-            <Button
-              loading={createUser.isPending}
-              disabled={!newEmail || createUser.isPending}
-              onClick={() =>
-                createUser.mutate({
-                  email: newEmail,
-                  role: newRole,
-                  fullName: newFullName || undefined,
-                })
-              }
-            >
-              Create account
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InviteAccessDialog
+        kind={inviting ?? 'photographer'}
+        open={Boolean(inviting)}
+        onOpenChange={(open) => !open && setInviting(null)}
+      />
     </div>
   );
 }

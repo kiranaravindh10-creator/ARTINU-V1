@@ -1,6 +1,6 @@
 import { INTERNAL_ROLES, ROLE_MODULES, type Role } from '@artinu/shared';
 import * as React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,15 +57,17 @@ export function ProtectedRoute({
 }
 
 /** Console areas are further restricted per internal role (requirements §15). */
-export function ModuleRoute({ module, children }: { module: string; children?: React.ReactNode }) {
+/** `module` may be a list: any one of them opens the route. */
+export function ModuleRoute({ module, children }: { module: string | string[]; children?: React.ReactNode }) {
   const { user, isBooting } = useAuth();
 
   if (isBooting) return <BootSplash />;
   if (!user) return <Navigate to="/signin" replace />;
 
   const allowed = ROLE_MODULES[user.role] ?? [];
-  if (!allowed.includes(module)) {
-    return <ModuleDenied module={module} />;
+  const modules = Array.isArray(module) ? module : [module];
+  if (!modules.some((entry) => allowed.includes(entry))) {
+    return <ModuleDenied module={modules.join(' or ')} />;
   }
 
   return <>{children ?? <Outlet />}</>;
@@ -81,7 +83,8 @@ function ModuleDenied({ module }: { module: string }) {
         IT team to update your access.
       </p>
       <Button variant="outline" asChild className="mt-2">
-        <a href="/console">Back to overview</a>
+        {/* A Link, not <a href>: the plain anchor reloaded the whole app. */}
+        <Link to="/console">Back to overview</Link>
       </Button>
     </div>
   );

@@ -189,7 +189,7 @@ export default function ApplyPage() {
 
             <p className="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-muted">
               <Lock className="mt-0.5 size-3.5 shrink-0 text-bronze" aria-hidden />
-              Secure. Private. Only our team can review your application.
+              Secure. Private. Only you and the ARTINU team can see what you send.
             </p>
           </Reveal>
         </div>

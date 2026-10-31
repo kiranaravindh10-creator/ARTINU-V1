@@ -202,15 +202,20 @@ const consoleRoutes: RouteObject = {
         },
         {
           path: 'orders',
-          element: <ModuleRoute module="orders" />,
           children: [
             {
               index: true,
-              element: lazyPage(() => import('@/features/console/pages/ConsoleOrdersPage')),
+              element: <ModuleRoute module="orders">{lazyPage(() => import('@/features/console/pages/ConsoleOrdersPage'))}</ModuleRoute>,
             },
             {
+              // Finance opens a single order too: Accounts approves prices and
+              // records payments. Status, scheduling and costs stay with Orders.
               path: ':orderId',
-              element: lazyPage(() => import('@/features/console/pages/ConsoleOrderDetailPage')),
+              element: (
+                <ModuleRoute module={['orders', 'finance']}>
+                  {lazyPage(() => import('@/features/console/pages/ConsoleOrderDetailPage'))}
+                </ModuleRoute>
+              ),
             },
           ],
         },
@@ -287,14 +292,49 @@ const consoleRoutes: RouteObject = {
           ],
         },
         {
-          path: 'accounts',
-          element: <ModuleRoute module="accounts" />,
+          path: 'expenses',
+          element: <ModuleRoute module="expenses" />,
           children: [
             {
               index: true,
-              element: lazyPage(() => import('@/features/console/pages/ConsoleAccountsPage')),
+              element: lazyPage(() => import('@/features/console/pages/ConsoleExpensesPage')),
+            },
+            {
+              path: 'approvals',
+              element: lazyPage(() => import('@/features/console/pages/ConsoleExpenseApprovalsPage')),
             },
           ],
+        },
+        {
+          // The money view: dashboard and exports, the transaction register,
+          // and the invoices issued. CEO and accounts.
+          path: 'finance',
+          element: <ModuleRoute module="finance" />,
+          children: [
+            {
+              index: true,
+              element: lazyPage(() => import('@/features/console/pages/ConsoleFinancePage')),
+            },
+            {
+              path: 'transactions',
+              element: lazyPage(() => import('@/features/console/pages/ConsoleTransactionsPage')),
+            },
+            {
+              path: 'invoices',
+              element: lazyPage(() => import('@/features/console/pages/ConsoleInvoicesPage')),
+            },
+          ],
+        },
+        {
+          /*
+            The GST page. GST is off in this version (GST_FEATURE_ENABLED on
+            the server), so the page - GST collected by month - would only
+            ever show zeroes. The address goes to Finance instead; the page
+            stays in the code for when GST is turned on.
+          */
+          path: 'accounts',
+          element: <ModuleRoute module="accounts" />,
+          children: [{ index: true, element: <Navigate to="/console/finance" replace /> }],
         },
         {
           path: 'reports',
@@ -322,6 +362,12 @@ const consoleRoutes: RouteObject = {
               path: 'audit',
               element: lazyPage(() => import('@/features/console/pages/ConsoleAuditPage')),
             },
+            {
+              // After the two fixed paths above, so "employees" and "audit"
+              // are never read as a user id.
+              path: ':userId',
+              element: lazyPage(() => import('@/features/console/pages/ConsoleUserDetailPage')),
+            },
           ],
         },
         {
@@ -335,7 +381,13 @@ const consoleRoutes: RouteObject = {
           ],
         },
         {
-          path: 'notifications',
+          /*
+            Administration → Notifications: sending one to an audience. It was
+            mounted at `notifications`, the same path as the personal inbox
+            below, and being declared first it always won - the inbox (and the
+            bell, which links there) could not be reached from the Console.
+          */
+          path: 'send-notifications',
           element: <ModuleRoute module="announcements" />,
           children: [
             {
@@ -433,9 +485,22 @@ const resetPasswordRoute: RouteObject = {
   element: lazyPage(() => import('@/features/auth/pages/ResetPasswordPage')),
 };
 
+/*
+  Confirming an email address corrected by ARTINU support. Outside every guard
+  for the same reasons as verify-email: the person clicking may be signed in,
+  signed out, or signed in as someone else, and the token has to be spent
+  either way.
+*/
+const confirmEmailChangeRoute: RouteObject = {
+  path: 'confirm-email-change',
+  errorElement: <RouteError />,
+  element: lazyPage(() => import('@/features/auth/pages/ConfirmEmailChangePage')),
+};
+
 export const router = createBrowserRouter([
   verifyEmailRoute,
   resetPasswordRoute,
+  confirmEmailChangeRoute,
   authRoutes,
   accountRoutes,
   spaceRoutes,

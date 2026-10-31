@@ -3,6 +3,7 @@ import * as React from 'react';
 import { tokenStore, UNAUTHORIZED_EVENT } from '@/lib/api';
 import { queryClient } from '@/lib/query';
 import { authService } from '@/services/auth.service';
+import { activeSupportSession, endSupportSession } from '@/lib/support-session';
 
 interface AuthContextValue {
   user: User | null;
@@ -87,6 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clear]);
 
   const signOut = React.useCallback(async () => {
+    // Signing out of an assisted account ends the support session instead.
+    if (activeSupportSession()) {
+      await endSupportSession('exited');
+      return;
+    }
     await authService.signOut();
     clear();
   }, [clear]);

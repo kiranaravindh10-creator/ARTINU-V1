@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreditCard } from 'lucide-react';
 import * as React from 'react';
 import { PageHeader } from '@/components/layout/DashboardShell';
-import { SubNav } from '@/features/console/components/SubNav';
+import { MoneyNav } from '@/features/console/components/MoneyNav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,12 +96,7 @@ export default function ConsolePaymentsPage() {
     <div>
       <PageHeader title="Payments" description="Every charge, and what happened to it." />
 
-      <SubNav
-        items={[
-          { to: '/console/payments', label: 'Payments in' },
-          { to: '/console/accounts', label: 'Accounts' },
-        ]}
-      />
+      <MoneyNav />
 
       <StatGrid columns={3} className="mb-6">
         <StatTile label="Collected this month" value={collected} format="currency" icon={CreditCard} />

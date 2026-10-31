@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { errorMessage } from '@/lib/api';
 import { operationsService, type Employee } from '@/services/operations.service';
+import { peopleService } from '@/services/people.service';
 
 /** Roles an employee account can hold. 'ceo' is deliberately not offered here. */
 const ROLE_OPTIONS = [
@@ -111,7 +112,7 @@ export default function ConsoleEmployeesPage() {
         items={[
           { to: '/console/users', label: 'Accounts', end: true },
           { to: '/console/users/employees', label: 'Employees' },
-          { to: '/console/users/audit', label: 'Audit trail' },
+          { to: '/console/users/audit', label: 'Audit log' },
         ]}
       />
 
@@ -237,6 +238,7 @@ function AddEmployeeDialog({
     jobTitle: string;
     role: string;
     department?: string | null;
+    branch?: string | null;
     personalEmail?: string | null;
     phone?: string | null;
   }) => void;
@@ -245,6 +247,9 @@ function AddEmployeeDialog({
   const [jobTitle, setJobTitle] = React.useState('');
   const [role, setRole] = React.useState('operations');
   const [department, setDepartment] = React.useState('');
+  // Which branch they will work in - it decides the orders and figures they see.
+  const { data: branchInfo } = useQuery({ queryKey: ['admin', 'people', 'branches'], queryFn: () => peopleService.branches() });
+  const [branch, setBranch] = React.useState('');
   const [personalEmail, setPersonalEmail] = React.useState('');
   const [phone, setPhone] = React.useState('');
 
@@ -254,6 +259,7 @@ function AddEmployeeDialog({
       setJobTitle('');
       setRole('operations');
       setDepartment('');
+      setBranch('');
       setPersonalEmail('');
       setPhone('');
     }
@@ -318,6 +324,16 @@ function AddEmployeeDialog({
             />
           </Field>
 
+          {(branchInfo?.branches.length ?? 0) > 1 && (
+            <Field label="Branch" hint="Which branch's orders, expenses and figures they see">
+              <SimpleSelect
+                value={branch || branchInfo!.branches[0]!}
+                onValueChange={setBranch}
+                options={branchInfo!.branches.map((name) => ({ value: name, label: name }))}
+              />
+            </Field>
+          )}
+
           <Field
             label="Personal email"
             htmlFor="employee-personal"
@@ -355,6 +371,7 @@ function AddEmployeeDialog({
                 jobTitle: jobTitle.trim(),
                 role,
                 department: department.trim() || null,
+                branch: branch || null,
                 personalEmail: personalEmail.trim() || null,
                 phone: phone.trim() || null,
               })

@@ -63,6 +63,7 @@ export function TrendChart({
   height = 200,
   className,
   label,
+  ceiling,
 }: {
   data: TrendPoint[];
   format?: 'number' | 'currency';
@@ -70,6 +71,12 @@ export function TrendChart({
   className?: string;
   /** Only rendered when the surrounding section does not already say it. */
   label?: string;
+  /**
+   * The top of the scale, when two charts sit side by side to be compared:
+   * each would otherwise scale to its own peak, and a small series would look
+   * as large as a big one.
+   */
+  ceiling?: number;
 }) {
   const [active, setActive] = React.useState<number | null>(null);
   const id = React.useId();
@@ -86,7 +93,7 @@ export function TrendChart({
   const padding = { top: 14, right: 10, bottom: 24, left: 44 };
   const plotWidth = Math.max(1, width - padding.left - padding.right);
   const plotHeight = Math.max(1, height - padding.top - padding.bottom);
-  const max = niceMax(data.map((point) => point.value));
+  const max = niceMax([...data.map((point) => point.value), ceiling ?? 0]);
 
   const x = (index: number) =>
     padding.left + (data.length === 1 ? plotWidth / 2 : (index / (data.length - 1)) * plotWidth);

@@ -13,6 +13,8 @@ const COLUMNS = [
       { to: '/spaces', label: 'Spaces' },
       { to: '/about', label: 'About Us' },
       { to: '/help', label: 'Help & Support' },
+      // The same sign-in page; ?as=staff greets ARTINU staff, who land in the Console.
+      { to: '/signin?as=staff', label: 'Staff Sign In' },
     ],
   },
   {

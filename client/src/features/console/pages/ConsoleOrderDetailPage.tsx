@@ -1,9 +1,9 @@
 import {
+  formatAmount,
   formatCurrency,
   formatDate,
   formatDateTime,
   ORDER_STATUS_LABELS,
-  PRICING,
   ROLE_MODULES,
   type CostBreakdown,
   type OrderStatus,
@@ -23,6 +23,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Photo } from '@/components/ui/photo';
 import { SimpleSelect } from '@/components/ui/select';
 import { DataRow } from '@/components/ui/stat';
+import { OrderMoneyPanel } from '@/features/console/components/OrderMoneyPanel';
 import { describeFrame } from '@/features/public/components/FrameConfigurator';
 import { ORDER_BADGE } from '@/features/space/pages/SpaceDashboardPage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -165,21 +166,25 @@ export default function ConsoleOrderDetailPage() {
       <PageHeader
         eyebrow={`Placed ${formatDate(order.placedAt, 'long')}`}
         title={order.reference}
-        description={space ? `${space.name} · ${space.city}` : undefined}
+        description={
+          [space ? `${space.name} · ${space.city}` : null, order.createdByEmail ? `Created by ${order.createdByEmail}` : null]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
         actions={
           <div className="flex items-center gap-3">
             <Badge variant={ORDER_BADGE[order.status] ?? 'neutral'}>
               {ORDER_STATUS_LABELS[order.status]}
             </Badge>
             <span className="font-display text-xl text-ink">
-              {formatCurrency(order.pricing.total)}
+              {formatAmount(order.pricing.total)}
             </span>
           </div>
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-5">
           <Card>
             <CardHeader>
               <CardTitle>For production</CardTitle>
@@ -200,36 +205,32 @@ export default function ConsoleOrderDetailPage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm text-ink">× {item.quantity}</p>
-                      <p className="text-xs text-subtle">{formatCurrency(item.lineTotal)}</p>
+                      <p className="text-xs text-subtle">{formatAmount(item.lineTotal)}</p>
                     </div>
                   </li>
                 ))}
               </ul>
-
-              <div className="mt-4 border-t border-line pt-3">
-                <DataRow label="Subtotal" value={formatCurrency(order.pricing.subtotal)} />
-                {order.pricing.discount > 0 && (
-                  <DataRow label="Discount" value={`− ${formatCurrency(order.pricing.discount)}`} />
-                )}
-                <DataRow label="Delivery" value={formatCurrency(order.pricing.delivery)} />
-                <DataRow label="Installation" value={formatCurrency(order.pricing.installation)} />
-                <DataRow
-                  label={`GST @ ${PRICING.GST_RATE * 100}%`}
-                  value={formatCurrency(order.pricing.gst)}
-                />
-                <DataRow label="Total" value={formatCurrency(order.pricing.total)} emphasis />
-              </div>
+              {order.items.length === 0 && (
+                <p className="text-sm text-muted">No photographs - a service-only order. Its charges are listed under Money.</p>
+              )}
             </CardContent>
           </Card>
 
+          {/* What was agreed, paid and owed; price approval; costs; the client. */}
+          <OrderMoneyPanel order={order} onChanged={invalidate} />
+
           <Card>
             <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Cost & margin</CardTitle>
+              <CardTitle>Estimated cost & margin</CardTitle>
               <Badge variant={order.cost ? 'success' : 'neutral'}>
                 {order.cost ? 'Recorded' : 'Not set'}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p className="text-xs text-muted">
+                A rough estimate typed in by hand. Costs actually recorded and approved are under &ldquo;Costs linked to this
+                order&rdquo;.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Frame (₹)" htmlFor="frameCost">
                   <Input
@@ -279,10 +280,10 @@ export default function ConsoleOrderDetailPage() {
 
               <div className="rounded-lg border border-line bg-surface p-4 space-y-3">
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <DataRow label="Total cost" value={formatCurrency(frameCost + printingCost + logisticsCost + miscCost)} />
-                  <DataRow label="Revenue" value={formatCurrency(order.pricing.total)} />
+                  <DataRow label="Estimated cost" value={formatCurrency(frameCost + printingCost + logisticsCost + miscCost)} />
+                  <DataRow label="Order value" value={formatCurrency(order.pricing.total)} />
                   <DataRow
-                    label="Margin"
+                    label="Estimated margin"
                     value={
                       formatCurrency(
                         order.pricing.total - (frameCost + printingCost + logisticsCost + miscCost),
@@ -293,12 +294,14 @@ export default function ConsoleOrderDetailPage() {
                 </div>
                 <div className="pt-2 border-t border-line-soft">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted">Margin %</span>
+                    <span className="text-sm text-muted">Estimated margin %</span>
                     <span className="font-display text-xl text-ink">
-                      {((order.pricing.total - (frameCost + printingCost + logisticsCost + miscCost)) /
-                        (order.pricing.total || 1)) *
-                        100}
-                      {' '}
+                      {(
+                        ((order.pricing.total - (frameCost + printingCost + logisticsCost + miscCost)) /
+                          (order.pricing.total || 1)) *
+                        100
+                      ).toFixed(1)}
+                      %
                     </span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-line overflow-hidden">
@@ -371,7 +374,7 @@ export default function ConsoleOrderDetailPage() {
           </Card>
         </div>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           {space && (
             <Card>
               <CardHeader>

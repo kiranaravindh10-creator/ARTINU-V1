@@ -7,6 +7,8 @@ import { TooltipProvider } from '@/components/ui/menu';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { ContentSSEProvider } from '@/components/ContentSSEProvider';
+import { ReadOnlyBanner } from '@/components/ReadOnlyBanner';
+import { SupportSessionBanner } from '@/components/support/SupportSessionBanner';
 import { queryClient } from '@/lib/query';
 import { router } from '@/routes/router';
 
@@ -20,6 +22,10 @@ export default function App() {
               <TooltipProvider delayDuration={200} skipDelayDuration={400}>
                 <div className="bg-noise" />
                 <ContentSSEProvider />
+                {/* Above everything while an administrator is assisting an account. */}
+                <SupportSessionBanner />
+                {/* Above everything while the server is in read-only mode. */}
+                <ReadOnlyBanner />
                 <RouterProvider router={router} />
                 <Toaster
                   position="bottom-right"

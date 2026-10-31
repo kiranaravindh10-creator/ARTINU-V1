@@ -30,7 +30,8 @@ export default function ConsoleAuditPage() {
 
       <SubNav
         items={[
-          { to: '/console/users', label: 'People', end: true },
+          { to: '/console/users', label: 'Accounts', end: true },
+          { to: '/console/users/employees', label: 'Employees' },
           { to: '/console/users/audit', label: 'Audit log' },
         ]}
       />

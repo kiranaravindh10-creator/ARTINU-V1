@@ -19,18 +19,22 @@ import { IMAGES } from '@/lib/images';
   the discs. It is four verbs that describe nothing and promise nothing, and it
   was the last step of a list whose other three are concrete events.
 */
+/*
+  There is no approval step any more: the application made the account, so the
+  steps describe what is already true rather than a decision to wait for.
+*/
 const STEPS = [
   {
-    title: 'We read it',
-    body: 'A person goes through your application and your photographs. Not a filter.',
+    title: 'Your account is ready',
+    body: 'Your photographer account, your photographer code and your Studio were set up as you applied.',
   },
   {
-    title: 'We reply either way',
-    body: 'Within seven to ten days, whether the answer is yes or no.',
+    title: 'Choose your password',
+    body: 'Use the link in the email we just sent - it works once, for seven days. Already have a password? Just sign in.',
   },
   {
-    title: 'You upload',
-    body: 'Your account opens and your photographs go straight into the gallery - no second review.',
+    title: 'Your photographs',
+    body: 'They are already in your Studio and, once the same automatic checks as any upload clear them, in the gallery.',
   },
   {
     title: 'A wall',
@@ -66,18 +70,17 @@ export default function ApplicationSubmittedPage() {
             <span className="absolute -right-6 -top-3 size-1.5 rounded-full bg-bronze/30" aria-hidden />
           </div>
 
-          <p className="eyebrow mt-7">Application submitted</p>
+          <p className="eyebrow mt-7">Welcome to ARTINU</p>
           <h1 className="mx-auto mt-4 max-w-2xl font-display text-[2.25rem] leading-[1.08] text-ink sm:text-[3rem]">
-            Thank you for applying to ARTINU.
+            Your ARTINU account is ready.
           </h1>
           <p className="prose-quiet mx-auto mt-5 text-center">
-            We&rsquo;ve received your application and our team will review it with care.
-            You&rsquo;ll hear from us soon.
+            Your photographs are in your Studio. Check your email to choose a password, then sign in.
           </p>
 
           <div className="mx-auto mt-8 flex w-fit max-w-full items-center gap-3.5 rounded-lg border border-line bg-surface px-5 py-4 text-left">
             <p className="text-sm text-muted">
-              A confirmation email has been sent to
+              We have emailed the next step to
               <br />
               <span className="font-medium text-ink">{email ?? 'the address you gave us'}</span>
             </p>
@@ -85,7 +88,7 @@ export default function ApplicationSubmittedPage() {
 
           <div className="mt-9 flex flex-col items-center gap-4">
             <Button shape="pill" size="lg" asChild>
-              <Link to="/signin?as=artist">View my application →</Link>
+              <Link to="/signin?as=artist">Sign in to your Studio →</Link>
             </Button>
             <ArrowLink to="/">Back to home</ArrowLink>
           </div>

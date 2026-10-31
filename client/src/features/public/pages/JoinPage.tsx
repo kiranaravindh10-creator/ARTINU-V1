@@ -95,7 +95,7 @@ const GUIDELINES = [
 const STEPS = [
   { title: 'Create Your Profile', body: 'Tell us about you and your photography journey.' },
   { title: 'Showcase Your Work', body: 'Upload your best work and share your vision.' },
-  { title: 'Our Team Reviews', body: 'We review your application and get back to you.' },
+  { title: 'Your Studio Opens', body: 'Your account is created as you apply - we email you a link to choose your password.' },
   { title: 'Welcome to ARTINU', body: 'Start connecting, collaborating and creating together.' },
 ];
 
