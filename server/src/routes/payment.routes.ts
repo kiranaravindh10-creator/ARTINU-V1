@@ -12,13 +12,14 @@ import {
   sendPaymentConfirmation,
   sendStaffAlert,
 } from '@/services/email.service';
-import { notify, notifyRole } from '@/services/notification.service';
+import { notify, notifyRole, notifyOwner } from '@/services/notification.service';
 import { issueInvoice } from '@/services/invoice.service';
 import { advanceOrder } from '@/services/order.service';
 import { getPaymentProvider, verifyRazorpayWebhook } from '@/services/payment.service';
 import { logger } from '@/utils/logger';
 import { profileFor } from '@/services/auth.service';
 import { settlePayment } from '@/services/settlement.service';
+import { outstandingFor } from '@/services/order-money.service';
 
 export const paymentRouter = Router();
 
@@ -152,19 +153,30 @@ paymentRouter.post(
     if (order.status !== 'pending_payment' && order.status !== 'payment_failed') {
       throw badRequest('This order has already been paid for.');
     }
+    if (order.pricing.approval?.status === 'pending') {
+      throw badRequest('This order’s price is still being confirmed by ARTINU. You will be told when it can be paid.');
+    }
+
+    /*
+      What is still owed, not the order total. Part of a Console order can be
+      paid offline first; charging the full total online after that would take
+      the same money twice. With no earlier payment the two are identical.
+    */
+    const amount = await outstandingFor(order);
+    if (amount <= 0) throw badRequest('This order has already been paid for.');
 
     const provider = getPaymentProvider();
     const reference = paymentReference();
     const charge = await provider.createCharge({
       orderId: order.id,
-      amount: order.pricing.total,
+      amount,
       reference,
     });
 
     const payment = await db.payments.insert({
       orderId: order.id,
       provider: provider.id,
-      amount: order.pricing.total,
+      amount,
       currency: PRICING.CURRENCY,
       status: 'awaiting_payment',
       qrPayload: charge.qrPayload ?? null,
@@ -287,8 +299,7 @@ paymentRouter.post(
         claimed = await db.payments.update(payment.id, core);
       }
 
-      await notify({
-        userId: order.ownerId,
+      await notifyOwner(order.ownerId, {
         type: 'payment_received',
         title: `We have your payment details for ${order.reference}`,
         body: 'Our team is checking the transfer against our account. You will get your invoice by email once it is confirmed.',
@@ -368,8 +379,7 @@ paymentRouter.post(
         note: result.failureReason ?? 'Payment could not be verified.',
       });
 
-      await notify({
-        userId: order.ownerId,
+      await notifyOwner(order.ownerId, {
         type: 'payment_failed',
         title: `Payment for ${order.reference} did not go through`,
         body: `${result.failureReason ?? 'We could not confirm the payment.'} You can retry from your order.`,
@@ -399,15 +409,20 @@ paymentRouter.post(
     const { payment, order } = await loadOwnPayment(req.params.id, req.user!.id, req.user!.role);
     if (payment.status === 'succeeded') throw badRequest('This payment has already succeeded.');
 
+    // What is still owed - see the note on opening a payment above.
+    const amount = await outstandingFor(order);
+    if (amount <= 0) throw badRequest('This order has already been paid for.');
+
     const provider = getPaymentProvider();
     const reference = paymentReference();
     const charge = await provider.createCharge({
       orderId: order.id,
-      amount: order.pricing.total,
+      amount,
       reference,
     });
 
     const updated = await db.payments.update(payment.id, {
+      amount,
       status: 'awaiting_payment',
       qrPayload: charge.qrPayload ?? null,
       qrImageDataUrl: charge.qrImageDataUrl ?? null,

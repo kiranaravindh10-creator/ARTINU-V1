@@ -7,6 +7,8 @@ import { paginate } from '@/database/table';
 import { asyncHandler, requireAuth, requireRole, validate } from '@/middleware/index';
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { recordAudit } from '@/services/audit.service';
+import { assertInScope, branchScopeOf } from '@/services/branch.service';
+import { inBranchScope } from '@artinu/shared';
 import { notifyRole } from '@/services/notification.service';
 import {
   advanceOrder,
@@ -95,9 +97,11 @@ orderRouter.get(
     const page = Number(req.query.page ?? 1);
     const pageSize = Math.min(60, Number(req.query.pageSize ?? 20));
 
+    // Staff see their branch's orders (central staff every branch); customers their own.
+    const scope = INTERNAL.includes(user.role) ? await branchScopeOf(user) : null;
     const orders = await db.orders.find({
-      where: INTERNAL.includes(user.role) ? undefined : { ownerId: user.id },
-      filter: status && status !== 'all' ? (order) => order.status === status : undefined,
+      where: scope ? undefined : { ownerId: user.id },
+      filter: (order) => (!scope || inBranchScope(scope, order.branch)) && (!status || status === 'all' || order.status === status),
       orderBy: { field: 'placedAt', direction: 'desc' },
     });
 
@@ -131,8 +135,10 @@ orderRouter.get(
   asyncHandler(async (req, res) => {
     const order = await db.orders.byId(req.params.id);
     if (!order) throw notFound('That order');
-    if (order.ownerId !== req.user!.id && !INTERNAL.includes(req.user!.role)) {
-      throw forbidden('That order belongs to another account.');
+    if (order.ownerId !== req.user!.id) {
+      if (!INTERNAL.includes(req.user!.role)) throw forbidden('That order belongs to another account.');
+      // Staff open their own branch's orders only.
+      assertInScope(await branchScopeOf(req.user!), order.branch, 'That order');
     }
     res.json(order);
   }),
@@ -148,6 +154,9 @@ orderRouter.post(
     const internal = INTERNAL.includes(req.user!.role);
     if (order.ownerId !== req.user!.id && !internal) {
       throw forbidden('That order belongs to another account.');
+    }
+    if (internal && order.ownerId !== req.user!.id) {
+      assertInScope(await branchScopeOf(req.user!), order.branch, 'That order');
     }
 
     // Once production has started, cancelling is an internal decision — there is

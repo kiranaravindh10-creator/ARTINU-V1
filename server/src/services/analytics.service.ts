@@ -1,6 +1,8 @@
 import {
+  inBranchScope,
   PRICING,
   type ArtistAnalytics,
+  type BranchScope,
   type ConsoleAnalytics,
   type Order,
   type SpaceOwnerAnalytics,
@@ -8,6 +10,7 @@ import {
 } from '@artinu/shared';
 import { db } from '@/database/db';
 import { recentAudit } from '@/services/audit.service';
+import { gstCharged } from '@/services/gst.service';
 
 /**
  * Every figure here is derived from the tables — nothing is a constant and
@@ -65,8 +68,12 @@ const safeDivide = (numerator: number, denominator: number) =>
 
 // ── Console ──────────────────────────────────────────────────────────────────
 
-export async function consoleAnalytics(): Promise<ConsoleAnalytics> {
-  const [orders, spaces, artworks, installations, users, consultations, profiles, payouts] =
+/**
+ * The Console overview. With a branch-bound scope the orders, revenue and
+ * installations are that branch's; people, spaces and photographs are shared.
+ */
+export async function consoleAnalytics(scope?: BranchScope): Promise<ConsoleAnalytics> {
+  const [allOrders, spaces, artworks, allInstallations, users, consultations, profiles, payouts] =
     await Promise.all([
       db.orders.find(),
       db.spaces.find(),
@@ -77,6 +84,10 @@ export async function consoleAnalytics(): Promise<ConsoleAnalytics> {
       db.profiles.find(),
       db.payouts.find(),
     ]);
+
+  const orders = scope ? allOrders.filter((order) => inBranchScope(scope, order.branch)) : allOrders;
+  const orderIds = new Set(orders.map((order) => order.id));
+  const installations = allInstallations.filter((installation) => orderIds.has(installation.orderId));
 
   const paidOrders = orders.filter(isRevenue);
   const revenue = paidOrders.reduce((sum, order) => sum + order.pricing.total, 0);
@@ -139,7 +150,10 @@ export async function consoleAnalytics(): Promise<ConsoleAnalytics> {
   // Repeat customers: owners with more than one paid order.
   const ordersByOwner = new Map<string, number>();
   for (const order of paidOrders) {
-    ordersByOwner.set(order.ownerId, (ordersByOwner.get(order.ownerId) ?? 0) + 1);
+    // A client order with no login is still a customer; key it by the client.
+    const customer = order.ownerId ?? (order.clientId ? `client:${order.clientId}` : null);
+    if (!customer) continue;
+    ordersByOwner.set(customer, (ordersByOwner.get(customer) ?? 0) + 1);
   }
   const repeatCustomers = [...ordersByOwner.values()].filter((count) => count > 1).length;
 
@@ -260,20 +274,23 @@ export async function artistAnalytics(artistId: string): Promise<ArtistAnalytics
 
 // ── Reports ──────────────────────────────────────────────────────────────────
 
-export async function reportBundle() {
-  const analytics = await consoleAnalytics();
-  const orders = (await db.orders.find()).filter(isRevenue);
+export async function reportBundle(scope?: BranchScope) {
+  const analytics = await consoleAnalytics(scope);
+  const orders = (await db.orders.find()).filter((order) => isRevenue(order) && (!scope || inBranchScope(scope, order.branch)));
 
+  // GST is off in this version (gst.service): the series is empty rather than a year of zeroes.
   const gstByMonth = new Map<string, number>();
-  for (const order of orders) {
+  for (const order of gstCharged() ? orders : []) {
     const key = monthKey(order.placedAt);
     gstByMonth.set(key, (gstByMonth.get(key) ?? 0) + order.pricing.gst);
   }
 
-  const gst = monthBuckets(12).map((bucket) => ({
-    period: bucket.key,
-    collected: Math.round(gstByMonth.get(bucket.key) ?? 0),
-  }));
+  const gst = gstCharged()
+    ? monthBuckets(12).map((bucket) => ({
+        period: bucket.key,
+        collected: Math.round(gstByMonth.get(bucket.key) ?? 0),
+      }))
+    : [];
 
   return {
     revenueTrend: analytics.revenueTrend,

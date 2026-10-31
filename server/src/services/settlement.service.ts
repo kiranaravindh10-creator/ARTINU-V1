@@ -1,15 +1,16 @@
-import type { Order, Payment } from '@artinu/shared';
+import type { Invoice, Order, Payment } from '@artinu/shared';
 import { db } from '@/database/db';
 import { now } from '@/utils/ids';
 import { recordAudit } from '@/services/audit.service';
 import { profileFor } from '@/services/auth.service';
 import {
   sendArtistSelectedEmail,
+  sendClientOrderMail,
   sendOrderConfirmation,
   sendPaymentConfirmation,
 } from '@/services/email.service';
 import { issueInvoice } from '@/services/invoice.service';
-import { notify, notifyRole } from '@/services/notification.service';
+import { notify, notifyOwner, notifyRole } from '@/services/notification.service';
 import { advanceOrder } from '@/services/order.service';
 
 /**
@@ -73,19 +74,50 @@ export async function settlePayment(
     updatedAt: now(),
   });
 
-  const confirmed = await advanceOrder(order, 'confirmed', {
+  const { order: confirmed, invoice } = await confirmOrder(order, {
     note: `Payment received (${reference ?? payment.reference}).`,
+    paymentEmails: true,
   });
+
+  await recordAudit({
+    actor,
+    action: 'payment.verified',
+    entity: 'payment',
+    entityId: payment.id,
+    meta: { orderId: order.id, amount: payment.amount, invoice: invoice.number },
+    ip,
+  });
+
+  return { payment: paid, order: confirmed };
+}
+
+/**
+ * Steps 2 to 8 above: everything confirming an order means, apart from the
+ * payment row itself.
+ *
+ * Shared by settlement and by an order confirmed on approved credit - the case
+ * where production starts before the money arrives. Both must issue the same
+ * invoice, tell the same artists and reach the same production queue, which is
+ * exactly why this is one function rather than two copies that drift.
+ *
+ * An order for a client with no login has no owner to notify in the app; the
+ * client is emailed instead, when an address is on file, with nothing that
+ * links to a dashboard they cannot open.
+ */
+export async function confirmOrder(
+  order: Order,
+  options: { note: string; by?: string | null; paymentEmails?: boolean },
+): Promise<{ order: Order; invoice: Invoice }> {
+  const confirmed = await advanceOrder(order, 'confirmed', { note: options.note, by: options.by ?? null });
 
   const invoice = await issueInvoice(confirmed);
   const space = await db.spaces.byId(order.spaceId);
-  const profile = await profileFor(order.ownerId);
+  const profile = order.ownerId ? await profileFor(order.ownerId) : null;
   const ownerName = profile?.fullName ?? 'there';
 
-  await notify({
-    userId: order.ownerId,
+  await notifyOwner(order.ownerId, {
     type: 'payment_received',
-    title: 'Payment received',
+    title: options.paymentEmails ? 'Payment received' : 'Order confirmed',
     body: `Your order ${order.reference} is confirmed. We will start printing right away.`,
     link: `/space/orders/${order.id}`,
   });
@@ -162,21 +194,18 @@ export async function settlePayment(
     link: `/console/orders/${order.id}`,
   });
 
-  const ownerUser = await db.users.byId(order.ownerId);
+  const ownerUser = order.ownerId ? await db.users.byId(order.ownerId) : null;
   if (ownerUser) {
-    void sendPaymentConfirmation(ownerUser.email, ownerName, confirmed);
+    if (options.paymentEmails) void sendPaymentConfirmation(ownerUser.email, ownerName, confirmed);
     void sendOrderConfirmation(ownerUser.email, ownerName, confirmed);
+  } else if (order.clientId) {
+    const client = await db.clients.byId(order.clientId);
+    if (client?.email) {
+      void sendClientOrderMail(client.email, client.contactName, confirmed, 'confirmed', {
+        invoiceNumber: invoice.number,
+      });
+    }
   }
 
-  await recordAudit({
-    actor,
-    action: 'payment.verified',
-    entity: 'payment',
-    entityId: payment.id,
-    meta: { orderId: order.id, amount: payment.amount, invoice: invoice.number },
-    ip,
-  });
-
-
-  return { payment: paid, order: (await db.orders.byId(order.id))! };
+  return { order: (await db.orders.byId(order.id))!, invoice };
 }

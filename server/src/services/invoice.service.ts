@@ -14,6 +14,7 @@ import {
   type Space,
 } from '@artinu/shared';
 import { db } from '@/database/db';
+import { gstCharged } from '@/services/gst.service';
 import { invoiceNumber, now } from '@/utils/ids';
 
 /** Issue the GST invoice for a paid order — idempotent per order. */
@@ -165,7 +166,27 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
         <td class="num">${formatCurrency(item.lineTotal)}</td>
       </tr>`,
     )
-    .join('');
+    .join('')
+    /*
+      A custom-priced order can carry printing and other charges as lines of
+      their own. They are part of the subtotal, so they have to appear above
+      it - otherwise the rows would not add up to the figure under them.
+      Delivery and installation keep their own lines in the summary below.
+    */
+    .concat(
+      (order.pricing.lines ?? [])
+        .filter((entry) => entry.kind === 'printing' || entry.kind === 'other')
+        .map(
+          (entry) => `
+      <tr>
+        <td><strong>${escapeHtml(entry.description)}</strong></td>
+        <td class="num">${entry.quantity}</td>
+        <td class="num">${formatCurrency(entry.unitPrice)}</td>
+        <td class="num">${formatCurrency(entry.lineTotal)}</td>
+      </tr>`,
+        )
+        .join(''),
+    );
 
   const line = (labelText: string, value: string, strong = false) => `
     <tr class="${strong ? 'total' : ''}">
@@ -219,7 +240,7 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
   <div class="sheet">
     <div class="head">
       <div>
-        <p class="eyebrow">${PRICING.GST_REGISTERED ? 'Tax Invoice' : 'Invoice'}</p>
+        <p class="eyebrow">${gstCharged() && pricing.gst > 0 ? 'Tax Invoice' : 'Invoice'}</p>
         <h1>ARTINU</h1>
         <!-- Contact details rather than a postal address: ARTINU publishes
              none, and the three empty lines this used to emit made every
@@ -265,13 +286,14 @@ export function renderInvoiceHtml(invoice: Invoice, order: Order, space: Space |
         ${pricing.discount > 0 ? line(`Discount${pricing.couponCode ? ` (${escapeHtml(pricing.couponCode)})` : ''}`, `− ${formatCurrency(pricing.discount)}`) : ''}
         ${line('Delivery', pricing.delivery === 0 ? 'Included' : formatCurrency(pricing.delivery))}
         ${pricing.installation > 0 ? line('Installation', formatCurrency(pricing.installation)) : ''}
-        ${PRICING.GST_REGISTERED ? line(`GST @ ${PRICING.GST_RATE * 100}%`, formatCurrency(pricing.gst)) : ''}
+        ${pricing.gst > 0 ? line(`GST @ ${PRICING.GST_RATE * 100}%`, formatCurrency(pricing.gst)) : ''}
         ${pricing.securityDeposit > 0 ? line('Refundable security deposit', formatCurrency(pricing.securityDeposit)) : ''}
         ${line('Total', formatCurrency(pricing.total), true)}
       </tbody>
     </table>
 
     <div class="words"><strong>Amount in words:</strong> ${amountInWords(pricing.total)}</div>
+    ${pricing.commercialTerms ? `<div class="words"><strong>Terms:</strong> ${escapeHtml(pricing.commercialTerms)}</div>` : ''}
 
     <footer>
       <div>

@@ -13,7 +13,7 @@ import { asyncHandler, requireAuth, requireInternal, validate } from '@/middlewa
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { now } from '@/utils/ids';
 import { recordAudit } from '@/services/audit.service';
-import { notify, notifyRole } from '@/services/notification.service';
+import { notify, notifyRole, notifyOwner } from '@/services/notification.service';
 import { ensureRotationsDue, openNextCycle } from '@/services/rotation.service';
 import { withArtists } from '@/services/user.service';
 
@@ -102,8 +102,7 @@ rotationRouter.post(
 
     const space = await db.spaces.byId(cycle.spaceId);
     if (space) {
-      await notify({
-        userId: space.ownerId,
+      await notifyOwner(space.ownerId, {
         type: 'rotation_reminder',
         title: 'Your next collection is ready to review',
         body: `We have curated ${artworkIds.length} photographs for ${space.name}. Approve them and we will schedule the swap.`,

@@ -12,6 +12,7 @@ import {
 } from '@artinu/shared';
 import { db, type StoredUser } from '@/database/db';
 import { validateCoupon } from '@/services/coupon.service';
+import { gstCharged } from '@/services/gst.service';
 import { badRequest, forbidden, notFound } from '@/utils/errors';
 import { now, orderReference } from '@/utils/ids';
 
@@ -27,6 +28,12 @@ export interface OrderDraft {
   couponCode?: string | null;
   includeSecurityDeposit?: boolean;
   notes?: string | null;
+  /**
+   * The branch handling it - set by the Console from the staff member's scope.
+   * Never taken from a customer's request: checkout leaves it empty, which means
+   * the first branch.
+   */
+  branch?: string | null;
 }
 
 export async function loadOrderableArtworks(items: CartItem[]): Promise<Map<string, Artwork>> {
@@ -93,6 +100,8 @@ export async function priceDraft(
   const options = {
     includeSecurityDeposit: draft.includeSecurityDeposit ?? false,
     book: tariffBookFor(spaceType),
+    // The server's GST decision, never the request's - see gst.service.
+    gstRegistered: gstCharged(),
   };
 
   if (!draft.couponCode?.trim()) return calculatePricing(base, options);
@@ -171,19 +180,7 @@ export async function createOrderForSpace(draft: OrderDraft, space: Space): Prom
     actually issued and goes past it, so deleting rows cannot walk the number
     backwards, and it retries on collision to close the concurrent case.
   */
-  const existing = await db.orders.find({});
-  let sequence = existing.reduce((highest, order) => {
-    const digits = /(\d+)$/.exec(order.reference ?? '');
-    const value = digits ? Number(digits[1]) : 0;
-    return value > highest ? value : highest;
-  }, 1000);
-
-  let reference = orderReference(sequence + 1);
-  const taken = new Set(existing.map((order) => order.reference));
-  for (let attempt = 0; attempt < 1000 && taken.has(reference); attempt += 1) {
-    sequence += 1;
-    reference = orderReference(sequence + 1);
-  }
+  const reference = await nextOrderReference();
 
   const placedAt = now();
 
@@ -202,11 +199,33 @@ export async function createOrderForSpace(draft: OrderDraft, space: Space): Prom
     paymentId: null,
     invoiceId: null,
     installationId: null,
+    ...(draft.branch ? { branch: draft.branch } : {}),
     notes: draft.notes ?? null,
     placedAt,
     updatedAt: placedAt,
     completedAt: null,
   });
+}
+
+/**
+ * The next unused order reference. See the note in createOrderForSpace on why
+ * this takes the highest reference issued rather than counting rows.
+ */
+export async function nextOrderReference(): Promise<string> {
+  const existing = await db.orders.find({});
+  let sequence = existing.reduce((highest, order) => {
+    const digits = /(\d+)$/.exec(order.reference ?? '');
+    const value = digits ? Number(digits[1]) : 0;
+    return value > highest ? value : highest;
+  }, 1000);
+
+  let reference = orderReference(sequence + 1);
+  const taken = new Set(existing.map((order) => order.reference));
+  for (let attempt = 0; attempt < 1000 && taken.has(reference); attempt += 1) {
+    sequence += 1;
+    reference = orderReference(sequence + 1);
+  }
+  return reference;
 }
 
 /** The space owner placing their own order. */

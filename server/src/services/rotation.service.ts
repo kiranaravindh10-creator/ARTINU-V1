@@ -1,6 +1,6 @@
 import type { RotationCycle } from '@artinu/shared';
-import { db } from '@/database/db';
-import { notify } from '@/services/notification.service';
+import { db, writesAreLocked } from '@/database/db';
+import { notify, notifyOwner } from '@/services/notification.service';
 import { isPast, monthsFromNow, now } from '@/utils/ids';
 
 /**
@@ -12,6 +12,9 @@ import { isPast, monthsFromNow, now } from '@/utils/ids';
  * exists — a due date that has passed becomes "due" the next time anyone looks.
  */
 export async function ensureRotationsDue(spaceIds?: string[]): Promise<number> {
+  // Read-only mode shows the cycles as stored: flipping one would write, and
+  // notify the space owner, just because somebody looked.
+  if (writesAreLocked()) return 0;
   const cycles = await db.rotations.find({
     where: spaceIds ? { spaceId: spaceIds } : undefined,
   });
@@ -25,8 +28,7 @@ export async function ensureRotationsDue(spaceIds?: string[]): Promise<number> {
 
     const space = await db.spaces.byId(cycle.spaceId);
     if (space) {
-      await notify({
-        userId: space.ownerId,
+      await notifyOwner(space.ownerId, {
         type: 'rotation_reminder',
         title: 'Your rotation is due',
         body: `We are curating a fresh collection for ${space.name}. You will get the proposal to approve shortly.`,
@@ -75,8 +77,7 @@ export async function ensureRotationStarted(
   });
 
   if (space) {
-    await notify({
-      userId: space.ownerId,
+    await notifyOwner(space.ownerId, {
       type: 'system',
       title: 'Your rotation has started',
       body: `Your collection is up at ${space.name}. We will curate a fresh selection every ${months} ${months === 1 ? 'month' : 'months'} - you approve it before anything changes.`,
