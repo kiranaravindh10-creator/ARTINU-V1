@@ -22,6 +22,8 @@ import type {
   USER_STATUSES,
   VALIDATION_CHECKS,
 } from './constants.js';
+import type { PricedOrderLine, PriceApproval, OrderPaymentTerms, PricingMode } from './console-orders.js';
+import type { SupportSession } from './admin.js';
 
 export type Role = (typeof ROLES)[number];
 export type UserStatus = (typeof USER_STATUSES)[number];
@@ -75,6 +77,18 @@ export interface User {
   /** Set when the 10-day or 96-day sweep has already warned this account, so it is not warned again. */
   inactivityWarnedAt?: string | null;
   inactivityReviewedAt?: string | null;
+  /**
+   * Every session issued before this moment is refused. Set by "Revoke
+   * sessions", a forced password change and an email correction - a JWT is
+   * otherwise valid for a week and cannot be recalled.
+   */
+  sessionsRevokedAt?: string | null;
+  /**
+   * The branch a member of staff works in (migration 019). Customers and
+   * photographers have none - they are shared by every branch. A member of
+   * staff without one works in the first configured branch.
+   */
+  branch?: string | null;
   createdAt: string;
   lastLoginAt?: string | null;
 }
@@ -124,13 +138,21 @@ export interface AuthSession {
   expiresAt: string;
   user: User;
   profile: Profile | null;
+  /** Present only while an administrator is assisting this account. */
+  supportSession?: SupportSession | null;
 }
 
 // ── Spaces ──────────────────────────────────────────────────────────────────
 
 export interface Space {
   id: string;
-  ownerId: string;
+  /**
+   * The account that owns the space. Null for a client's location that has no
+   * login - see `clientId` and console-orders.ts.
+   */
+  ownerId: string | null;
+  /** The client record this location belongs to, for businesses without an account. */
+  clientId?: string | null;
   /**
    * The ID ARTINU issues when the space is registered, e.g. `SPC-0001`
    * (requirements §1). Permanent, unique, and quoted on paperwork and in
@@ -376,6 +398,17 @@ export interface PriceBreakdown {
   securityDeposit: number;
   total: number;
   quantity: number;
+  /** 'custom' when staff set a negotiated price. Absent on every order placed before it existed. */
+  mode?: PricingMode;
+  /** The priced lines a custom order was agreed on - the snapshot an invoice is read from. */
+  lines?: PricedOrderLine[];
+  /** Charges that are neither delivery nor installation. Included in `subtotal`. */
+  otherCharges?: number;
+  /** The same order at the standard tariff, kept for reference. */
+  standardTotal?: number;
+  priceReason?: string | null;
+  commercialTerms?: string | null;
+  approval?: PriceApproval;
 }
 
 /** Cost tracking for admin margin analysis — filled in post-order. */
@@ -400,7 +433,20 @@ export interface Order {
   id: string;
   reference: string;
   spaceId: string;
-  ownerId: string;
+  /** Null for a client order with no login attached. */
+  ownerId: string | null;
+  /** The client record, for orders placed for a business without an account. */
+  clientId?: string | null;
+  /** The member of staff who created it, when it was created in the Console. */
+  createdBy?: string | null;
+  createdByEmail?: string | null;
+  paymentTerms?: OrderPaymentTerms | null;
+  /**
+   * The branch handling the order (migration 019). Its payments, invoice and
+   * costs belong to the same branch. An order from before branches existed has
+   * none and belongs to the first configured branch.
+   */
+  branch?: string | null;
   items: OrderItem[];
   pricing: PriceBreakdown;
   cost?: CostBreakdown;
@@ -462,6 +508,17 @@ export interface Payment {
   expiresAt?: string | null;
   attempts: number;
   failureReason?: string | null;
+  /** How offline money arrived (cash, UPI to the account, …). Recorded by staff. */
+  method?: string | null;
+  /** When the money was actually received, as opposed to when it was typed in. */
+  paidAt?: string | null;
+  recordedBy?: string | null;
+  recordedByEmail?: string | null;
+  notes?: string | null;
+  /** Structured refund. Null on refunds recorded before it existed, which were always in full. */
+  refundedAmount?: number | null;
+  refundedAt?: string | null;
+  idempotencyKey?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -512,7 +569,7 @@ export interface Invoice {
   number: string;
   orderId: string;
   spaceId: string;
-  ownerId: string;
+  ownerId: string | null;
   amount: number;
   gst: number;
   issuedAt: string;

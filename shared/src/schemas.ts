@@ -509,6 +509,11 @@ export const adminCreateOrderSchema = z
     includeSecurityDeposit: z.boolean().default(false),
     notes: z.string().max(600).optional().nullable(),
     /**
+     * The branch handling the order. Central staff may choose; anyone held to a
+     * branch records into their own, and naming another is refused (branch.service).
+     */
+    branch: z.string().trim().max(80).optional().nullable(),
+    /**
      * Has the money already been received?
      *
      * False leaves the order at `pending_payment`, exactly where a self-service

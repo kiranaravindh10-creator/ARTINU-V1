@@ -45,6 +45,8 @@ export const ROLE_MODULES: Record<string, string[]> = {
     'content',
     'announcements',
     'system',
+    'expenses',
+    'finance',
   ],
   // `content` is the homepage — the carousel, the collaborations, the featured
   // photographs. It used to sit inside `system`, which meant the two roles that
@@ -72,9 +74,17 @@ export const ROLE_MODULES: Record<string, string[]> = {
     'reports',
     'content',
     'announcements',
+    'expenses',
   ],
-  accounts: ['overview', 'payments', 'accounts', 'reports'],
-  operations: ['overview', 'orders', 'printing', 'spaces'],
+  /*
+    `expenses` is recording and approving costs; `finance` is the money view -
+    dashboard, transaction register, invoices and exports. Operations records
+    the fuel and installation costs it incurs, the manager approves them, and
+    only the CEO and accounts see the whole financial picture. What each can do
+    inside a module is decided by ROLE_PERMISSIONS (permissions.ts).
+  */
+  accounts: ['overview', 'payments', 'accounts', 'reports', 'expenses', 'finance'],
+  operations: ['overview', 'orders', 'printing', 'spaces', 'expenses'],
   it_team: ['overview', 'users', 'content', 'announcements', 'system'],
 };
 

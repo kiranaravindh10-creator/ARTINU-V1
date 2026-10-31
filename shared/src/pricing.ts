@@ -140,6 +140,12 @@ export interface PricingOptions {
    * worse than not charging them.
    */
   installationType?: string | null;
+  /**
+   * Whether GST is charged. Defaults to PRICING.GST_REGISTERED for the preview
+   * in the browser; the server always passes its own decision (the
+   * GST_FEATURE_ENABLED flag), so nothing a browser sends can add tax.
+   */
+  gstRegistered?: boolean;
 }
 
 /** Build the full breakdown a space owner sees at checkout (requirements §9). */
@@ -156,6 +162,7 @@ export function calculatePricing(
     installationType = null,
     book = 'standard',
     term = 'monthly',
+    gstRegistered = PRICING.GST_REGISTERED,
   } = options;
 
   let artworkTotal = 0;
@@ -251,7 +258,7 @@ export function calculatePricing(
 
   // GST applies to goods and services, not to the refundable deposit - and not
   // at all until ARTINU is registered to charge it.
-  const gst = PRICING.GST_REGISTERED
+  const gst = gstRegistered
     ? round((taxable + delivery + installation) * PRICING.GST_RATE)
     : 0;
   const total = round(taxable + delivery + installation + gst + securityDeposit);
