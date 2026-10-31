@@ -17,6 +17,7 @@
     "dev:demo": "npm --prefix .. run dev:demo",
     "fix:content": "tsx src/scripts/fix-collaboration-links.ts",
     "reconcile:engagement": "tsx src/scripts/reconcile-engagement.ts",
+    "repair:applications": "tsx src/scripts/repair-artist-applications.ts",
     "seed": "tsx src/database/seed-cli.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -39,10 +39,15 @@ const TABLES = [
   'errorLogs', 'employees', 'frames', 'frameMovements',
   // Added by 010_verification_and_enforcement.sql
   'warnings', 'removalRequests',
+  // Added by 017_console_business_system.sql
+  'clients', 'supportSessions', 'expenseCategories', 'expenses', 'expensePayments',
 ] as const;
 
 /** Columns added after the initial schema, which older projects will lack. */
-const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes' | 'users'; column: string }[] = [
+const COLUMNS: {
+  table: 'profiles' | 'artworks' | 'cafes' | 'users' | 'orders' | 'payments' | 'spaces' | 'expenses';
+  column: string;
+}[] = [
   { table: 'profiles', column: 'coverUrl' },
   { table: 'profiles', column: 'photographerCode' },
   { table: 'profiles', column: 'nextPhotoNumber' },
@@ -60,6 +65,17 @@ const COLUMNS: { table: 'profiles' | 'artworks' | 'cafes' | 'users'; column: str
   { table: 'artworks', column: 'deletedAt' },
   { table: 'artworks', column: 'deletedBy' },
   { table: 'artworks', column: 'deletedFromStatus' },
+  // Added by 017_console_business_system.sql
+  { table: 'users', column: 'sessionsRevokedAt' },
+  { table: 'orders', column: 'clientId' },
+  { table: 'orders', column: 'paymentTerms' },
+  { table: 'payments', column: 'refundedAmount' },
+  { table: 'payments', column: 'idempotencyKey' },
+  { table: 'spaces', column: 'clientId' },
+  // Added by 018_expense_approval_routing.sql
+  { table: 'expenses', column: 'approverId' },
+  { table: 'expenses', column: 'approvalRoute' },
+  { table: 'expenses', column: 'approverAssignedAt' },
 ];
 
 async function run() {
@@ -112,7 +128,16 @@ async function run() {
     // Name the file that actually fixes what failed. Pointing at the wrong
     // migration sends someone to the SQL editor to run something that changes
     // nothing, and the check still fails afterwards.
-    const file = failed.some((f) => /errorLogs|employees|frames|frameMovements/.test(f.label))
+    const routing = /approverId|approvalRoute|approverAssignedAt/;
+    const file = failed.some(
+      (f) =>
+        !routing.test(f.label) &&
+        /clients|supportSessions|expense|sessionsRevokedAt|clientId|paymentTerms|refundedAmount|idempotencyKey/.test(f.label),
+    )
+      ? 'database/migrations/017_console_business_system.sql'
+      : failed.some((f) => routing.test(f.label))
+      ? 'database/migrations/018_expense_approval_routing.sql'
+      : failed.some((f) => /errorLogs|employees|frames|frameMovements/.test(f.label))
       ? 'database/migrations/004_operations.sql'
       : failed.some((f) =>
             /warnings|removalRequests|guidelines|statusReason|inactivity|dateOfBirth|websiteUrl/i.test(

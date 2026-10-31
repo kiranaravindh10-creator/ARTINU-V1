@@ -19,6 +19,10 @@ export interface RequestContext {
   /** "POST /api/admin/moderation/:id" — what was being done. */
   route: string;
   ip: string | null;
+  /** Set while an administrator is assisting a user: every audit entry carries it. */
+  supportSessionId?: string | null;
+  /** The account being assisted. The actor above is the administrator. */
+  onBehalfOf?: string | null;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

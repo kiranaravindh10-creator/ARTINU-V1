@@ -3,6 +3,7 @@ import type { Order } from '@artinu/shared';
 import sendgrid from '@sendgrid/mail';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '@/config/env';
+import { writesAreLocked } from '@/database/db';
 import { logger } from '@/utils/logger';
 import { recordMail } from '@/services/mailbox.service';
 import { canSend, recordSend, type MailPriority } from '@/services/mail-quota.service';
@@ -37,6 +38,12 @@ export interface MailMessage {
    * quiet month of notifications cannot lock users out of their accounts.
    */
   priority?: MailPriority;
+  /**
+   * Values that must never be stored or printed - a reset token, a sign-in
+   * code. The message goes out intact; what the mail log and the console
+   * transport keep has them removed (see sendMail).
+   */
+  secrets?: string[];
 }
 
 export interface MailResult {
@@ -135,17 +142,39 @@ async function deliver(message: MailMessage, html: string): Promise<void> {
 }
 
 export async function sendMail(message: MailMessage): Promise<MailResult> {
+  // Read-only mode: nothing leaves this process. Not logged in full either -
+  // the console transport prints the body, and a body can hold a reset link.
+  if (writesAreLocked()) {
+    logger.warn(`read-only mode: did not send "${message.subject}"`);
+    return { delivered: false, skippedReason: 'read-only mode' };
+  }
+
   const html = renderEmail(message);
+
+  /*
+    What is kept never holds a usable secret.
+
+    Every message is recorded - to the mail_log table and the System → Mail
+    page, which the IT team can open - and the console transport prints it.
+    With the reset link or the sign-in code inside, anyone able to read that
+    log could ask for a reset on someone else's account and use the link from
+    the log. So they are removed from what is kept. The one exception is a
+    local machine with no mail provider, where the log is the only delivery
+    there is.
+  */
+  const keepSecrets = !env.isProduction && !env.mailConfigured;
+  const kept = keepSecrets ? message : withoutSecrets(message);
+  const keptHtml = keepSecrets ? html : removeSecrets(html, message.secrets);
 
   // Every message is captured either way, so the Console can show what was sent
   // and what it looked like — with or without a provider behind it.
   const finish = (delivered: boolean) => {
-    recordMail(message, html, delivered);
+    recordMail(kept, keptHtml, delivered);
     return { delivered };
   };
 
   if (!env.mailConfigured) {
-    logToConsole(message);
+    logToConsole(kept);
     return finish(false);
   }
 
@@ -153,14 +182,14 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
   // send rather than reconciled afterwards.
   const allowance = await canSend(message.priority ?? 'normal');
   if (!allowance.allowed) {
-    logger.warn(`Held back "${message.subject}" to ${message.to} - ${allowance.reason}`);
-    recordMail(message, html, false);
+    logger.warn(`Held back "${kept.subject}" to ${message.to} - ${allowance.reason}`);
+    recordMail(kept, keptHtml, false);
     return { delivered: false, skippedReason: allowance.reason };
   }
 
   try {
     await deliver(message, html);
-    logger.channel('mail', `sent "${message.subject}" to ${message.to} via ${env.MAIL_PROVIDER}`);
+    logger.channel('mail', `sent "${kept.subject}" to ${message.to} via ${env.MAIL_PROVIDER}`);
     // Only accepted messages count against the allowance.
     await recordSend().catch((error) =>
       logger.error('Could not record mail usage against the monthly allowance', error),
@@ -171,11 +200,34 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
     // an unverified sender or a revoked key has to be diagnosable from the log,
     // and must never surface to the visitor who merely signed up.
     logger.error(
-      `Could not send "${message.subject}" to ${message.to} via ${env.MAIL_PROVIDER} - ` +
+      `Could not send "${kept.subject}" to ${message.to} via ${env.MAIL_PROVIDER} - ` +
         describeSendgridError(error),
     );
     return finish(false);
   }
+}
+
+/** Every occurrence of each secret, raw or URL-encoded, replaced. */
+function removeSecrets(text: string, secrets: string[] | undefined): string {
+  let out = text;
+  for (const secret of secrets ?? []) {
+    if (!secret) continue;
+    for (const form of new Set([secret, encodeURIComponent(secret)])) out = out.split(form).join('[removed]');
+  }
+  return out;
+}
+
+function withoutSecrets(message: MailMessage): MailMessage {
+  if (!message.secrets?.length) return message;
+  const clean = (value: string) => removeSecrets(value, message.secrets);
+  return {
+    ...message,
+    subject: clean(message.subject),
+    heading: clean(message.heading),
+    body: clean(message.body),
+    cta: message.cta ? { label: message.cta.label, url: clean(message.cta.url) } : undefined,
+    footnote: message.footnote ? clean(message.footnote) : undefined,
+  };
 }
 
 // ── Typed helpers ────────────────────────────────────────────────────────────
@@ -241,6 +293,7 @@ export function sendVerificationEmail(to: string, name: string, token: string): 
     cta: { label: 'Confirm email', url: appUrl(`/verify-email?token=${encodeURIComponent(token)}`) },
     footnote: 'If you did not create an ARTINU account, you can ignore this email.',
     priority: 'critical',
+    secrets: [token],
   });
 }
 
@@ -321,6 +374,7 @@ export function sendVerificationCodeEmail(
       'Never share this code. ARTINU will never ask you for it. ' +
       'If you did not create an ARTINU account, you can ignore this email.',
     priority: 'critical',
+    secrets: [code],
   });
 }
 
@@ -409,6 +463,39 @@ export function sendAccountStatusEmail(
   });
 }
 
+/** Sent to the NEW address. Nothing changes until this link is followed. */
+export function sendEmailChangeConfirmation(
+  to: string,
+  name: string,
+  token: string,
+): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: 'Confirm your new ARTINU email address',
+    heading: 'Confirm this address',
+    body: `Hello ${firstName(name)},\n\nARTINU support is correcting the email address on your account to this one. Confirm it below and you will sign in with this address from now on. The link is good for 48 hours and can be used once.`,
+    cta: {
+      label: 'Confirm this address',
+      url: appUrl(`/confirm-email-change?token=${encodeURIComponent(token)}`),
+    },
+    footnote: 'If you did not expect this, ignore it - your account stays on its current address.',
+    priority: 'critical',
+    secrets: [token],
+  });
+}
+
+/** Sent to the OLD address once the change has gone through. */
+export function sendEmailChangedNotice(to: string, name: string, newEmail: string): Promise<MailResult> {
+  return sendMail({
+    to,
+    subject: 'Your ARTINU email address was changed',
+    heading: 'Your sign-in address has changed',
+    body: `Hello ${firstName(name)},\n\nThe email address on your ARTINU account is now ${newEmail}. You have been signed out everywhere and will sign in with the new address.`,
+    footnote: `If this was not you, contact ${CONTACT.email} straight away.`,
+    priority: 'critical',
+  });
+}
+
 export function sendPasswordResetEmail(
   to: string,
   name: string,
@@ -425,6 +512,7 @@ export function sendPasswordResetEmail(
     },
     footnote: 'If you did not ask for this, nothing has changed - you can ignore this email.',
     priority: 'critical',
+    secrets: [token],
   });
 }
 
@@ -466,6 +554,7 @@ export function sendOtpEmail(to: string, name: string, code: string): Promise<Ma
     body: `Hello ${firstName(name)},\n\n${code}\n\nEnter this code to finish signing in. It expires in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
     footnote: 'Never share this code. ARTINU will never ask you for it.',
     priority: 'critical',
+    secrets: [code],
   });
 }
 
@@ -488,6 +577,51 @@ export function sendPaymentConfirmation(to: string, name: string, order: Order):
     body: `Hello ${firstName(name)},\n\nWe have received ${formatCurrency(order.pricing.total)} for order ${order.reference}. Printing begins now, and your invoice is available in your account.`,
     cta: { label: 'Track this order', url: appUrl(`/space/orders/${order.id}`) },
     footnote: `Current status: ${ORDER_STATUS_LABELS[order.status] ?? order.status}.`,
+  });
+}
+
+/**
+ * Mail to a client who has no ARTINU login - a business staff placed an order
+ * for. Nothing here links to a dashboard they cannot open; the next step is
+ * always a person at ARTINU, so the footnote says how to reach one.
+ */
+export function sendClientOrderMail(
+  to: string,
+  name: string,
+  order: Order,
+  kind: 'summary' | 'confirmed' | 'payment_received',
+  extra: { amount?: number; outstanding?: number; invoiceNumber?: string | null } = {},
+): Promise<MailResult> {
+  const lines = (order.pricing.lines ?? [])
+    .map((line) => `- ${line.description}: ${line.quantity} × ${formatCurrency(line.unitPrice)} = ${formatCurrency(line.lineTotal)}`)
+    .join('\n');
+  const breakdown = lines ? `\n\n${lines}` : '';
+  const contact = `Questions: ${CONTACT.email} or ${CONTACT.phone}.`;
+
+  if (kind === 'summary') {
+    return sendMail({
+      to,
+      subject: `Your ARTINU order ${order.reference}`,
+      heading: 'Your order is set up',
+      body: `Hello ${firstName(name)},\n\nWe have set up order ${order.reference} for you - ${frameCount(order)}, ${formatCurrency(order.pricing.total)} in total.${breakdown}\n\nThe ARTINU team will confirm payment details with you directly.`,
+      footnote: contact,
+    });
+  }
+  if (kind === 'payment_received') {
+    return sendMail({
+      to,
+      subject: `Payment received - ${order.reference}`,
+      heading: 'Thank you - payment received',
+      body: `Hello ${firstName(name)},\n\nWe have recorded ${formatCurrency(extra.amount ?? 0)} against order ${order.reference}.${extra.outstanding && extra.outstanding > 0 ? ` ${formatCurrency(extra.outstanding)} remains outstanding.` : ' The order is fully paid.'}`,
+      footnote: contact,
+    });
+  }
+  return sendMail({
+    to,
+    subject: `Order confirmed - ${order.reference}`,
+    heading: 'Your order is confirmed',
+    body: `Hello ${firstName(name)},\n\nOrder ${order.reference} is confirmed${extra.invoiceNumber ? ` and invoice ${extra.invoiceNumber} has been issued` : ''}. We will be in touch to schedule delivery and installation.${breakdown}`,
+    footnote: contact,
   });
 }
 

@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type {
+  Client,
+  Expense,
+  ExpenseCategory,
+  ExpensePayment,
+  SupportSession,
   Coupon,
   Warning,
   RemovalRequest,
@@ -28,6 +33,7 @@ import type {
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
+import { HttpError } from '@/utils/errors';
 import { MemoryTable, SupabaseTable, type Table } from '@/database/table';
 
 /** A user row as stored — the API never returns `passwordHash`. */
@@ -66,7 +72,9 @@ export interface TokenRecord {
   id: string;
   userId: string;
   token: string;
-  purpose: 'password_reset' | 'email_verification';
+  /** 'email_change' carries the new address in `meta.newEmail` until it is confirmed. */
+  purpose: 'password_reset' | 'email_verification' | 'email_change';
+  meta?: Record<string, unknown> | null;
   expiresAt: string;
   consumed: boolean;
   createdAt: string;
@@ -122,6 +130,12 @@ export interface Database {
    * production, which is precisely where the question gets asked.
    */
   mailLog: Table<{ id: string } & Record<string, any>>;
+  /** Businesses ARTINU works with, with or without a login. See console-orders.ts. */
+  clients: Table<Client>;
+  supportSessions: Table<SupportSession>;
+  expenseCategories: Table<ExpenseCategory>;
+  expenses: Table<Expense>;
+  expensePayments: Table<ExpensePayment>;
 }
 
 const TABLE_NAMES = [
@@ -157,6 +171,11 @@ const TABLE_NAMES = [
   'mailLog',
   'warnings',
   'removalRequests',
+  'clients',
+  'supportSessions',
+  'expenseCategories',
+  'expenses',
+  'expensePayments',
 ] as const;
 
 type TableName = (typeof TABLE_NAMES)[number];
@@ -168,24 +187,36 @@ const sqlName = (name: string) => name.replace(/[A-Z]/g, (c) => `_${c.toLowerCas
 // The memory driver keeps everything in process; without this, every `tsx watch`
 // restart would throw away the orders you just placed. Writes are debounced.
 
-const dataFile = path.join(env.serverRoot, '.data', 'db.json');
+const dataFile = env.MEMORY_DATA_FILE
+  ? path.resolve(env.MEMORY_DATA_FILE)
+  : path.join(env.serverRoot, '.data', 'db.json');
 let persistTimer: NodeJS.Timeout | null = null;
 let memoryTables: Partial<Record<TableName, MemoryTable<any>>> = {};
+
+function writeSnapshot() {
+  try {
+    mkdirSync(path.dirname(dataFile), { recursive: true });
+    const snapshot = Object.fromEntries(
+      Object.entries(memoryTables).map(([name, table]) => [name, table?.snapshot() ?? []]),
+    );
+    writeFileSync(dataFile, JSON.stringify(snapshot), 'utf8');
+  } catch (error) {
+    logger.warn('Could not persist the in-memory store', error);
+  }
+}
 
 function persist() {
   if (env.DATA_DRIVER !== 'memory' || !env.MEMORY_PERSIST) return;
   if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    try {
-      mkdirSync(path.dirname(dataFile), { recursive: true });
-      const snapshot = Object.fromEntries(
-        Object.entries(memoryTables).map(([name, table]) => [name, table?.snapshot() ?? []]),
-      );
-      writeFileSync(dataFile, JSON.stringify(snapshot), 'utf8');
-    } catch (error) {
-      logger.warn('Could not persist the in-memory store', error);
-    }
-  }, 400);
+  persistTimer = setTimeout(writeSnapshot, 400);
+}
+
+/** Writes a pending in-memory snapshot now - for a script about to exit. */
+export function flushPersistedStore() {
+  if (!persistTimer) return;
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  writeSnapshot();
 }
 
 function restore(): boolean {
@@ -215,14 +246,75 @@ export function supabaseClient(): SupabaseClient | null {
   return supabaseAdmin;
 }
 
+// ── Read-only mode ───────────────────────────────────────────────────────────
+// READ_ONLY_MODE=true. Against a real database the lock is on from the first
+// line that touches it; against the in-process store the boot locks it once
+// the demo seed is in (index.ts), because that store never leaves the process.
+
+let writesLocked = env.READ_ONLY_MODE && env.DATA_DRIVER === 'supabase';
+
+export function lockWrites() {
+  writesLocked = true;
+}
+
+export function writesAreLocked(): boolean {
+  return writesLocked;
+}
+
+/** The refusal every blocked write gets, from the API guard down to the tables. */
+export function readOnlyRefusal(): HttpError {
+  return new HttpError(
+    403,
+    env.DATA_DRIVER === 'supabase'
+      ? 'Read-only mode: this would change the live ARTINU database, and changes are disabled in local development. Nothing was saved.'
+      : 'Read-only mode: changes are disabled on this server. Nothing was saved.',
+    'read_only_mode',
+  );
+}
+
+/** For writes that do not go through a table: storage, RPCs, mail. */
+export function assertWritable(what: string) {
+  if (!writesLocked) return;
+  logger.warn(`read-only mode: refused ${what}`);
+  throw readOnlyRefusal();
+}
+
+const WRITES = new Set(['insert', 'insertMany', 'update', 'remove', 'clear', 'reset']);
+
+/**
+ * A table whose writes are refused while the lock is on. Below the services on
+ * purpose: a guard on HTTP methods alone would miss the GETs that write as a
+ * side effect (a view counter, an audit entry for an export).
+ */
+function guarded<T extends { id: string }>(table: Table<T>): Table<T> {
+  return new Proxy(table, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function') return value;
+      if (typeof property === 'string' && WRITES.has(property)) {
+        return (...args: unknown[]) => {
+          if (writesLocked) {
+            logger.warn(`read-only mode: refused ${target.name}.${property}`);
+            return Promise.reject(readOnlyRefusal());
+          }
+          return value.apply(target, args);
+        };
+      }
+      return value.bind(target);
+    },
+  });
+}
+
 function buildTables(): Database {
+  const wrap = <T extends { id: string }>(table: Table<T>) => (env.READ_ONLY_MODE ? guarded(table) : table);
+
   if (env.DATA_DRIVER === 'supabase') {
     const client = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     supabaseAdmin = client;
     const make = <T extends { id: string }>(name: TableName) =>
-      new SupabaseTable<T>(sqlName(name), client);
+      wrap(new SupabaseTable<T>(sqlName(name), client));
     return Object.fromEntries(
       TABLE_NAMES.map((name) => [name, make(name)]),
     ) as unknown as Database;
@@ -232,7 +324,10 @@ function buildTables(): Database {
     TABLE_NAMES.map((name) => [name, new MemoryTable(name, persist)]),
   ) as Partial<Record<TableName, MemoryTable<any>>>;
 
-  return memoryTables as unknown as Database;
+  // The raw tables stay in `memoryTables` for persistence; services get these.
+  return Object.fromEntries(
+    Object.entries(memoryTables).map(([name, table]) => [name, wrap(table!)]),
+  ) as unknown as Database;
 }
 
 export const db: Database = buildTables();

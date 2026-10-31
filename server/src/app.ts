@@ -12,6 +12,7 @@ import {
   countRequests,
   errorHandler,
   notFoundHandler,
+  readOnlyGuard,
 } from '@/middleware/index';
 import { apiRouter } from '@/routes/index';
 import { metrics } from '@/middleware/index';
@@ -78,7 +79,7 @@ export function createApp() {
     });
   });
 
-  app.use('/api', apiLimiter, attachUser, apiRouter);
+  app.use('/api', apiLimiter, readOnlyGuard, attachUser, apiRouter);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

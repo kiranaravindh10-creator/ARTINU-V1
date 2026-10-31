@@ -1,6 +1,6 @@
 import { createApp } from '@/app';
 import { driverSummary, env, reportDriverFallbacks } from '@/config/env';
-import { restoredFromDisk } from '@/database/db';
+import { lockWrites, restoredFromDisk } from '@/database/db';
 import { ensureSeeded } from '@/database/seed';
 import { reconcileReviewQueue } from '@/services/moderation-queue.service';
 import { startScheduler } from '@/services/scheduler.service';
@@ -11,13 +11,21 @@ async function main() {
 
   const seeded = await ensureSeeded();
 
+  // Read-only mode: nothing below may write. Against a real database the lock
+  // has been on since the first query (database/db.ts); the in-process store
+  // is locked here, once its demo seed - which never leaves the process - is in.
+  if (env.READ_ONLY_MODE) lockWrites();
+
   // A reviewer should only ever be shown work the checks could not settle.
-  const queue = await reconcileReviewQueue();
-  if (queue.published.length || queue.rejected.length) {
-    logger.info(
-      `review queue reconciled - ${queue.published.length} published, ${queue.rejected.length} rejected, ` +
-        `${queue.scanned - queue.published.length - queue.rejected.length} genuinely awaiting a photographer`,
-    );
+  // Reconciling publishes and rejects photographs, so read-only mode skips it.
+  if (!env.READ_ONLY_MODE) {
+    const queue = await reconcileReviewQueue();
+    if (queue.published.length || queue.rejected.length) {
+      logger.info(
+        `review queue reconciled - ${queue.published.length} published, ${queue.rejected.length} rejected, ` +
+          `${queue.scanned - queue.published.length - queue.rejected.length} genuinely awaiting a photographer`,
+      );
+    }
   }
 
   const app = createApp();
@@ -32,6 +40,15 @@ async function main() {
     );
     if (seeded) logger.info('Seeded demo data - sign in with ceo@artinu.in / ARTINU@CEO2026');
     else if (restoredFromDisk) logger.info('Restored the previous session from .data/db.json');
+
+    if (env.READ_ONLY_MODE) {
+      logger.warn(
+        `READ-ONLY MODE (${env.DATA_DRIVER === 'supabase' ? 'live database' : 'in-process store'}): ` +
+          'every change is refused, no mail is sent, no file is stored or deleted, and the review-queue ' +
+          'reconcile and the scheduler are off.',
+      );
+      return;
+    }
 
     // Started only once the port is actually ours. Doing this before `listen`
     // succeeds would leave a second copy of the process sweeping for birthdays

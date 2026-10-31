@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { db } from '@/database/db';
+import { db, writesAreLocked } from '@/database/db';
 import { logger } from '@/utils/logger';
 import { now } from '@/utils/ids';
 import { currentContext } from '@/utils/request-context';
@@ -80,6 +80,11 @@ const messageOf = (error: unknown) =>
  * is reporting on is worse than no logger.
  */
 export async function captureError(input: CaptureInput): Promise<ErrorLogRecord | null> {
+  // Read-only mode: the incident goes to this process's log, not error_logs.
+  if (writesAreLocked()) {
+    logger.error(`(read-only mode, not recorded in error_logs) ${input.source}`, input.error);
+    return null;
+  }
   try {
     const context = currentContext();
     const message = messageOf(input.error);

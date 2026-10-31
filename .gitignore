@@ -11,6 +11,8 @@ Thumbs.db
 coverage/
 .vite/
 server/uploads/
+# Receipts and other private files (never public, never committed)
+server/private-uploads/
 client/dist/
 server/dist/
 shared/dist/

@@ -29,6 +29,21 @@ export async function notify(input: NotifyInput): Promise<Notification> {
   return db.notifications.insert(toRecord(input));
 }
 
+/**
+ * `notify`, for the owner of an order or space - who may not exist.
+ *
+ * A client order placed by staff for a business with no ARTINU login has no
+ * owner account, so there is nobody to put a notification in front of. That is
+ * not an error: the order still moves, and the client hears from staff.
+ */
+export async function notifyOwner(
+  userId: string | null | undefined,
+  input: Omit<NotifyInput, 'userId'>,
+): Promise<Notification | null> {
+  if (!userId) return null;
+  return notify({ ...input, userId });
+}
+
 export async function notifyMany(inputs: NotifyInput[]): Promise<Notification[]> {
   if (inputs.length === 0) return [];
   return db.notifications.insertMany(inputs.map(toRecord));

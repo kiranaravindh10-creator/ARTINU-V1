@@ -29,7 +29,14 @@ export async function recordAudit(input: AuditInput): Promise<AuditLogEntry> {
     entity: input.entity,
     entityId: input.entityId ?? null,
     // The requestId ties this entry to every email the same action sent.
-    meta: { ...(input.meta ?? {}), requestId: currentRequestId() },
+    meta: {
+      ...(input.meta ?? {}),
+      requestId: currentRequestId(),
+      // Anything done during a support session says so, and for whom.
+      ...(currentContext()?.supportSessionId
+        ? { supportSessionId: currentContext()?.supportSessionId, onBehalfOf: currentContext()?.onBehalfOf ?? null }
+        : {}),
+    },
     ip: input.ip ?? currentContext()?.ip ?? null,
     createdAt: now(),
   };

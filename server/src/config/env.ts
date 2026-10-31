@@ -37,6 +37,11 @@ const schema = z.object({
     .string()
     .optional()
     .transform((value) => value !== 'false'),
+  /**
+   * Where that store is kept. Defaults to server/.data/db.json; a test points
+   * it elsewhere so a throwaway copy never touches the developer's own data.
+   */
+  MEMORY_DATA_FILE: z.string().optional(),
 
   SUPABASE_URL: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
@@ -152,6 +157,33 @@ const schema = z.object({
     .transform((value) => value === 'true'),
 
   /**
+   * GST on orders and invoices. Off by default, and off means off: no order is
+   * taxed, no invoice is titled a tax invoice and the GST reports stay empty,
+   * whatever a request asks for. Charging it later needs this AND
+   * PRICING.GST_REGISTERED in the shared package, so the server can never add
+   * a tax the Console and checkout do not show.
+   */
+  GST_FEATURE_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
+  /**
+   * Read-only mode, for looking at a real database from a laptop.
+   *
+   * The process may read but never write: every POST, PUT, PATCH and DELETE
+   * except signing in and out is refused at the API, every table write is
+   * refused below the services (so a GET with a side effect cannot slip one
+   * through), no mail is sent, no file is stored or deleted, and the boot-time
+   * review-queue reconcile and the scheduler do not run. Server-side only - the
+   * browser is told it is on, never how to turn it off.
+   */
+  READ_ONLY_MODE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
+  /**
    * Anthropic API key for the upload image-safety check (requirements §28).
    * Unset means the visual check does not run — uploads are then published on
    * the text and dimension checks alone, which cannot see the photograph.
@@ -239,6 +271,16 @@ const dataDriver =
     ? 'memory'
     : raw.DATA_DRIVER;
 
+// Read-only mode exists to look at the real data. Quietly falling back to the
+// demo store would show invented people and orders under a banner saying they
+// are live, so a missing credential stops the server instead.
+if (raw.READ_ONLY_MODE && raw.DATA_DRIVER === 'supabase' && dataDriver !== 'supabase') {
+  throw new Error(
+    'READ_ONLY_MODE is on with DATA_DRIVER=supabase, but SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. ' +
+      'Refusing to start on demo data in its place - add them to the .env file at the project root.',
+  );
+}
+
 const storageDriver =
   (raw.STORAGE_DRIVER === 'supabase' && !(raw.SUPABASE_URL && raw.SUPABASE_SERVICE_ROLE_KEY)) ||
   (raw.STORAGE_DRIVER === 'cloudinary' && !(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET)) ||
@@ -305,6 +347,8 @@ export const driverSummary = {
   storage: env.STORAGE_DRIVER,
   email: env.MAIL_PROVIDER,
   payments: env.PAYMENT_PROVIDER,
+  /** The Console shows a banner while this is true. */
+  readOnly: env.READ_ONLY_MODE,
 };
 
 /** Warn when a requested driver was downgraded for missing credentials. */

@@ -31,6 +31,7 @@ import {
 import bcrypt from 'bcryptjs';
 import { env } from '@/config/env';
 import { clearPersistedStore, db, type StoredUser } from '@/database/db';
+import { gstCharged } from '@/services/gst.service';
 import { photographerCodeFromName } from '@/services/photo-id.service';
 import {
   daysFromNow,
@@ -931,7 +932,7 @@ function buildCommerce(
 
     const pricing = calculatePricing(
       items.map((item) => ({ frame: item.frame, quantity: item.quantity })),
-      { includeSecurityDeposit: index % 4 === 0 },
+      { includeSecurityDeposit: index % 4 === 0, gstRegistered: gstCharged() },
     );
 
     const orderId = uuid();

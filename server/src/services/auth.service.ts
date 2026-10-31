@@ -1,10 +1,11 @@
 import { OTP, type AuthSession, type Profile, type Role, type User } from '@artinu/shared';
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { db, type OtpChallengeRecord, type StoredUser, type TokenRecord } from '@/database/db';
+import { db, writesAreLocked, type OtpChallengeRecord, type StoredUser, type TokenRecord } from '@/database/db';
 import { env } from '@/config/env';
 import { badRequest, conflict, tooMany, unauthorized } from '@/utils/errors';
 import { generateOtp, generateToken, signToken } from '@/services/token.service';
-import { minutesFromNow, now, uuid } from '@/utils/ids';
+import { minutesFromNow, now } from '@/utils/ids';
 import { sendOtpEmail, sendVerificationEmail } from '@/services/email.service';
 import { assignPhotographerCodeIfArtist } from '@/services/photo-id.service';
 import { logger } from '@/utils/logger';
@@ -22,7 +23,7 @@ const MAX_OTP_ATTEMPTS = 5;
  * rather than swallowed: until the migration runs, owners keep the password
  * ARTINU generated for them, and somebody needs to know that.
  */
-function isMissingColumn(error: unknown, column: string): boolean {
+export function isMissingColumn(error: unknown, column: string): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
     (message.includes('PGRST204') ||
@@ -102,7 +103,9 @@ export async function verifyCredentials(email: string, plain: string): Promise<S
     throw unauthorized('This account is awaiting administrative approval.');
   }
 
-  await db.users.update(user.id, { lastLoginAt: now() });
+  // Read-only mode signs people in without recording it: the last-login
+  // time is the one thing a password sign-in writes.
+  if (!writesAreLocked()) await db.users.update(user.id, { lastLoginAt: now() });
   return user;
 }
 
@@ -114,6 +117,13 @@ export async function createUser(input: {
   phone?: string | null;
   /** Set when ARTINU generated the password rather than the person choosing it. */
   mustChangePassword?: boolean;
+  /**
+   * False for an account made FOR someone - an invitation, an accepted
+   * application, a staff account. Registration signs the person in there and
+   * then, so it records a sign-in; an account nobody has used yet must not, or
+   * People & access shows a last login that never happened.
+   */
+  signedIn?: boolean;
 }): Promise<StoredUser> {
   const email = input.email.trim().toLowerCase();
   if (await findByEmail(email)) {
@@ -128,7 +138,7 @@ export async function createUser(input: {
     passwordHash: bcrypt.hashSync(input.password, 10),
     phone: input.phone ?? null,
     createdAt: now(),
-    lastLoginAt: now(),
+    lastLoginAt: input.signedIn === false ? null : now(),
   };
 
   return withoutMustChangePassword(
@@ -335,8 +345,13 @@ export async function setPassword(userId: string, plain: string): Promise<void> 
 }
 
 /** A random password for accounts ARTINU creates on someone's behalf. */
+/**
+ * The placeholder password on an account made for someone, who replaces it
+ * from their setup link. Nobody is ever shown it, so it only has to be
+ * unguessable - it was eight hex characters (32 bits) in a published format.
+ */
 export function temporaryPassword(): string {
-  return `ARTINU-${uuid().slice(0, 8)}A1`;
+  return `ARTINU-${randomBytes(24).toString('base64url')}A1`;
 }
 
 /*

@@ -4,6 +4,7 @@ import { slugify } from '@artinu/shared';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/config/env';
 import { exifOrientation } from '@/services/exif.service';
+import { assertWritable } from '@/database/db';
 import { badRequest, serverError } from '@/utils/errors';
 import { uuid } from '@/utils/ids';
 import {
@@ -225,6 +226,7 @@ export async function storeBase64(
   fileName?: string,
   photographerId?: string,
 ): Promise<StoredFile> {
+  assertWritable('storing an image');
   const match = DATA_URL.exec((dataUrl ?? '').trim());
   if (!match) {
     throw badRequest('Attach the image as a base64 data URL, e.g. data:image/jpeg;base64,…');
@@ -394,6 +396,7 @@ export async function storeDerivative(
   buffer: Buffer,
   contentType: string,
 ): Promise<StoredFile> {
+  assertWritable('storing an image variant');
   return env.STORAGE_DRIVER === 'supabase'
     ? uploadToSupabase(folder, name, buffer, contentType)
     : writeToDisk(folder, name, buffer, contentType);
@@ -553,6 +556,7 @@ export async function storeImage(
 export async function removeStored(storedPath: string): Promise<void> {
   const target = (storedPath ?? '').trim();
   if (!target || isRemoteUrl(target)) return;
+  assertWritable('deleting a stored file');
 
   try {
     if (env.STORAGE_DRIVER === 'supabase') {

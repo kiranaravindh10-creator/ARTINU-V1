@@ -1,6 +1,7 @@
 import {
   artistRegistrationSchema,
   COMMUNITY_GUIDELINES_VERSION,
+  confirmEmailChangeSchema,
   forgotPasswordSchema,
   otpVerifySchema,
   passwordSchema,
@@ -42,10 +43,12 @@ import {
   issueToken,
   profileFor,
   reissueOtp,
+  sanitizeUser,
   setPassword,
   startEmailVerification,
   verifyCredentials,
 } from '@/services/auth.service';
+import { confirmEmailChange } from '@/services/user-admin.service';
 
 export const authRouter = Router();
 
@@ -647,7 +650,39 @@ authRouter.get(
   '/session',
   requireAuth,
   asyncHandler(async (req, res) => {
+    /*
+      In a support session this must NOT mint a token.
+
+      buildSession signs a fresh week-long credential for whoever is signed in.
+      Called with a support credential, that would hand the administrator an
+      ordinary session for the customer - unrestricted, unlogged and outliving
+      the 30 minutes. So the support credential is echoed back unchanged, with
+      the session it belongs to.
+    */
+    if (req.supportSession) {
+      res.json({
+        accessToken: req.headers.authorization!.slice(7),
+        expiresAt: req.supportSession.expiresAt,
+        user: sanitizeUser(req.user!),
+        profile: await profileFor(req.user!.id),
+        supportSession: req.supportSession,
+      });
+      return;
+    }
     res.json(await buildSession(req.user!));
+  }),
+);
+
+/**
+ * Confirming an email correction started by ARTINU support. Public: the token
+ * is the proof, and it was sent to the new address.
+ */
+authRouter.post(
+  '/confirm-email-change',
+  authLimiter,
+  validate(confirmEmailChangeSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await confirmEmailChange((req.valid as { token: string }).token));
   }),
 );
 
