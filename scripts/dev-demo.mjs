@@ -66,6 +66,9 @@ const env = {
   DATA_DRIVER: 'memory',
   SEED_DEMO_DATA: 'true',
   MEMORY_PERSIST: 'true',
+  // The demo store is throwaway, so it stays writable even when .env sets
+  // READ_ONLY_MODE=true for working against the live database.
+  READ_ONLY_MODE: 'false',
   STORAGE_DRIVER: 'local',
   MAIL_PROVIDER: 'console',
   PAYMENT_PROVIDER: 'mock_qr',
