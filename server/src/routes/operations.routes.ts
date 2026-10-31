@@ -111,6 +111,7 @@ const employeeSchema = z.object({
   jobTitle: z.string().min(2).max(120),
   role: z.enum(EMPLOYEE_ROLES),
   department: z.string().max(80).optional().nullable(),
+  branch: z.string().trim().max(80).optional().nullable(),
   personalEmail: z.string().email().optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
   permissions: z.array(z.string().max(60)).max(40).optional(),
@@ -139,6 +140,7 @@ operationsRouter.post(
     const { employee, companyEmail, employeeCode } = await createEmployee(input, {
       id: req.user!.id,
       email: req.user!.email,
+      role: req.user!.role,
     });
 
     await recordAudit({

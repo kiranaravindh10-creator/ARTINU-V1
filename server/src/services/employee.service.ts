@@ -1,7 +1,8 @@
-import type { Role } from '@artinu/shared';
+import { sameBranch, type Role } from '@artinu/shared';
 import { db } from '@/database/db';
 import { env } from '@/config/env';
-import { conflict } from '@/utils/errors';
+import { badRequest, conflict } from '@/utils/errors';
+import { configuredBranches } from '@/services/branch.service';
 import { now } from '@/utils/ids';
 import { logger } from '@/utils/logger';
 import { createProfile, createUser, issueToken, temporaryPassword } from '@/services/auth.service';
@@ -32,6 +33,8 @@ export interface CreateEmployeeInput {
   jobTitle: string;
   role: EmployeeRole;
   department?: string | null;
+  /** The branch they work in; the first configured branch when left out. */
+  branch?: string | null;
   personalEmail?: string | null;
   phone?: string | null;
   permissions?: string[];
@@ -81,8 +84,13 @@ async function nextEmployeeCode(): Promise<string> {
 
 export async function createEmployee(
   input: CreateEmployeeInput,
-  createdBy: { id: string; email: string },
+  createdBy: { id: string; email: string; role: Role },
 ) {
+  // Checked before anything is created, so a mistyped branch creates nothing.
+  const branches = await configuredBranches();
+  const branch = input.branch?.trim() ? branches.find((name) => sameBranch(name, input.branch)) : null;
+  if (input.branch?.trim() && !branch) throw badRequest(`Choose one of the configured branches: ${branches.join(", ")}.`);
+
   const companyEmail = await generateCompanyEmail(input.fullName);
   const employeeCode = await nextEmployeeCode();
 
@@ -94,7 +102,15 @@ export async function createEmployee(
     role: input.role as Role,
     emailVerified: true,
     phone: input.phone ?? null,
+    signedIn: false,
   });
+
+  // IT access granted by anyone but the CEO waits for the CEO - the rule
+  // People & access and role changes already follow. This path skipped it.
+  if (input.role === 'it_team' && createdBy.role !== 'ceo') {
+    await db.users.update(user.id, { status: 'pending_ceo_approval' } as never);
+  }
+  if (branch) await db.users.update(user.id, { branch } as never);
 
   await createProfile(user.id, {
     fullName: input.fullName,
@@ -148,6 +164,7 @@ export async function createEmployee(
     footnote: 'If you were not expecting this, please tell the IT team before using the link.',
     // Someone cannot start work without it, so it is not held back by quota.
     priority: 'critical',
+    secrets: [token.token],
   }).catch((error) => logger.error(`Could not send onboarding mail to ${destination}`, error));
 
   return { employee, user, companyEmail, employeeCode };

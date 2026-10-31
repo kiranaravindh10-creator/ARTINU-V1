@@ -1,5 +1,5 @@
 import type { Profile, Role } from '@artinu/shared';
-import { db, supabaseClient } from '@/database/db';
+import { assertWritable, db, supabaseClient } from '@/database/db';
 import { env } from '@/config/env';
 import { conflict, notFound } from '@/utils/errors';
 import { now } from '@/utils/ids';
@@ -108,11 +108,7 @@ export async function ensurePhotographerCode(profile: Profile): Promise<string> 
     for (const candidate of codeVariants(photographerCodeFromName(source))) {
       if (taken.has(candidate)) continue;
       try {
-        const updated = await db.profiles.update(profile.id, {
-          photographerCode: candidate,
-          updatedAt: now(),
-        });
-        return updated.photographerCode!;
+        return await claimCode(profile.id, candidate);
       } catch (error) {
         // Someone else claimed this one — move on to the next candidate.
         if (isCodeCollision(error)) {
@@ -131,6 +127,42 @@ export async function ensurePhotographerCode(profile: Profile): Promise<string> 
   return env.DATA_DRIVER === 'supabase' ? body() : withMemoryLock(body);
 }
 
+/**
+ * Writes `candidate` as the profile's code - but only while it still has none.
+ *
+ * Two guards, one per race. Two artists wanting the same code: the unique
+ * index `profiles_photographer_code_key` (migration 002) refuses the second,
+ * which the caller treats as "taken" and moves on. Two requests coding the
+ * SAME profile (an upload while the account is being set up): the write is
+ * conditional on the code still being empty, so the first one wins and the
+ * second reads it back instead of replacing it. A code, once set, never
+ * changes.
+ */
+async function claimCode(profileId: string, candidate: string): Promise<string> {
+  const client = env.DATA_DRIVER === 'supabase' ? supabaseClient() : null;
+  if (client) {
+    assertWritable('assigning a photographer code');
+    const { data, error } = await client
+      .from('profiles')
+      .update({ photographer_code: candidate, updated_at: now() })
+      .eq('id', profileId)
+      .is('photographer_code', null)
+      .select('photographer_code');
+    if (error) throw new Error(`profiles: ${error.message} (${error.code ?? ''})`);
+    if (data && data.length > 0) return candidate;
+  } else {
+    // In-process store: the caller holds the memory lock, so read-then-write is safe.
+    const current = await db.profiles.byId(profileId);
+    if (current && !current.photographerCode) {
+      return (await db.profiles.update(profileId, { photographerCode: candidate, updatedAt: now() })).photographerCode!;
+    }
+  }
+  // Someone else coded this profile first - theirs stands.
+  const winner = (await db.profiles.byId(profileId))?.photographerCode;
+  if (!winner) throw new Error('profiles: the photographer code could not be written.');
+  return winner;
+}
+
 /** Assigns a photographer code when an artist account is created. */
 export async function assignPhotographerCodeIfArtist(userId: string, role: Role): Promise<void> {
   if (role !== 'artist') return;
@@ -143,6 +175,7 @@ export async function assignPhotographerCodeIfArtist(userId: string, role: Role)
 
 /** Reserves the next sequential Photo ID for an artist, atomically. */
 export async function allocatePhotoId(artistId: string): Promise<AllocatedPhotoId> {
+  assertWritable('allocating a photo ID');
   if (env.DATA_DRIVER === 'supabase') return allocateSupabase(artistId);
   return withMemoryLock(() => allocateFromCounter(artistId));
 }
