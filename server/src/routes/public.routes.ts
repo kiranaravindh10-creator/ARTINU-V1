@@ -12,7 +12,10 @@ import { asyncHandler, attachUser, authLimiter, requireAuth, validate } from '@/
 import { conflict, isUniqueViolation } from '@/utils/errors';
 import { now } from '@/utils/ids';
 import { recordAudit } from '@/services/audit.service';
-import { sendApplicationReceived, sendConsultationReceived, sendMail } from '@/services/email.service';
+import { sendConsultationReceived, sendMail } from '@/services/email.service';
+import { onboardApplication } from '@/services/artist-onboarding.service';
+import { env } from '@/config/env';
+import { logger } from '@/utils/logger';
 import { notify, notifyRole } from '@/services/notification.service';
 import { isRemoteUrl, storeImage } from '@/services/storage.service';
 import { broadcast, handleSSEConnection } from '@/services/sse.service';
@@ -231,16 +234,20 @@ publicRouter.post(
     };
 
     const email = input.email.trim().toLowerCase();
-    const existing = await db.applications.find({ where: { email } });
-    if (existing.some((entry) => entry.status === 'submitted' || entry.status === 'under_review')) {
-      throw conflict('We already have an application from this address and it is still being reviewed.');
-    }
 
-    // The dropzone sends data URLs; store each and keep the public URL.
+    // The dropzone sends data URLs; store each and keep the public URL - and
+    // its size and bytes, so setup can make the screen copies without
+    // fetching the file back.
+    const knownSizes = new Map<string, { width: number; height: number }>();
+    const knownFiles = new Map<string, { buffer: Buffer; contentType: string }>();
     const portfolioUrls = await Promise.all(
-      input.portfolioUrls.map(async (value) =>
-        isRemoteUrl(value) ? value : (await storeImage(value, 'artworks')).url,
-      ),
+      input.portfolioUrls.map(async (value) => {
+        if (isRemoteUrl(value)) return value;
+        const stored = await storeImage(value, 'artworks');
+        if (stored.width && stored.height) knownSizes.set(stored.url, { width: stored.width, height: stored.height });
+        if (stored.buffer) knownFiles.set(stored.url, { buffer: stored.buffer, contentType: stored.contentType });
+        return stored.url;
+      }),
     );
 
     const application = await db.applications.insert({
@@ -260,15 +267,6 @@ publicRouter.post(
       updatedAt: now(),
     });
 
-    void sendApplicationReceived(application.email, application.fullName);
-
-    await notifyRole('manager', {
-      type: 'application_update',
-      title: 'New artist application',
-      body: `${application.fullName} from ${application.location} · ${portfolioUrls.length} photographs`,
-      link: '/console/artists/applications',
-    });
-
     await recordAudit({
       action: 'application.submitted',
       entity: 'application',
@@ -277,7 +275,45 @@ publicRouter.post(
       ip: req.ip,
     });
 
-    res.status(201).json(application);
+    /*
+      No approval step: the account is made now. A new photographer gets the
+      setup link (the invitation email); someone who already has a password is
+      told their photographs are in their Studio. Nothing here says "we will
+      review" - there is no review of the account, only of each photograph
+      before it goes public, as with every upload.
+    */
+    const setup = await onboardApplication(application, { knownSizes, knownFiles }).catch((error) => {
+      logger.error(`Account setup for application ${application.id} failed`, error);
+      void db.applications
+        .update(application.id, { reviewNote: 'Account setup failed - retry it from Console → Artists → Applications.', updatedAt: now() })
+        .catch(() => undefined);
+      return null;
+    });
+    if (setup?.invitation === 'not_needed' && !setup.problem) {
+      void sendMail({
+        to: email,
+        subject: 'Your photographs are in your ARTINU Studio',
+        heading: `Welcome back, ${input.fullName.trim().split(/\s+/)[0]}.`,
+        body:
+          'The photographs you just sent are in your Studio. They go through the same automatic checks as every ' +
+          'upload and appear in the gallery once they clear them. Sign in with the email and password you already use.',
+        cta: { label: 'Open your Studio', url: `${env.CLIENT_URL.replace(/\/+$/, '')}/signin?as=artist` },
+        priority: 'normal',
+      });
+    }
+
+    await notifyRole('manager', {
+      type: 'application_update',
+      title: setup?.problem ? 'Artist account needs attention' : 'New photographer',
+      body: setup?.problem
+        ? `${application.fullName}: ${setup.problem}`
+        : `${application.fullName} from ${application.location} · ${portfolioUrls.length} photographs added`,
+      link: '/console/artists/applications',
+    });
+
+    // The same answer whatever the address's history, so the form cannot be
+    // used to find out who already has an account.
+    res.status(201).json({ id: application.id, received: true });
   }),
 );
 

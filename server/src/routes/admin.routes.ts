@@ -2,7 +2,9 @@ import {
   adminCreateOrderSchema,
   adminProvisionSpaceSchema,
   API_ROUTES,
+  artworkMetadataStatus,
   artworkReviewSchema,
+  inBranchScope,
   formatCurrency,
   PRICING,
   ORDER_STATUS_LABELS,
@@ -13,6 +15,7 @@ import {
   USER_STATUSES,
   type AdminCreateOrderInput,
   type AdminProvisionSpaceInput,
+  type ApplicationSetup,
   type Artwork,
   type CostBreakdown,
   type OrderStatus,
@@ -38,7 +41,7 @@ import {
   requireRole,
   validate,
 } from '@/middleware/index';
-import { badRequest, conflict, forbidden, notFound } from '@/utils/errors';
+import { HttpError, badRequest, conflict, forbidden, notFound } from '@/utils/errors';
 import { now, paymentReference } from '@/utils/ids';
 import {
   consoleAnalytics,
@@ -47,7 +50,10 @@ import {
 import { ensureSpaceCode, issuedPassword } from '@/services/space-code.service';
 import { sendWelcomeEmailOnce } from '@/services/welcome-email.service';
 import { recordAudit, recentAudit } from '@/services/audit.service';
+import { assertInScope, assertOrderInScope, branchForNewRecord, branchScopeOf } from '@/services/branch.service';
 import { createOrderForSpace } from '@/services/order.service';
+import { accessOf, assertMayManage, changeUserRole } from '@/services/user-admin.service';
+import { onboardApplication } from '@/services/artist-onboarding.service';
 import { settlePayment } from '@/services/settlement.service';
 import { findCoupon } from '@/services/coupon.service';
 import { deleteAccountCompletely } from '@/services/account-deletion.service';
@@ -56,6 +62,7 @@ import {
   createProfile,
   createUser,
   findByEmail,
+  isMissingColumn,
   issueToken,
   profileFor,
   sanitizeUser,
@@ -69,7 +76,7 @@ import {
   sendModerationDecision,
   sendPasswordResetEmail,
 } from '@/services/email.service';
-import { notify, notifyRole } from '@/services/notification.service';
+import { notify, notifyRole, notifyOwner } from '@/services/notification.service';
 import { advanceOrder, canTransition } from '@/services/order.service';
 import { ensureRotationStarted } from '@/services/rotation.service';
 import { buildPublicArtist, loadArtistContext } from '@/services/user.service';
@@ -99,7 +106,7 @@ adminRouter.get(
   '/analytics',
   requireModule('overview'),
   asyncHandler(async (req, res) => {
-    const analytics = await consoleAnalytics();
+    const analytics = await consoleAnalytics(await branchScopeOf(req.user!));
     const modules = ROLE_MODULES[req.user!.role] ?? [];
     const maySeeMoney = modules.includes('reports') || modules.includes('accounts');
 
@@ -127,8 +134,8 @@ adminRouter.get(
 adminRouter.get(
   '/reports',
   requireModule('reports'),
-  asyncHandler(async (_req, res) => {
-    res.json(await reportBundle());
+  asyncHandler(async (req, res) => {
+    res.json(await reportBundle(await branchScopeOf(req.user!)));
   }),
 );
 
@@ -180,7 +187,7 @@ adminRouter.post(
     const space = await db.spaces.byId(input.spaceId);
     if (!space) throw notFound('That space');
 
-    const owner = await db.users.byId(space.ownerId);
+    const owner = space.ownerId ? await db.users.byId(space.ownerId) : null;
     if (!owner) {
       throw badRequest('That space has no account attached, so an order cannot be placed on it.');
     }
@@ -192,6 +199,7 @@ adminRouter.post(
         couponCode: input.couponCode ?? null,
         includeSecurityDeposit: input.includeSecurityDeposit,
         notes: input.notes ?? null,
+        branch: await branchForNewRecord(await branchScopeOf(req.user!), input.branch),
       },
       space,
     );
@@ -212,8 +220,7 @@ adminRouter.post(
 
     if (!input.markPaid) {
       // Unpaid: tell the owner there is something waiting for them.
-      await notify({
-        userId: space.ownerId,
+      await notifyOwner(space.ownerId, {
         type: 'order_update',
         title: `Order ${order.reference} is ready to pay`,
         body: `We have put together ${order.pricing.quantity} frames for ${space.name}.`,
@@ -271,9 +278,11 @@ adminRouter.get(
 
     const spaces = await db.spaces.find();
     const spaceById = new Map(spaces.map((space) => [space.id, space]));
+    const scope = await branchScopeOf(req.user!);
 
     const orders = await db.orders.find({
       filter: (order) => {
+        if (!inBranchScope(scope, order.branch)) return false;
         if (status && status !== 'all' && order.status !== status) return false;
         if (!q) return true;
         const space = spaceById.get(order.spaceId);
@@ -300,6 +309,7 @@ adminRouter.patch(
   asyncHandler(async (req, res) => {
     const order = await db.orders.byId(req.params.id);
     if (!order) throw notFound('That order');
+    assertInScope(await branchScopeOf(req.user!), order.branch, 'That order');
 
     const { status, note } = req.valid as { status: OrderStatus; note?: string | null };
     if (!canTransition(order.status, status)) {
@@ -320,8 +330,7 @@ adminRouter.patch(
       cancelled: 'Your order has been cancelled.',
     };
 
-    await notify({
-      userId: order.ownerId,
+    await notifyOwner(order.ownerId, {
       type: status === 'completed' ? 'order_completed' : 'order_update',
       title: `${order.reference} - ${ORDER_STATUS_LABELS[status] ?? status}`,
       body: note || SENTENCE[status] || 'Your order has moved to the next stage.',
@@ -329,7 +338,7 @@ adminRouter.patch(
     });
 
     if (status === 'installation_scheduled' || status === 'completed') {
-      const owner = await db.users.byId(order.ownerId);
+      const owner = order.ownerId ? await db.users.byId(order.ownerId) : null;
       const installation = order.installationId
         ? await db.installations.byId(order.installationId)
         : null;
@@ -371,6 +380,7 @@ adminRouter.patch(
   asyncHandler(async (req, res) => {
     const order = await db.orders.byId(req.params.id);
     if (!order) throw notFound('That order');
+    assertInScope(await branchScopeOf(req.user!), order.branch, 'That order');
 
     const { frame, printing, logistics, misc } = req.valid as {
       frame: number;
@@ -426,6 +436,7 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const order = await db.orders.byId(req.params.id);
     if (!order) throw notFound('That order');
+    assertInScope(await branchScopeOf(req.user!), order.branch, 'That order');
 
     const input = req.valid as {
       scheduledFor: string;
@@ -455,8 +466,7 @@ adminRouter.post(
     }
 
     const space = await db.spaces.byId(order.spaceId);
-    await notify({
-      userId: order.ownerId,
+    await notifyOwner(order.ownerId, {
       type: 'installation_scheduled',
       title: 'Installation scheduled',
       body: `Our team will be at ${space?.name ?? 'your space'} on ${input.scheduledFor}${input.installationWindow ? `, ${input.installationWindow}` : ''}.`,
@@ -465,9 +475,9 @@ adminRouter.post(
 
     // The owner has to let the crew in, so booking the slot must reach their
     // inbox too — not only the in-app notification.
-    const owner = await db.users.byId(order.ownerId);
+    const owner = order.ownerId ? await db.users.byId(order.ownerId) : null;
     if (owner) {
-      const ownerProfile = await profileFor(order.ownerId);
+      const ownerProfile = await profileFor(owner.id);
       void sendInstallationUpdate(
         owner.email,
         ownerProfile?.fullName ?? 'there',
@@ -525,9 +535,10 @@ adminRouter.post(
 adminRouter.get(
   '/printing',
   requireModule('printing'),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const scope = await branchScopeOf(req.user!);
     const orders = await db.orders.find({
-      filter: (order) => ['confirmed', 'printing', 'framing'].includes(order.status),
+      filter: (order) => ['confirmed', 'printing', 'framing'].includes(order.status) && inBranchScope(scope, order.branch),
       orderBy: { field: 'placedAt', direction: 'asc' },
     });
 
@@ -669,116 +680,108 @@ adminRouter.get(
   }),
 );
 
+/*
+  Artist applications: a record of who applied and what they sent, and the
+  state of the account each one made. There is no accept or reject any more -
+  submitting the form creates the artist account (artist-onboarding.service).
+*/
 adminRouter.get(
   '/applications',
   requireModule('artists'),
   asyncHandler(async (req, res) => {
     const { page, pageSize } = pageOf(req);
-    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
 
-    const applications = await db.applications.find({
-      filter: status && status !== 'all' ? (entry) => entry.status === status : undefined,
-      orderBy: { field: 'createdAt', direction: 'desc' },
+    const [applications, users, profiles, artworks, links] = await Promise.all([
+      db.applications.find({ orderBy: { field: 'createdAt', direction: 'desc' } }),
+      db.users.find(),
+      db.profiles.find(),
+      db.artworks.find(),
+      db.tokens.find({ where: { purpose: 'password_reset', consumed: false } }),
+    ]);
+    const userByEmail = new Map(users.map((user) => [user.email, user]));
+    const codeByUser = new Map(profiles.map((profile) => [profile.userId, profile.photographerCode ?? null]));
+
+    const result = paginate(applications, page, pageSize);
+    res.json({
+      ...result,
+      items: result.items.map((application) => {
+        const user = userByEmail.get(application.email.trim().toLowerCase()) ?? null;
+        const artist = user?.role === 'artist' ? user : null;
+        const urls = [...new Set(application.portfolioUrls)];
+        const linked = artist
+          ? urls.filter((url) =>
+              artworks.some(
+                (artwork) =>
+                  artwork.artistId === artist.id &&
+                  (artwork.originalUrl === url || artwork.imageUrl === url || artwork.thumbnailUrl === url),
+              ),
+            ).length
+          : 0;
+        // Linked photographs still without a real title or story - the
+        // application never asked for either, so the photographer adds them.
+        const needingDetails = artist
+          ? artworks.filter(
+              (artwork) =>
+                artwork.artistId === artist.id &&
+                artwork.status !== 'deleted' &&
+                urls.some((url) => artwork.originalUrl === url || artwork.imageUrl === url || artwork.thumbnailUrl === url) &&
+                !artworkMetadataStatus(artwork).complete,
+            ).length
+          : 0;
+        const code = artist ? (codeByUser.get(artist.id) ?? null) : null;
+        const setup: ApplicationSetup = {
+          state: !artist ? 'not_created' : !code || linked < urls.length || application.reviewNote ? 'needs_attention' : 'ready',
+          account: artist
+            ? { userId: artist.id, role: artist.role, access: accessOf(artist, links), photographerCode: code }
+            : null,
+          photographsSubmitted: urls.length,
+          photographsLinked: linked,
+          photographsNeedingDetails: needingDetails,
+          problem:
+            application.reviewNote ??
+            (!artist
+              ? user
+                ? `This address belongs to a ${user.role.replace('_', ' ')} account.`
+                : 'No account was made for this application yet.'
+              : !code
+                ? 'No photographer code yet.'
+                : linked < urls.length
+                  ? `${urls.length - linked} of ${urls.length} photographs are not in the account yet.`
+                  : null),
+        };
+        return { ...application, setup };
+      }),
     });
-
-    res.json(paginate(applications, page, pageSize));
   }),
 );
 
+/*
+  The old accept / reject decision. Retired: an application no longer waits
+  for one, and an account must not be changed through it. Kept as a route so
+  an old Console tab or a direct call gets an explanation, not a 404 - and so
+  nothing can reach the code that used to create or reject accounts here.
+*/
 adminRouter.post(
   '/applications/:id',
   requireModule('artists'),
-  validate(
-    z.object({
-      decision: z.enum(['accept', 'reject']),
-      note: z.string().max(600).optional().nullable(),
-    }),
-  ),
+  asyncHandler(async () => {
+    throw new HttpError(
+      410,
+      'Applications are no longer accepted or rejected. Submitting one creates the artist account; use "Retry setup" if it did not finish.',
+      'gone',
+    );
+  }),
+);
+
+/** Re-run account setup for one application - idempotent, and the only way to repair one. */
+adminRouter.post(
+  '/applications/:id/setup',
+  requireModule('artists'),
   asyncHandler(async (req, res) => {
     const application = await db.applications.byId(req.params.id);
     if (!application) throw notFound('That application');
-
-    const { decision, note } = req.valid as { decision: 'accept' | 'reject'; note?: string | null };
-
-    if (decision === 'reject') {
-      const updated = await db.applications.update(application.id, {
-        status: 'rejected',
-        reviewNote: note ?? null,
-        updatedAt: now(),
-      });
-
-      void sendMail({
-        to: application.email,
-        subject: 'About your ARTINU application',
-        heading: 'Thank you for applying.',
-        body:
-          note ||
-          'We have reviewed your portfolio carefully. It is not a fit for the collection right now, but we would genuinely welcome another application in six months.',
-      });
-
-      await recordAudit({
-        actor: { id: req.user!.id, email: req.user!.email },
-        action: 'application.rejected',
-        entity: 'application',
-        entityId: application.id,
-        ip: req.ip,
-      });
-
-      res.json(updated);
-      return;
-    }
-
-    // Accepting creates the artist's account and emails them a set-password link.
-    let user = await findByEmail(application.email);
-    if (!user) {
-      user = await createUser({
-        email: application.email,
-        password: temporaryPassword(),
-        role: 'artist',
-        emailVerified: true,
-      });
-
-      const [city, country] = application.location.split(',').map((part) => part.trim());
-      await createProfile(user.id, {
-        fullName: application.fullName,
-        displayName: application.fullName,
-        city: city ?? application.location,
-        country: country ?? null,
-        bio: application.journey.slice(0, 400),
-        website: application.website ?? null,
-        instagram: application.instagram ?? null,
-        genres: application.genres,
-        avatarUrl: application.portfolioUrls[0] ?? null,
-      });
-
-      const reset = await issueToken(user.id, 'password_reset', 60 * 24 * 7);
-      void sendPasswordResetEmail(user.email, application.fullName, reset.token);
-    }
-
-    const updated = await db.applications.update(application.id, {
-      status: 'accepted',
-      reviewNote: note ?? null,
-      updatedAt: now(),
-    });
-
-    await notify({
-      userId: user.id,
-      type: 'application_update',
-      title: 'Welcome to ARTINU',
-      body: 'Your application was accepted. Set your password from the email we just sent and upload your first photographs.',
-      link: '/studio/upload',
-    });
-
-    await recordAudit({
-      actor: { id: req.user!.id, email: req.user!.email },
-      action: 'application.accepted',
-      entity: 'application',
-      entityId: application.id,
-      meta: { userId: user.id },
-      ip: req.ip,
-    });
-
-    res.json(updated);
+    const result = await onboardApplication(application, { actor: { id: req.user!.id, email: req.user!.email } });
+    res.json(result);
   }),
 );
 
@@ -794,7 +797,8 @@ adminRouter.get(
 
     const profiles = await db.profiles.find();
     const nameByUser = new Map(profiles.map((profile) => [profile.userId, profile.fullName]));
-    const orders = await db.orders.find();
+    const spacesScope = await branchScopeOf(req.user!);
+    const orders = (await db.orders.find()).filter((order) => inBranchScope(spacesScope, order.branch));
 
     const spaces = await db.spaces.find({
       filter: (space) => {
@@ -810,7 +814,8 @@ adminRouter.get(
       ...result,
       items: result.items.map((space) => ({
         ...space,
-        ownerName: nameByUser.get(space.ownerId) ?? 'Unknown',
+        // A client's location has no login account behind it.
+        ownerName: space.ownerId ? (nameByUser.get(space.ownerId) ?? 'Unknown') : 'Client - no account',
         orderCount: orders.filter((order) => order.spaceId === space.id).length,
       })),
     });
@@ -829,8 +834,7 @@ adminRouter.post(
     const updated = await db.spaces.update(space.id, { verified, updatedAt: now() });
 
     if (verified) {
-      await notify({
-        userId: space.ownerId,
+      await notifyOwner(space.ownerId, {
         type: 'system',
         title: `${space.name} is verified`,
         body: 'Your space is confirmed. You can order a collection whenever you are ready.',
@@ -917,8 +921,12 @@ adminRouter.get(
 
     const orders = await db.orders.find();
     const referenceById = new Map(orders.map((order) => [order.id, order.reference]));
+    // A payment belongs to its order's branch.
+    const scope = await branchScopeOf(req.user!);
+    const branchOfOrder = new Map(orders.map((order) => [order.id, order.branch]));
+    const visible = payments.filter((payment) => inBranchScope(scope, branchOfOrder.get(payment.orderId)));
 
-    const result = paginate(payments, page, pageSize);
+    const result = paginate(visible, page, pageSize);
     res.json({
       ...result,
       items: result.items.map((payment) => ({
@@ -953,6 +961,7 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const payment = await db.payments.byId(req.params.id);
     if (!payment) throw notFound('That payment');
+    await assertOrderInScope(req.user!, payment.orderId, 'That payment');
     if (payment.status !== 'succeeded') {
       throw badRequest('Only a successful payment can be refunded.');
     }
@@ -963,11 +972,24 @@ adminRouter.post(
       throw badRequest('A refund cannot exceed what was paid.');
     }
 
-    const updated = await db.payments.update(payment.id, {
-      status: 'refunded',
+    const refundPatch = {
+      status: 'refunded' as const,
       failureReason: `Refunded ${formatCurrency(refunded)} - ${reason}`,
       updatedAt: now(),
-    });
+    };
+    /*
+      The amount is stored as a field so collections and the register can
+      subtract exactly this. Those columns arrive with migration 017; until it
+      has run, the refund still records - with the amount in the text above, as
+      before - rather than failing outright.
+    */
+    const updated = await db.payments
+      .update(payment.id, { ...refundPatch, refundedAmount: refunded, refundedAt: now() })
+      .catch((error: unknown) => {
+        if (!isMissingColumn(error, 'refunded_')) throw error;
+        logger.error('payments.refunded_amount is missing - run database/migrations/017_console_business_system.sql.');
+        return db.payments.update(payment.id, refundPatch);
+      });
 
     const order = await db.orders.byId(payment.orderId);
     if (order && order.status !== 'cancelled' && order.status !== 'completed') {
@@ -978,17 +1000,16 @@ adminRouter.post(
     }
 
     if (order) {
-      await notify({
-        userId: order.ownerId,
+      await notifyOwner(order.ownerId, {
         type: 'payment_received',
         title: `Refund issued for ${order.reference}`,
         body: `${formatCurrency(refunded)} is on its way back to you. ${reason}`,
         link: `/space/orders/${order.id}`,
       });
 
-      const owner = await db.users.byId(order.ownerId);
+      const owner = order.ownerId ? await db.users.byId(order.ownerId) : null;
       if (owner) {
-        const ownerProfile = await profileFor(order.ownerId);
+        const ownerProfile = await profileFor(owner.id);
         void sendMail({
           to: owner.email,
           subject: `Refund issued - ${order.reference}`,
@@ -1178,6 +1199,7 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const payment = await db.payments.byId(req.params.id);
     if (!payment) throw notFound('That payment');
+    await assertOrderInScope(req.user!, payment.orderId, 'That payment');
 
     if (payment.status === 'succeeded') {
       throw badRequest('That payment has already been verified.');
@@ -1224,6 +1246,7 @@ adminRouter.post(
 
     const payment = await db.payments.byId(req.params.id);
     if (!payment) throw notFound('That payment');
+    await assertOrderInScope(req.user!, payment.orderId, 'That payment');
     if (payment.status !== 'verifying') {
       throw badRequest('That payment is not waiting to be verified.');
     }
@@ -1238,8 +1261,7 @@ adminRouter.post(
     });
     const failedOrder = await advanceOrder(order, 'payment_failed', { note: reason });
 
-    await notify({
-      userId: order.ownerId,
+    await notifyOwner(order.ownerId, {
       type: 'payment_failed',
       title: `We could not confirm your payment for ${order.reference}`,
       body: `${reason} You can submit a new reference or pay again from your order.`,
@@ -1422,6 +1444,11 @@ adminRouter.post(
     if (await findByEmail(email)) {
       throw conflict('An account already exists for that email address.');
     }
+    // Only a CEO makes a CEO, as in People & access. This older endpoint let
+    // the IT team create a CEO account and receive its setup link.
+    if (role === 'ceo' && req.user!.role !== 'ceo') {
+      throw forbidden('Only a CEO can give someone the CEO role.');
+    }
 
     // New employees start with a temporary password and are told how to set
     // their own; same flow that accepting an application uses.
@@ -1430,6 +1457,7 @@ adminRouter.post(
       password: temporaryPassword(),
       role,
       emailVerified: true,
+      signedIn: false,
     });
 
     if (role === 'it_team') {
@@ -1449,7 +1477,8 @@ adminRouter.post(
       type: 'system',
       title: 'Welcome to ARTINU',
       body: 'An administrator created your account. Set your password from the email we just sent.',
-      link: '/login',
+      // There is no /login page; it is /signin.
+      link: '/signin',
     });
 
     await recordAudit({
@@ -1486,7 +1515,24 @@ adminRouter.patch(
       throw forbidden('You cannot change your own role.');
     }
 
-    const updated = await db.users.update(target.id, patch as never);
+    /*
+      The same rules as People & access (user-admin.service): only a CEO grants
+      or removes the CEO role or touches a CEO's account, the last CEO cannot be
+      demoted, and IT access granted by anyone but the CEO waits for the CEO.
+      This older endpoint used to allow all of that, which made it a way round
+      the new screen's safeguards.
+    */
+    if (patch.status && patch.status !== target.status) {
+      assertMayManage(req.user!, target, 'change the status');
+    }
+    if (patch.role && patch.role !== target.role) {
+      await changeUserRole(req.user!, target.id, patch.role as Role, 'Changed from the access dialog');
+      delete patch.role;
+    }
+
+    const updated = Object.keys(patch).length
+      ? await db.users.update(target.id, patch as never)
+      : (await db.users.byId(target.id))!;
 
     await recordAudit({
       actor: { id: req.user!.id, email: req.user!.email },
